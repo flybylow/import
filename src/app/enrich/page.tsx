@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type EnrichResponse = {
   projectId: string;
@@ -22,6 +23,7 @@ type EnrichResponse = {
 export default function EnrichMvpPage() {
   const [projectId, setProjectId] = useState<string>("example");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<EnrichResponse | null>(null);
@@ -245,12 +247,58 @@ export default function EnrichMvpPage() {
     }
   };
 
+  // Phase 2 MVP pipeline: Enrich -> Translate -> Build KB
+  // After that we land on `/kb` where the KB visualization + manual matching UI lives.
+  const runPipelineToKb = async () => {
+    setError(null);
+    setResult(null);
+    setDownloadUrl(null);
+    setSaving(false);
+    setLoading(true);
+    try {
+      const enrichRes = await fetch("/api/enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      if (!enrichRes.ok) {
+        const msg = await enrichRes.text();
+        throw new Error(msg || "POST /api/enrich failed");
+      }
+
+      const translateRes = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      if (!translateRes.ok) {
+        const msg = await translateRes.text();
+        throw new Error(msg || "POST /api/translate failed");
+      }
+
+      router.push(
+        `/kb?projectId=${encodeURIComponent(projectId)}&autoBuild=1`
+      );
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resultLabel = useMemo(() => {
+    const p = result?.ttlPath ?? "";
+    if (p.includes("-translated.ttl")) return "Translated TTL written to";
+    if (p.includes("-enriched.ttl")) return "Enriched TTL written to";
+    return "TTL written to";
+  }, [result?.ttlPath]);
+
   return (
     <div className="max-w-4xl mx-auto p-6 flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">Phase 2 - Pipeline</h1>
+      <h1 className="text-2xl font-semibold">Phase 2 - Link</h1>
       <p className="text-sm text-zinc-700 dark:text-zinc-200">
-        MVP for Phase 2: Step 1 (Enrich) is wired; Step 2/3/Export endpoints are
-        present but stubbed. Queries/graph UI will be added later.
+        MVP for Phase 2: run enrich/translate and prepare link results. Graph and
+        manual link overrides are handled on the linking page.
       </p>
 
       <div className="p-4 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
@@ -261,6 +309,23 @@ export default function EnrichMvpPage() {
             <code className="font-mono">data/&lt;projectId&gt;-enriched.ttl</code>
           </div>
         </div>
+
+        <details className="mt-3">
+          <summary className="cursor-pointer text-sm text-zinc-700 dark:text-zinc-200">
+            Phase 1 source (example IFC)
+          </summary>
+          <div className="mt-2 text-xs text-zinc-700 dark:text-zinc-200">
+            Example source: <code className="font-mono">data/IFC Schependomlaan.ifc</code>
+            <div className="mt-1">
+              <a
+                className="underline"
+                href={`/api/file?name=${encodeURIComponent("IFC Schependomlaan.ifc")}`}
+              >
+                Open / download
+              </a>
+            </div>
+          </div>
+        </details>
 
         <div className="mt-3 flex items-center gap-3">
           <label className="text-sm text-zinc-700 dark:text-zinc-200">
@@ -276,6 +341,14 @@ export default function EnrichMvpPage() {
         <button
           className="mt-4 inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
           disabled={loading}
+          onClick={runPipelineToKb}
+        >
+          {loading ? "Running Phase 2..." : "Run Phase 2: Enrich -> Translate -> Build Link Graph"}
+        </button>
+
+        <button
+          className="mt-4 inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
+          disabled={loading}
           onClick={runEnrich}
         >
           {loading ? "Enriching..." : "Run Step 1 Enrich"}
@@ -287,11 +360,9 @@ export default function EnrichMvpPage() {
       </div>
 
       <div className="p-4 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-        <h2 className="text-base font-medium">Step 2/3 + Export (stubs)</h2>
+        <h2 className="text-base font-medium">Step 2 Translate (MVP)</h2>
         <ul className="mt-2 list-disc pl-5 text-sm text-zinc-700 dark:text-zinc-200">
-          <li>Step 2 Translate: match materials to KBOB and Oekobaudat and attach EPDs.</li>
-          <li>Step 3 Calculate: compute carbon footprints and building/storey aggregations.</li>
-          <li>Export: produce final Turtle/JSON-LD for tabulas-eu import.</li>
+          <li>Match materials to available EPD data (dictionary MVP for now) and attach EPD nodes.</li>
         </ul>
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -302,25 +373,13 @@ export default function EnrichMvpPage() {
           >
             Run Step 2 Translate
           </button>
-          <button
-            disabled={!savedEnriched || loading}
-            className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
-          >
-            Run Step 3 Calculate
-          </button>
-          <button
-            disabled={!savedEnriched || loading}
-            className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
-          >
-            Run Export
-          </button>
         </div>
       </div>
 
       {result ? (
         <div className="p-4 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
           <p className="text-sm text-zinc-700 dark:text-zinc-200">
-            Enriched TTL written to:{" "}
+            {resultLabel}:{" "}
             <code className="font-mono">{result.ttlPath}</code>
           </p>
           {downloadUrl ? (
@@ -335,7 +394,9 @@ export default function EnrichMvpPage() {
 
           <details className="mt-4" open>
             <summary className="cursor-pointer text-sm text-zinc-700 dark:text-zinc-200">
-              Enriched TTL preview (first lines)
+              {result?.ttlPath?.includes("-translated.ttl")
+                ? "Translated TTL preview (first lines)"
+                : "Enriched TTL preview (first lines)"}
             </summary>
             <pre className="mt-2 p-3 text-xs leading-5 font-mono max-h-[35vh] overflow-auto border border-zinc-200 dark:border-zinc-800 rounded">
               {preview.join("\n")}

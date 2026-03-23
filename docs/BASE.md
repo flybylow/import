@@ -20,3 +20,7 @@ This file stores persistent project conventions and lessons learned.
 - 2026-03-23: Added PRD-derived project knowledge in `docs/PRD-SUMMARY.md` (architecture, modules, phases, and success criteria).
 - 2026-03-23: Phase 2 Step 1 enrichment stores all IFC `BaseQuantities` in `bim:qty-*` nodes (no-loss / Option B) and links them via `ont:hasIfcQuantity` so UI preview can display numbers and later steps can compute carbon reliably.
 - 2026-03-23: Phase 2 Step 2 Translate MVP generates EPD nodes and links them via `ont:hasEPD` using a local dictionary (`src/data/material-dictionary.json`) since external EPD APIs are not yet authenticated/integrated.
+- 2026-03-23: Added Phase 2 Knowledge Base screen (`/kb`) that loads the last enriched TTL and builds `data/<projectId>-kb.ttl` by matching materials to EPD data (MVP dictionary matcher for now).
+- 2026-03-23: Added manual matching UI + endpoint for unmatched KB materials (`POST /api/kb/override`) so we can gap-fill by selecting an EPD from `epdCatalog`.
+- 2026-03-23: Added Phase 3 Calculate prep screen (`/calculate`) and `GET /api/kb/status` so we can show what’s matched vs missing before running carbon calculation.
+- 2026-03-23: Standardized UX naming to `Phase 2 - Link`; top navigation now points Phase 2 to `/kb`, and `/calculate` is the Phase 3 handoff page while calculation remains a stub.

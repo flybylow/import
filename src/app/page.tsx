@@ -14,11 +14,19 @@ type TriplesResponse = {
 };
 
 export default function Home() {
-  const [file, setFile] = useState<File | null>(null);
+  const projectId = "example";
   const [loading, setLoading] = useState(false);
+  const [phase2Loading, setPhase2Loading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [triples, setTriples] = useState<TriplesResponse | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [enriched, setEnriched] = useState<{
+    ttlPath: string;
+    ttl: string;
+  } | null>(null);
+  const [enrichedDownloadUrl, setEnrichedDownloadUrl] = useState<string | null>(
+    null
+  );
   const PREVIEW_MAX_LINES = 220;
 
   const triplePreviewLines = useMemo(() => {
@@ -61,9 +69,15 @@ export default function Home() {
     return () => URL.revokeObjectURL(downloadUrl);
   }, [downloadUrl]);
 
+  useEffect(() => {
+    if (!enrichedDownloadUrl) return;
+    return () => URL.revokeObjectURL(enrichedDownloadUrl);
+  }, [enrichedDownloadUrl]);
+
   const onRunExample = async () => {
     setError(null);
     setTriples(null);
+    setEnriched(null);
     setLoading(true);
     try {
       const res = await fetch("/api/run-example", { method: "POST" });
@@ -85,51 +99,31 @@ export default function Home() {
     }
   };
 
-  const onUpload = async () => {
-    if (!file) {
-      setError("Please select an IFC file first.");
-      return;
-    }
-
+  const onRunEnrich = async () => {
     setError(null);
-    setTriples(null);
-    setLoading(true);
-
+    setPhase2Loading(true);
     try {
-      const formData = new FormData();
-      formData.set("file", file);
-
-      const parseRes = await fetch("/api/parse", {
-        method: "POST",
-        body: formData,
-      });
-      if (!parseRes.ok) {
-        const msg = await parseRes.text();
-        throw new Error(`/api/parse failed: ${msg}`);
-      }
-
-      const parseJson: ParseResponse = await parseRes.json();
-
-      const triplesRes = await fetch("/api/triples", {
+      const res = await fetch("/api/enrich", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parseJson),
+        body: JSON.stringify({ projectId }),
       });
-      if (!triplesRes.ok) {
-        const msg = await triplesRes.text();
-        throw new Error(`/api/triples failed: ${msg}`);
+
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(`/api/enrich failed: ${msg}`);
       }
 
-      const triplesJson: TriplesResponse = await triplesRes.json();
-      setTriples(triplesJson);
+      const json: { ttlPath: string; ttl: string } = await res.json();
+      setEnriched({ ttlPath: json.ttlPath, ttl: json.ttl });
 
-      const blob = new Blob([triplesJson.ttl], { type: "text/turtle" });
+      const blob = new Blob([json.ttl], { type: "text/turtle" });
       const url = URL.createObjectURL(blob);
-      setDownloadUrl(url);
+      setEnrichedDownloadUrl(url);
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
-      setLoading(false);
+      setPhase2Loading(false);
     }
   };
 
@@ -139,41 +133,66 @@ export default function Home() {
         <h1 className="text-2xl font-semibold">bimimport - Phase 1</h1>
 
         <div className="p-4 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-          <p className="text-sm text-zinc-700 dark:text-zinc-200">
-            Example source: <code className="font-mono">data/IFC Schependomlaan.ifc</code>
-          </p>
+          <details className="mt-3">
+            <summary className="cursor-pointer text-sm text-zinc-700 dark:text-zinc-200">
+              Phase 1 source (example IFC)
+            </summary>
+            <div className="mt-2 text-xs text-zinc-700 dark:text-zinc-200">
+              Example source:{" "}
+              <code className="font-mono">data/IFC Schependomlaan.ifc</code>
+              <div className="mt-1">
+                <a
+                  className="underline"
+                  href={`/api/file?name=${encodeURIComponent(
+                    "IFC Schependomlaan.ifc"
+                  )}`}
+                >
+                  Open / download
+                </a>
+              </div>
+            </div>
+          </details>
 
-          <button
-            className="mt-3 inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
-            onClick={onRunExample}
-            disabled={loading}
-          >
-            {loading ? "Processing..." : "Run example + Generate TTL"}
-          </button>
+          <div className="mt-3 flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
+                onClick={onRunExample}
+                disabled={loading || phase2Loading}
+              >
+                {loading
+                  ? "Processing..."
+                  : triples
+                    ? "Imported (Phase 1)"
+                    : "Run example + Generate TTL (Phase 1)"}
+              </button>
+
+              <button
+                className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
+                onClick={onRunEnrich}
+                disabled={phase2Loading || loading || !triples}
+                title={!triples ? "Run Phase 1 first" : undefined}
+              >
+                {phase2Loading
+                  ? "Enriching..."
+                  : enriched
+                    ? "Enriched (Phase 2 - Link)"
+                    : "Enrich (Phase 2 - Link)"}
+              </button>
+
+              <button
+                className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
+                disabled
+                title="Stub for Phase 3: calculate is not implemented yet"
+              >
+                Calculate (Phase 3, disabled)
+              </button>
+            </div>
+          </div>
 
           {error ? (
             <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
           ) : null}
-        </div>
-
-        <div className="p-4 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
-            Upload an IFC file
-          </label>
-          <input
-            className="mt-2 block w-full text-sm text-zinc-700 dark:text-zinc-200"
-            type="file"
-            accept=".ifc"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-
-          <button
-            className="mt-4 inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
-            onClick={onUpload}
-            disabled={loading || !file}
-          >
-            {loading ? "Processing..." : "Parse + Generate TTL"}
-          </button>
         </div>
 
         {triples ? (
@@ -206,6 +225,26 @@ export default function Home() {
                 </pre>
               </div>
             </details>
+          </div>
+        ) : null}
+
+        {enriched ? (
+          <div className="p-4 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+            <p className="text-sm text-zinc-700 dark:text-zinc-200">
+              Enriched TTL written to:{" "}
+              <code className="font-mono">{enriched.ttlPath}</code>
+            </p>
+            {enrichedDownloadUrl ? (
+              <a
+                className="mt-2 inline-block text-sm font-medium underline"
+                href={enrichedDownloadUrl}
+                download={
+                  enriched.ttlPath.split("/").pop() ?? "example-enriched.ttl"
+                }
+              >
+                Download enriched TTL
+              </a>
+            ) : null}
           </div>
         ) : null}
       </div>
