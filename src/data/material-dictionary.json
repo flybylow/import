@@ -1,0 +1,90 @@
+{
+  "version": "mvp-2026-03-23",
+  "entries": [
+    {
+      "epdSlug": "kalkzandsteen",
+      "matchPatterns": ["kalkzandsteen", "calcium silicate", "calcium silicate brick", "metselwerk - kalkzandsteen"],
+      "standardName": "Calcium silicate brick",
+      "category": "Masonry",
+      "subcategory": "Calcium silicate",
+      "matchConfidence": 0.9,
+      "matchType": "dictionary_exact",
+      "epdSource": "kbob",
+      "epdName": "Kalksandstein, Vollsteine und Blocksteine",
+      "declaredUnit": "kg",
+      "densityKgPerM3": 1800,
+      "gwpPerUnitKgCO2e": 0.14
+    },
+    {
+      "epdSlug": "concrete_reinforced_in_situ",
+      "matchPatterns": ["beton gewapend", "reinforced concrete", "gewapend", "beton armiert"],
+      "standardName": "Reinforced concrete in-situ",
+      "category": "Concrete",
+      "subcategory": "Reinforced concrete",
+      "matchConfidence": 0.8,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "oekobaudat",
+      "epdName": "Reinforced concrete in-situ (placeholder)",
+      "declaredUnit": "kg",
+      "densityKgPerM3": 2400,
+      "gwpPerUnitKgCO2e": 0.18
+    },
+    {
+      "epdSlug": "concrete_general",
+      "matchPatterns": ["beton", "betonopstort", "fundering", "fundat", "strookfundering", "cast concrete", "betonvloer", "betonvloer prefab"],
+      "standardName": "Concrete (general)",
+      "category": "Concrete",
+      "subcategory": "General concrete",
+      "matchConfidence": 0.65,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "oekobaudat",
+      "epdName": "Concrete (general) (placeholder)",
+      "declaredUnit": "kg",
+      "densityKgPerM3": 2400,
+      "gwpPerUnitKgCO2e": 0.12
+    },
+    {
+      "epdSlug": "aac",
+      "matchPatterns": ["gasbeton", "cellenbeton"],
+      "standardName": "Autoclaved aerated concrete",
+      "category": "Masonry",
+      "subcategory": "AAC blocks",
+      "matchConfidence": 0.75,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "oekobaudat",
+      "epdName": "Autoclaved aerated concrete (placeholder)",
+      "declaredUnit": "kg",
+      "densityKgPerM3": 600,
+      "gwpPerUnitKgCO2e": 0.08
+    },
+    {
+      "epdSlug": "steel",
+      "matchPatterns": ["staal", "steel", "metall", "zink"],
+      "standardName": "Steel (placeholder)",
+      "category": "Metals",
+      "subcategory": "Steel / metal products (placeholder)",
+      "matchConfidence": 0.6,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "oekobaudat",
+      "epdName": "Steel (placeholder)",
+      "declaredUnit": "kg",
+      "densityKgPerM3": 7850,
+      "gwpPerUnitKgCO2e": 1.6
+    },
+    {
+      "epdSlug": "timber",
+      "matchPatterns": ["hout", "multiplex", "underlayment", "platte", "plank", "timber"],
+      "standardName": "Timber (placeholder)",
+      "category": "Timber",
+      "subcategory": "Wood products (placeholder)",
+      "matchConfidence": 0.6,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "kbob",
+      "epdName": "Timber (placeholder)",
+      "declaredUnit": "kg",
+      "densityKgPerM3": 500,
+      "gwpPerUnitKgCO2e": 0.02
+    }
+  ]
+}
+
