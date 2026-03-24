@@ -51,42 +51,56 @@ export default function KbGraphWithInspector(props: {
       kbGraph.epds.map((e) => [e.epdSlug, e.epdName])
     );
 
-    // Spread nodes to reduce overlap and improve picking.
+    // Materials: keep rings tight to the center. EPDs: wider + optional extra rings so
+    // shadow-canvas hit discs don't all overlap (only topmost node was clickable before).
     const epdNodeDiameter = 26;
     const materialNodeDiameter = 20;
-    const radiusSpreadFactor = 1.35;
+    const materialRingTight = 0.55;
+    const epdRingSpread = 1.05;
+    const maxEpdPerRing = 18;
 
-    const epdRadius =
-      Math.max(
-        200,
-        (kbGraph.epds.length * epdNodeDiameter) / (2 * Math.PI)
-      ) * radiusSpreadFactor;
     const matchedRadius =
       Math.max(
-        260,
+        52,
         (matchedMaterials.length * materialNodeDiameter) / (2 * Math.PI)
-      ) * radiusSpreadFactor;
+      ) * materialRingTight;
     const unmatchedRadius =
       Math.max(
-        280,
+        62,
         (unmatchedMaterials.length * materialNodeDiameter) / (2 * Math.PI)
-      ) * radiusSpreadFactor;
+      ) * materialRingTight;
 
-    // EPD nodes (unique per slug).
-    const epdCount = kbGraph.epds.length;
-    for (let i = 0; i < epdCount; i++) {
-      const epd = kbGraph.epds[i];
-      const angle = (2 * Math.PI * i) / Math.max(1, epdCount);
-      nodes.push({
-        id: `epd-${epd.epdSlug}`,
-        label: epd.epdName,
-        kind: "epd",
-        x: epdRadius * Math.cos(angle),
-        y: epdRadius * Math.sin(angle),
-        val: 1.3,
-        color: "#10b981",
-        meta: { nodeType: "epd", epdSlug: epd.epdSlug, epdName: epd.epdName },
-      });
+    const epdList = kbGraph.epds;
+    const epdRingCount = Math.max(1, Math.ceil(epdList.length / maxEpdPerRing));
+    const epdR0 =
+      Math.max(
+        48,
+        (Math.min(epdList.length, maxEpdPerRing) * epdNodeDiameter) /
+          (2 * Math.PI)
+      ) * epdRingSpread;
+
+    const epdNodes: KGNode[] = [];
+    for (let ring = 0; ring < epdRingCount; ring++) {
+      const slice = epdList.slice(
+        ring * maxEpdPerRing,
+        (ring + 1) * maxEpdPerRing
+      );
+      const ringRadius = epdR0 * (1 + ring * 0.48);
+      const n = slice.length;
+      for (let i = 0; i < n; i++) {
+        const epd = slice[i];
+        const angle = (2 * Math.PI * i) / Math.max(1, n);
+        epdNodes.push({
+          id: `epd-${epd.epdSlug}`,
+          label: epd.epdName,
+          kind: "epd",
+          x: ringRadius * Math.cos(angle),
+          y: ringRadius * Math.sin(angle),
+          val: 1.3,
+          color: "#10b981",
+          meta: { nodeType: "epd", epdSlug: epd.epdSlug, epdName: epd.epdName },
+        });
+      }
     }
 
     // Matched materials.
@@ -136,6 +150,9 @@ export default function KbGraphWithInspector(props: {
         },
       });
     }
+
+    // EPD nodes last → drawn on top in canvas (shadow hit-test picks topmost when overlapping).
+    nodes.push(...epdNodes);
 
     // Links: matched material -> its EPD node.
     for (const l of kbGraph.links) {

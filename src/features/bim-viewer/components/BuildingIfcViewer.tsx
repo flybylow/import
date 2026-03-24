@@ -3,16 +3,43 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
+export type BuildingIfcViewerStatus = "idle" | "loading" | "ready" | "error";
+
+export type BuildingIfcViewerStatusPayload = {
+  status: BuildingIfcViewerStatus;
+  message: string;
+};
+
 type Props = {
   projectId: string;
   ifcSource: "project" | "test";
+  /** Shown in the parent toolbar instead of below the canvas. */
+  onStatusChange?: (payload: BuildingIfcViewerStatusPayload) => void;
+  className?: string;
 };
 
-export default function BuildingIfcViewer({ projectId, ifcSource }: Props) {
+export default function BuildingIfcViewer({
+  projectId,
+  ifcSource,
+  onStatusChange,
+  className = "",
+}: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const loadRunRef = useRef(0);
-  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [message, setMessage] = useState<string>("Preparing IFC viewer...");
+  const onStatusChangeRef = useRef(onStatusChange);
+  onStatusChangeRef.current = onStatusChange;
+  const [status, setStatus] = useState<BuildingIfcViewerStatus>("idle");
+  const [message, setMessage] = useState<string>("");
+
+  useEffect(() => {
+    onStatusChangeRef.current?.({ status, message });
+  }, [status, message]);
+
+  useEffect(() => {
+    return () => {
+      onStatusChangeRef.current?.({ status: "idle", message: "" });
+    };
+  }, []);
 
   useEffect(() => {
     loadRunRef.current += 1;
@@ -31,11 +58,16 @@ export default function BuildingIfcViewer({ projectId, ifcSource }: Props) {
     const run = async () => {
       const startedAt = performance.now();
       const debug = (...args: unknown[]) => console.log("[BuildingIfcViewer]", `run#${runId}`, ...args);
+      let stallNoticeTimer: number | undefined;
+      let stallProgressInterval: number | undefined;
+      let loadTimeoutTimer: number | undefined;
       setStatus("loading");
       setMessage("Loading viewer components...");
       try {
         const container = containerRef.current;
         if (!container) return;
+        // Prevent duplicate canvases after Fast Refresh / effect remounts.
+        container.replaceChildren();
         const origin = window.location.origin;
         const wasmBaseUrl = `${origin}/wasm/`;
         debug("start", { projectId, origin, wasmBaseUrl });
@@ -191,24 +223,35 @@ export default function BuildingIfcViewer({ projectId, ifcSource }: Props) {
           fileRes = await fetch(projectIfcUrl);
           debug("ifc fetch (project)", { url: projectIfcUrl, status: fileRes.status });
           if (!fileRes.ok) {
-            const fallbackIfcUrl = `/api/file?name=${encodeURIComponent("IFC Schependomlaan.ifc")}`;
-            fileRes = await fetch(fallbackIfcUrl);
-            debug("ifc fetch (fallback)", { url: fallbackIfcUrl, status: fileRes.status });
-          }
-          if (!fileRes.ok) {
-            throw new Error("No IFC file found for this project.");
+            throw new Error(
+              "No IFC file found for this project (`data/<projectId>.ifc`). Import BIM in Phase 1 or switch to Test IFC."
+            );
           }
         }
         const bytes = new Uint8Array(await fileRes.arrayBuffer());
         debug("ifc bytes loaded", { source: ifcSource, bytes: bytes.byteLength });
+        if (bytes.byteLength > 30 * 1024 * 1024) {
+          debug("large IFC detected", {
+            bytes: bytes.byteLength,
+            approxMb: Number((bytes.byteLength / (1024 * 1024)).toFixed(1)),
+          });
+        }
 
         setMessage("Building 3D model...");
-        const longLoadTimer = window.setTimeout(() => {
+        const loadStart = performance.now();
+        stallNoticeTimer = window.setTimeout(() => {
           if (!disposed) {
             setMessage("Still loading model... large IFC or degenerate geometry can take longer.");
           }
         }, 12000);
-        const loadStart = performance.now();
+        // Keep user feedback alive for long conversions.
+        stallProgressInterval = window.setInterval(() => {
+          if (disposed) return;
+          const elapsedSec = Math.round((performance.now() - loadStart) / 1000);
+          if (elapsedSec >= 30) {
+            setMessage(`Still building 3D model... ${elapsedSec}s elapsed.`);
+          }
+        }, 10000);
         const loadPromise = ifcLoader.load(bytes, false, projectId || "ifc-model", {
           processData: {
             progressCallback: (_progress, data) => {
@@ -222,17 +265,16 @@ export default function BuildingIfcViewer({ projectId, ifcSource }: Props) {
           },
         });
         const timeoutPromise = new Promise<never>((_, reject) => {
-          window.setTimeout(() => {
+          loadTimeoutTimer = window.setTimeout(() => {
             reject(
               new Error(
-                "IFC conversion timed out after 180s. Model may be too heavy/degenerate for current MVP settings."
+                "IFC conversion timed out after 120s. Model may be too heavy/degenerate for current MVP settings."
               )
             );
-          }, 180000);
+          }, 120000);
         });
         const model = await Promise.race([loadPromise, timeoutPromise]);
         debug("ifcLoader.load done", { ms: Math.round(performance.now() - loadStart) });
-        window.clearTimeout(longLoadTimer);
         attachModelObject(model);
         attachAllKnownModels();
         logFragmentsSnapshot("fragments snapshot (post-load)");
@@ -277,14 +319,20 @@ export default function BuildingIfcViewer({ projectId, ifcSource }: Props) {
 
         // Also keep fragments updated while navigating the camera.
         const controls = world.camera.controls;
+        /** CameraControls typings omit the usual "change" event; runtime still fires it. */
+        type ControlsWithChange = {
+          addEventListener(type: string, listener: () => void): void;
+          removeEventListener(type: string, listener: () => void): void;
+        };
+        const controlsEv = controls as unknown as ControlsWithChange;
         const onControlRest = () => {
           void fragments.core.update(false);
         };
         const onControlChange = () => {
           void fragments.core.update(false);
         };
-        controls.addEventListener("rest", onControlRest);
-        controls.addEventListener("change", onControlChange);
+        controlsEv.addEventListener("rest", onControlRest);
+        controlsEv.addEventListener("change", onControlChange);
 
         // Pump fragments updates for a while after load so tiles/materialized meshes
         // can be requested and attached even when the camera is initially static.
@@ -394,9 +442,10 @@ export default function BuildingIfcViewer({ projectId, ifcSource }: Props) {
             window.cancelAnimationFrame(rafId);
             fragments.list.onItemSet.remove(onItemSet);
             fragments.onFragmentsLoaded.remove(onFragmentsLoaded);
-            controls.removeEventListener("rest", onControlRest);
-            controls.removeEventListener("change", onControlChange);
+            controlsEv.removeEventListener("rest", onControlRest);
+            controlsEv.removeEventListener("change", onControlChange);
             components.dispose();
+            container.replaceChildren();
             debug("cleanup done", {
               totalMs: Math.round(performance.now() - startedAt),
             });
@@ -409,6 +458,10 @@ export default function BuildingIfcViewer({ projectId, ifcSource }: Props) {
         console.error("[BuildingIfcViewer]", `run#${runId}`, "load failed", e);
         setStatus("error");
         setMessage(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (stallNoticeTimer != null) window.clearTimeout(stallNoticeTimer);
+        if (stallProgressInterval != null) window.clearInterval(stallProgressInterval);
+        if (loadTimeoutTimer != null) window.clearTimeout(loadTimeoutTimer);
       }
     };
 
@@ -416,22 +469,15 @@ export default function BuildingIfcViewer({ projectId, ifcSource }: Props) {
     return () => {
       console.warn = originalWarn;
       disposed = true;
-       console.log("[BuildingIfcViewer]", `run#${runId}`, "effect cleanup");
+      console.log("[BuildingIfcViewer]", `run#${runId}`, "effect cleanup");
       if (cleanup) cleanup();
     };
   }, [projectId, ifcSource]);
 
   return (
-    <div className="space-y-2">
-      <div className="text-xs text-zinc-500 dark:text-zinc-400">
-        Building view:{" "}
-        {status === "ready" ? "Ready" : status === "error" ? "Error" : "Loading"}
-      </div>
-      <div
-        ref={containerRef}
-        className="h-[68vh] min-h-[24rem] w-full rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950"
-      />
-      <div className="text-xs text-zinc-600 dark:text-zinc-300">{message}</div>
-    </div>
+    <div
+      ref={containerRef}
+      className={`h-full min-h-0 w-full rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 ${className}`.trim()}
+    />
   );
 }

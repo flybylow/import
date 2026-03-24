@@ -1,0 +1,19 @@
+@prefix hubsrc: <https://tabulas.eu/sources/epdhub#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix ont: <https://tabulas.eu/ontology/> .
+@prefix schema: <http://schema.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Wienerberger Kingsbury — EPD Hub HUB-4855 (EPD PDF in repo downloads / programme).
+# Reported summary: GWP-total A1–A3 = 234 kg CO2e per declared unit of 1 t product.
+# Phase 3 expects kg CO2e per kg where declaredUnit is "kg" → 234 / 1000 = 0.234
+hubsrc:entry-hub-4855 a ont:EPD ;
+  schema:name "Wienerberger Kingsbury Brickworks clay bricks — portfolio (EPD Hub HUB-4855)" ;
+  dct:identifier "HUB-4855" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "0.234"^^xsd:decimal ;
+  ont:matchText "Wienerberger | Kingsbury | engineering brick | Blue Engineer | wirecut | clay masonry | BS EN 771-1 | 215 | 102.5 | 65 | extrusion | HUB-4855 | kelly" ;
+  ont:sourceDataset "epd-hub" ;
+  ont:sourceVersion "handpick-2026-03-23" ;
+  ont:importedAt "2026-03-23T12:00:00.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "HUB-4855_2026-02-04_en_….pdf" .

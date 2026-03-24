@@ -1,0 +1,31 @@
+{
+  "version": "2026-03-24",
+  "description": "Canonical list for EPD pickers (Phase 2 + Sources). Edit this file to add slugs; do not derive dropdown options from project KB TTL. Optional `category` groups products for humans (not the same as unmatched “Kind” badges).",
+  "epds": [
+    {
+      "epdSlug": "filler_noEPD",
+      "epdName": "Filler / no EPD (hatch, annotation — not calculable)",
+      "category": "Non-material"
+    },
+    { "epdSlug": "aac", "epdName": "AAC (route via source)", "category": "Masonry / lightweight" },
+    { "epdSlug": "ceramic_tile", "epdName": "Ceramic tile (route via source)", "category": "Finishes" },
+    { "epdSlug": "concrete_general", "epdName": "Concrete general (route via source)", "category": "Concrete" },
+    { "epdSlug": "concrete_reinforced_in_situ", "epdName": "Reinforced concrete in-situ (route via source)", "category": "Concrete" },
+    { "epdSlug": "glass_railing", "epdName": "Glass (route via source)", "category": "Glazing / metal" },
+    { "epdSlug": "gypsum_plaster", "epdName": "Gypsum plaster (route via source)", "category": "Finishes" },
+    { "epdSlug": "insulation_eps", "epdName": "Insulation EPS (route via source)", "category": "Insulation" },
+    { "epdSlug": "insulation_generic", "epdName": "Insulation (route via source)", "category": "Insulation" },
+    { "epdSlug": "insulation_glass_wool", "epdName": "Insulation glass wool (route via source)", "category": "Insulation" },
+    { "epdSlug": "insulation_pir", "epdName": "Insulation PIR (route via source)", "category": "Insulation" },
+    { "epdSlug": "insulation_xps", "epdName": "Insulation XPS (route via source)", "category": "Insulation" },
+    { "epdSlug": "kalkzandsteen", "epdName": "Kalksandstein, Hunziker Kalksandstein AG", "category": "Masonry" },
+    { "epdSlug": "masonry_brick", "epdName": "Masonry brick (route via source)", "category": "Masonry" },
+    { "epdSlug": "natural_stone", "epdName": "Natural stone (route via source)", "category": "Finishes / stone" },
+    { "epdSlug": "plastic_sheet", "epdName": "Plastic sheet (route via source)", "category": "Other" },
+    { "epdSlug": "precast_breedplaat", "epdName": "Precast breedplaat (route via source)", "category": "Concrete / precast" },
+    { "epdSlug": "screed_floor", "epdName": "Screed / mortar (route via source)", "category": "Finishes" },
+    { "epdSlug": "steel", "epdName": "Steel (route via source)", "category": "Metal" },
+    { "epdSlug": "timber", "epdName": "Timber dormer (route via source)", "category": "Timber" },
+    { "epdSlug": "zinc_work", "epdName": "Zinc (no ICE Educational row — manual EPD or future source)", "category": "Metal" }
+  ]
+}

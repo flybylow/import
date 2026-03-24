@@ -135,7 +135,8 @@ export default function KgForceGraph(props: {
         cooldownTicks={0}
         dagMode={false}
         enablePointerInteraction={true}
-        enableNodeDrag={true}
+        // Fixed radial layout — dragging steals clicks and stacks nodes unpredictably.
+        enableNodeDrag={false}
         enableZoomInteraction={true}
         enablePanInteraction={true}
         minZoom={0.2}
@@ -153,19 +154,21 @@ export default function KgForceGraph(props: {
           ctx: CanvasRenderingContext2D,
           globalScale: number
         ) => {
-          // Match force-graph's default shadow hit-test math:
-          // r = sqrt(val) * nodeRelSize + padAmount
-          // where padAmount ~= state.isShadow / globalScale (state.isShadow=1 for shadow canvas).
+          // Shadow canvas uses index colors; when hit circles overlap, the last-drawn node wins.
+          // Keep hit discs modest so dense EPD rings don't "steal" each other's pixels.
           let val =
             typeof node.val === "number" ? node.val : Number(node.val);
           if (!Number.isFinite(val) || val <= 0) val = 1;
           const nodeRelSize = 4; // must match the `nodeRelSize` prop we pass to ForceGraph2D
-          const safeGlobalScale = typeof globalScale === "number" && globalScale > 0 ? globalScale : 1;
-          const padAmount = 1 / safeGlobalScale;
+          const safeGlobalScale =
+            typeof globalScale === "number" && globalScale > 0 ? globalScale : 1;
+          const padAmount = 0.55 / safeGlobalScale;
 
           const rBase = Math.sqrt(Math.max(0, val || 1)) * nodeRelSize + padAmount;
-          // Keep hit-test aligned with the library's radius (no arbitrary growth).
-          const hitRadius = rBase;
+          // Minimum ~8px on screen for usability; cap so overlapping EPDs stay pickable.
+          const minWorld = 8 / safeGlobalScale;
+          const maxWorld = 22 / safeGlobalScale;
+          const hitRadius = Math.min(maxWorld, Math.max(rBase, minWorld));
 
           ctx.beginPath();
           ctx.fillStyle = paintColor;

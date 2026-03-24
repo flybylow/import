@@ -1,6 +1,12 @@
 import path from "path";
 import * as WebIFC from "web-ifc";
 
+import {
+  primaryMaterialLabelFromResolution,
+  readIfcString as readIfcStringMat,
+  resolveMaterialLineFromIfc,
+} from "@/lib/ifc-material-resolve";
+
 export type IfcMaterialRef = {
   expressId: number;
   ifcType: string;
@@ -73,14 +79,12 @@ async function createMaterialsForElement(
     // web-ifc can return many material definitions; keep everything we get,
     // and let the triple generator deduplicate by expressId later.
     return materialLines.map((mat: any) => {
-      const ifcTypeCode = ifcApi.GetLineType(modelId, mat.expressID);
-      const ifcType = ifcTypeCode
-        ? ifcApi.GetNameFromTypeCode(ifcTypeCode)
-        : "IfcMaterial";
+      const r = resolveMaterialLineFromIfc(ifcApi, modelId, mat.expressID);
+      const label = primaryMaterialLabelFromResolution(r);
       return {
         expressId: mat.expressID,
-        ifcType,
-        name: readIfcString(mat.Name),
+        ifcType: r.ifcType,
+        name: label ?? readIfcStringMat(mat.Name),
       };
     });
   } catch {

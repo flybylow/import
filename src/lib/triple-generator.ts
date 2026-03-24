@@ -77,10 +77,11 @@ export async function generateTriplesPhase1(params: {
         store.add(spaceNode, BOT("containsElement"), elementNode);
 
         for (const mat of element.materials) {
-          const existing = materialByExpressId.get(mat.expressId);
-          if (!existing) {
-            materialByExpressId.set(mat.expressId, { name: mat.name, ifcType: mat.ifcType });
-          }
+          const prev = materialByExpressId.get(mat.expressId);
+          materialByExpressId.set(mat.expressId, {
+            name: mat.name || prev?.name,
+            ifcType: mat.ifcType || prev?.ifcType || "IfcMaterial",
+          });
           store.add(elementNode, TAB("madeOf"), BIM(`material-${mat.expressId}`));
         }
       }
@@ -102,10 +103,11 @@ export async function generateTriplesPhase1(params: {
       store.add(storeyNode, BOT("containsElement"), elementNode);
 
       for (const mat of element.materials) {
-        const existing = materialByExpressId.get(mat.expressId);
-        if (!existing) {
-          materialByExpressId.set(mat.expressId, { name: mat.name, ifcType: mat.ifcType });
-        }
+        const prev = materialByExpressId.get(mat.expressId);
+        materialByExpressId.set(mat.expressId, {
+          name: mat.name || prev?.name,
+          ifcType: mat.ifcType || prev?.ifcType || "IfcMaterial",
+        });
         store.add(elementNode, TAB("madeOf"), BIM(`material-${mat.expressId}`));
       }
     }

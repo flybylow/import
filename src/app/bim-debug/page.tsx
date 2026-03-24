@@ -195,7 +195,7 @@ export default function BimDebugPage() {
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-[16rem]">
-          <ProjectIdField value={projectId} onChange={setProjectId} />
+          <ProjectIdField value={projectId} showLabel={false} onChange={setProjectId} />
         </div>
         <div className="flex items-center gap-1 rounded border border-zinc-300 dark:border-zinc-700 p-1">
           <button

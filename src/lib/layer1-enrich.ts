@@ -3,6 +3,8 @@ import path from "path";
 import * as WebIFC from "web-ifc";
 import * as $rdf from "rdflib";
 
+import { resolveMaterialLineFromIfc } from "@/lib/ifc-material-resolve";
+
 const BIM_URI = "https://tabulas.eu/bim/";
 const BOT_URI = "https://w3id.org/bot#";
 const ONT_URI = "https://tabulas.eu/ontology/";
@@ -193,68 +195,6 @@ function extractBaseQuantitiesFromElement(args: {
   return Promise.resolve({ ...result, quantities: capturedQuantities });
 }
 
-function extractMaterialLayerInfo(args: {
-  ifcApi: WebIFC.IfcAPI;
-  modelId: number;
-  materialExpressId: number;
-}): Promise<{
-  materialName?: string;
-  layerSetName?: string;
-  layerThicknessMeters?: number;
-}> {
-  const { ifcApi, modelId, materialExpressId } = args;
-  const line = ifcApi.GetLine(modelId, materialExpressId);
-  const typeCode = ifcApi.GetLineType(modelId, materialExpressId);
-  const typeName = typeCode ? ifcApi.GetNameFromTypeCode(typeCode) : "";
-
-  // Helper for layer thickness sum from an IfcMaterialLayerSet line.
-  const layerSetToThickness = (layerSetLine: any): number | undefined => {
-    const mLayers = layerSetLine?.MaterialLayers;
-    if (!Array.isArray(mLayers)) return undefined;
-    let sumMm = 0;
-    let saw = false;
-    for (const layerRef of mLayers) {
-      const layerId = layerRef?.value ?? layerRef;
-      const layer = ifcApi.GetLine(modelId, Number(layerId));
-      const tMm = layer?.LayerThickness?.value ?? layer?.LayerThickness;
-      const tNum = Number(tMm);
-      if (Number.isFinite(tNum)) {
-        sumMm += tNum;
-        saw = true;
-      }
-    }
-    if (!saw) return undefined;
-    return sumMm / 1000;
-  };
-
-  // Best-effort mapping:
-  // - If it's IfcMaterial: use Name as schema:name (and don't have thickness data)
-  // - If it's IfcMaterialLayerSetUsage: use ForLayerSet.LayerSetName + sum(MaterialLayers.LayerThickness)
-  // - If it's IfcMaterialLayerSet: use LayerSetName + sum(MaterialLayers.LayerThickness)
-  const materialName = line?.Name?.value ?? line?.Name;
-  const forLayerSet = line?.ForLayerSet?.value ?? line?.ForLayerSet;
-
-  let layerSetLine: any = undefined;
-  if (typeName.includes("LayerSetUsage") && forLayerSet) {
-    layerSetLine = ifcApi.GetLine(modelId, Number(forLayerSet));
-  } else if (typeName.includes("LayerSet")) {
-    layerSetLine = line;
-  }
-
-  const layerSetName = layerSetLine?.LayerSetName?.value ?? layerSetLine?.LayerSetName;
-  const layerThicknessMeters = layerSetToThickness(layerSetLine);
-
-  // If the material doesn't have a Name, fall back to LayerSetName to ensure the node is not empty.
-  const resolvedMaterialName =
-    materialName ?? (typeof layerSetName === "string" ? layerSetName : undefined);
-
-  return Promise.resolve({
-    materialName: resolvedMaterialName,
-    layerSetName: layerSetName ?? undefined,
-    layerThicknessMeters,
-  });
-}
-
 export async function enrichLayer1FromIfc(params: {
   projectId: string;
   inputTtlPath: string;
@@ -351,11 +291,7 @@ export async function enrichLayer1FromIfc(params: {
     }
 
     for (const [materialId, materialNode] of materialById.entries()) {
-      const layerInfo = await extractMaterialLayerInfo({
-        ifcApi,
-        modelId,
-        materialExpressId: materialId,
-      });
+      const layerInfo = resolveMaterialLineFromIfc(ifcApi, modelId, materialId);
 
       if (layerInfo.materialName) {
         store.add(materialNode, SCHEMA("name"), $rdf.lit(layerInfo.materialName));

@@ -1,0 +1,238 @@
+/**
+ * Source EPD matching: scores are **real computed overlap** between the normalized
+ * IFC material string and each candidate’s `ont:matchText` / `schema:name` (token
+ * length–weighted). Higher = more text overlap — not an LCA number.
+ *
+ * `MIN_SOURCE_SCORE` is a floor so weak/accidental overlaps do not match (tune with care).
+ */
+import fs from "fs";
+import path from "path";
+import * as $rdf from "rdflib";
+
+import type { SourceEntry } from "@/lib/sources-config";
+import {
+  resolveSourceTtlPath,
+  sourceTtlExists,
+} from "@/lib/sources-config";
+import { normMaterialLabelForMatch } from "@/lib/material-norm";
+
+const ONT_URI = "https://tabulas.eu/ontology/";
+const SCHEMA_URI = "http://schema.org/";
+const XSD_URI = "http://www.w3.org/2001/XMLSchema#";
+const RDF_URI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+
+const ONT = $rdf.Namespace(ONT_URI);
+const SCHEMA = $rdf.Namespace(SCHEMA_URI);
+const RDF = $rdf.Namespace(RDF_URI);
+
+const KB_PARSE_BASE = "https://tabulas.eu/sources/kbob#";
+const ICE_PARSE_BASE = "https://tabulas.eu/sources/ice#";
+/** Hand-curated programme EPDs (EPD Hub, Environdec, B-EPD, etc.) — see `docs/epd-handpick-ttl.md`. */
+const EPDHUB_PARSE_BASE = "https://tabulas.eu/sources/epdhub#";
+
+export type SourceEpdCandidate = {
+  sourceId: string;
+  sourceType: string;
+  term: $rdf.NamedNode;
+  matchText: string;
+  displayName: string;
+};
+
+function getLit(store: $rdf.Store, subj: any, pred: any) {
+  const t = store.any(subj, pred, null);
+  return t?.value;
+}
+
+function scoreAgainstCombined(combinedNorm: string, matchText: string): number {
+  const mt = normMaterialLabelForMatch(matchText);
+  if (!mt) return 0;
+
+  let score = 0;
+  for (const part of mt.split("|")) {
+    const p = normMaterialLabelForMatch(part);
+    if (p.length < 4) continue;
+    if (combinedNorm.includes(p)) score += p.length;
+  }
+
+  const words = mt.match(/[\p{L}\p{N}]+/gu);
+  if (words) {
+    for (const w of words) {
+      if (w.length >= 5 && combinedNorm.includes(w)) {
+        score += w.length * 0.4;
+      }
+    }
+  }
+
+  return score;
+}
+
+/**
+ * Minimum raw overlap score required to accept a source candidate.
+ * Tuned with NL/BE IFC layer names + ICE/KBOB matchText (see material-norm.ts).
+ */
+const MIN_SOURCE_SCORE = 7;
+
+export function loadSourceEpdCandidates(
+  entry: SourceEntry,
+  store: $rdf.Store,
+  cwd = process.cwd()
+): SourceEpdCandidate[] {
+  if (entry.enabled === false) return [];
+  if (!sourceTtlExists(entry, cwd)) return [];
+
+  const ttl = fs.readFileSync(resolveSourceTtlPath(entry, cwd), "utf-8");
+  const base =
+    entry.type === "ice-educational"
+      ? ICE_PARSE_BASE
+      : entry.type === "epd-hub"
+        ? EPDHUB_PARSE_BASE
+        : KB_PARSE_BASE;
+  $rdf.parse(ttl, store, base, "text/turtle");
+
+  const stmts = store.statementsMatching(
+    null as any,
+    RDF("type"),
+    ONT("EPD")
+  );
+
+  const out: SourceEpdCandidate[] = [];
+  for (const st of stmts) {
+    const term = st.subject as $rdf.NamedNode;
+    const matchText =
+      (getLit(store, term, ONT("matchText")) as string) ||
+      (getLit(store, term, SCHEMA("name")) as string) ||
+      "";
+    const displayName =
+      (getLit(store, term, SCHEMA("name")) as string) || matchText || term.uri;
+
+    out.push({
+      sourceId: entry.id,
+      sourceType: entry.type,
+      term,
+      matchText,
+      displayName,
+    });
+  }
+
+  return out;
+}
+
+type MergedSourceCache = {
+  key: string;
+  store: $rdf.Store;
+  candidatesBySource: Map<string, SourceEpdCandidate[]>;
+};
+
+let mergedSourceCache: MergedSourceCache | null = null;
+
+function mergedSourcesCacheKey(entries: SourceEntry[], cwd: string): string {
+  const configPath = path.join(cwd, "config.json");
+  let cfgSig = "missing";
+  try {
+    cfgSig = String(fs.statSync(configPath).mtimeMs);
+  } catch {
+    /* no config */
+  }
+  const parts: string[] = [cfgSig];
+  for (const e of entries) {
+    if (e.enabled === false) continue;
+    const p = resolveSourceTtlPath(e, cwd);
+    try {
+      const st = fs.statSync(p);
+      parts.push(`${e.id}:${st.mtimeMs}:${st.size}`);
+    } catch {
+      parts.push(`${e.id}:missing`);
+    }
+  }
+  return parts.join("|");
+}
+
+export function loadMergedSourceStoreAndCandidates(
+  entries: SourceEntry[],
+  cwd = process.cwd()
+): { store: $rdf.Store; candidatesBySource: Map<string, SourceEpdCandidate[]> } {
+  const key = mergedSourcesCacheKey(entries, cwd);
+  if (mergedSourceCache && mergedSourceCache.key === key) {
+    return {
+      store: mergedSourceCache.store,
+      candidatesBySource: mergedSourceCache.candidatesBySource,
+    };
+  }
+
+  const store = $rdf.graph();
+  const candidatesBySource = new Map<string, SourceEpdCandidate[]>();
+
+  for (const e of entries) {
+    if (e.enabled === false) continue;
+    const list = loadSourceEpdCandidates(e, store, cwd);
+    candidatesBySource.set(e.id, list);
+  }
+
+  mergedSourceCache = { key, store, candidatesBySource };
+  return { store, candidatesBySource };
+}
+
+/**
+ * Resolve a KBOB/ICE candidate when the dictionary stamps a stable UUID fragment
+ * (see `kbobUuid` in `material-dictionary.json`). Used when text overlap is below
+ * `MIN_SOURCE_SCORE` but we still need LCA hydration for a routed slug.
+ */
+export function findCandidateByUriFragment(
+  candidates: SourceEpdCandidate[] | undefined,
+  fragment: string
+): SourceEpdCandidate | null {
+  if (!candidates?.length || !fragment.trim()) return null;
+  const f = fragment.trim().toLowerCase().replace(/^uuid-/, "");
+  for (const c of candidates) {
+    if (c.term.uri.toLowerCase().includes(f)) return c;
+  }
+  return null;
+}
+
+export function pickBestSourceMatch(args: {
+  combinedNorm: string;
+  candidates: SourceEpdCandidate[];
+}): { candidate: SourceEpdCandidate; score: number } | null {
+  let best: { candidate: SourceEpdCandidate; score: number } | null = null;
+  for (const c of args.candidates) {
+    const s = scoreAgainstCombined(args.combinedNorm, c.matchText);
+    if (!best || s > best.score) {
+      best = { candidate: c, score: s };
+    }
+  }
+  if (!best || best.score < MIN_SOURCE_SCORE) return null;
+  return best;
+}
+
+export function pickFirstOrderedSourceMatch(args: {
+  orderedEntries: SourceEntry[];
+  candidatesBySource: Map<string, SourceEpdCandidate[]>;
+  combinedNorm: string;
+}): { candidate: SourceEpdCandidate; score: number } | null {
+  for (const e of args.orderedEntries) {
+    if (e.enabled === false) continue;
+    const cands = args.candidatesBySource.get(e.id) ?? [];
+    const hit = pickBestSourceMatch({
+      combinedNorm: args.combinedNorm,
+      candidates: cands,
+    });
+    if (hit) return hit;
+  }
+  return null;
+}
+
+export function bimEpdSlugForSourceCandidate(c: SourceEpdCandidate): string {
+  const uri = c.term.uri;
+  const hashIdx = uri.lastIndexOf("#");
+  const frag = hashIdx >= 0 ? uri.slice(hashIdx + 1) : uri;
+  if (c.sourceType === "kbob") {
+    return `kbob-${frag.replace(/^uuid-/, "")}`;
+  }
+  if (c.sourceType === "ice-educational") {
+    return `ice-${frag.replace(/^entry-/, "")}`;
+  }
+  if (c.sourceType === "epd-hub") {
+    return frag.replace(/^entry-/, "");
+  }
+  return `src-${frag}`;
+}

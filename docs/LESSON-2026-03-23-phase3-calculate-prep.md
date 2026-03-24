@@ -6,23 +6,36 @@ Before running carbon calculation we need an explicit overview of:
 - what is missing (no EPD) so we can create data gaps / prompts for manual resolution.
 
 ## MVP behavior (current repo)
-Phase 3 prep screen (`/calculate`) is currently a stub.
+Phase 3 prep screen (`/calculate`) now focuses on calculation scope definition from KB data.
 
-The KB overview UI (materials-ready/missing + the interactive knowledge graph + properties inspector)
-lives on Phase 2 Knowledge Base (`/kb`).
-
-`/kb` loads the existing KB summary from:
-- `data/<projectId>-kb.ttl`
+`/calculate` loads KB status from:
+- `GET /api/kb/status?projectId=<id>`
+- source file: `data/<projectId>-kb.ttl`
 
 And shows:
-- materials with EPD / without EPD
-- a short matching preview (top examples)
-- an interactive knowledge-graph preview (materials + EPD links)
+- materials with EPD / without EPD counters
+- pipeline status + KPI cards (elements/materials/coverage/selection/total)
+- grouped trace rows (group by material id / material name / EPD)
+- quantity-based selection list (only rows with `Qty records > 0`)
+- selected output preview for calculation
+- optional full trace-table toggle (hidden by default)
+- result view toggle (summary layout vs raw JSON)
 
-It does not yet run carbon (Step 3 calculate is coming soon).
+`/calculate` can now send the selected scope to:
+- `POST /api/calculate`
+with payload:
+- `projectId`
+- `selection[]` entries containing material label, EPD label, element count, quantity-record count, and compact quantity summary.
+
+Important:
+- endpoint now returns a successful MVP estimate response.
+- results are persisted to:
+  - `data/<projectId>-calc-latest.json`
+  - `data/<projectId>-calc.ttl`
+- response includes artifact paths (`latestPath`, `ttlPath`) for traceability.
 
 ## Knowledge-graph preview (react-force-graph-2d)
-The `/kb` screen renders a force-graph based on the KB API’s `kbGraph` payload (full materials + EPD nodes for the KB).
+The interactive graph + inspector lives in Phase 2 (`/kb`) and is used before Phase 3.
 
 Node meaning:
 - `KB` hub node (center): a visual anchor for the preview
@@ -50,11 +63,11 @@ Instead, keep the hit-test math consistent with the library’s default:
 This prevents situations where nodes appear, hover works inconsistently, and only a few nodes trigger `onNodeClick`.
 
 Important MVP limitation:
-- this is still only a *graph visualization*; carbon calculation is not implemented yet.
-- The authoritative data remains in `data/<projectId>-kb.ttl`.
+- carbon math is still an MVP estimate using placeholder EPD factors and compact quantity extraction.
+- The authoritative linked data remains in `data/<projectId>-kb.ttl`.
 
 ## Next improvements
-- connect to the real `/api/calculate` endpoint when it exists
+- implement real carbon compute in `/api/calculate` using selected rows
 - add data gap creation UI tied to element IDs/properties
 - show carbon preview once implemented
 

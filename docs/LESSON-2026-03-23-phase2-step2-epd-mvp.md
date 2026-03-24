@@ -10,15 +10,14 @@ Phase 2 Step 2 “Translate” now generates EPD nodes and links them like:
 Each created EPD node includes (best-effort for now):
 - `a ont:EPD`
 - `schema:name`
-- `ont:source` (currently `dictionary-mvp`)
-- optional numeric fields like `ont:gwpPerUnit` and `ont:density`
-- `ont:resolvedAt` timestamp
+- `ont:source` on the **material**: `dictionary-routed` (dictionary + KBOB/ICE data) or `dictionary-no-lca` (routing only — no GWP in graph)
+- `ont:sourceMatchScore` on the **material** when a source row wins: **raw** overlap score from the matcher (not LCA)
+- `ont:epdDataProvenance` on the **EPD**: `source-import` or `dictionary-no-lca-data`
+- optional **`ont:gwpPerUnit` / `ont:density` only when** copied from source TTL (or absent if no source match)
+- `ont:resolvedAt` on dictionary-no-LCA nodes; source copies set their own
 
 ## Matching strategy (current)
-Because the KBOB API requires a Bearer token and ÖKOBAUDAT integration is not wired yet, we used a local dictionary MVP (`src/data/material-dictionary.json`):
-- match by keywords in `schema:name` and/or `ont:layerSetName`
-- attach the corresponding placeholder EPD values
-- preserve traceability in the graph via the `ont:source` and the material match metadata
+Local dictionary **routes** materials to `bim:epd-{epdSlug}` by keywords in `schema:name` / `ont:layerSetName` (no invented LCA in JSON). **GWP/density** come from **merged KBOB/ICE TTL** when `pickFirstOrderedSourceMatch` finds a hit; otherwise the link exists without LCA triples. See `docs/kg-dictionary-source-hydration.md`.
 
 ## Outputs
 Step 2 Translate writes:

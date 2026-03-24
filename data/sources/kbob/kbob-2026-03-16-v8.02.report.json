@@ -1,0 +1,8 @@
+{
+  "source": "kbob",
+  "inputFile": "docs/DataSetMaterials/Oekobilanzdaten_ Baubereich_Donne_ecobilans_construction_2009-1-2022_v8.02.xlsx",
+  "outputTtl": "data/sources/kbob/kbob-2026-03-16-v8.02.ttl",
+  "rowCount": 348,
+  "skippedRows": 43,
+  "generatedAt": "2026-03-24T17:06:50.709Z"
+}

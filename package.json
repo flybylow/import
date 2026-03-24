@@ -6,15 +6,27 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "import:kbob": "node scripts/import-kbob.js",
+    "import:ice": "node scripts/import-ice.js",
+    "import:sources": "npm run import:kbob && npm run import:ice",
+    "clean:pipeline": "node scripts/clean-pipeline.js",
+    "build:kb": "tsx --tsconfig tsconfig.json scripts/build-kb.ts",
+    "report:epd": "tsx --tsconfig tsconfig.json scripts/report-epd-coverage.ts",
+    "test:2050": "node --env-file=.env scripts/test-2050-api.mjs"
   },
   "dependencies": {
+    "@thatopen/components": "^3.3.3",
+    "@thatopen/components-front": "^3.3.3",
+    "@types/three": "^0.183.1",
     "next": "16.2.1",
     "rdflib": "^2.3.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-force-graph-2d": "^1.29.1",
-    "web-ifc": "^0.0.77"
+    "three": "^0.183.2",
+    "web-ifc": "^0.0.77",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -26,6 +38,7 @@
     "eslint-config-next": "16.2.1",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
 }

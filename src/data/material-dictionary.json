@@ -1,90 +1,420 @@
 {
-  "version": "mvp-2026-03-23",
+  "version": "routing-2026-03-31-hydration",
+  "description": "Routing labels and patterns only. Precast breedplaat uses dedicated slug precast_breedplaat (before AAC). Wall tiles / partitions / ceilings / plastic / fire boards before AAC; hatch layers skipped in layer2.",
   "entries": [
     {
       "epdSlug": "kalkzandsteen",
-      "matchPatterns": ["kalkzandsteen", "calcium silicate", "calcium silicate brick", "metselwerk - kalkzandsteen"],
+      "matchPatterns": [
+        "kalkzandsteen",
+        "calcium silicate brick",
+        "metselwerk - kalkzandsteen",
+        "metselwerk kalkzandsteen"
+      ],
       "standardName": "Calcium silicate brick",
       "category": "Masonry",
       "subcategory": "Calcium silicate",
       "matchConfidence": 0.9,
       "matchType": "dictionary_exact",
       "epdSource": "kbob",
-      "epdName": "Kalksandstein, Vollsteine und Blocksteine",
+      "epdName": "Kalksandstein, Hunziker Kalksandstein AG",
+      "kbobUuid": "adbada8c-108b-4869-a098-bc2cda5c5929",
       "declaredUnit": "kg",
-      "densityKgPerM3": 1800,
-      "gwpPerUnitKgCO2e": 0.14
+      "defaultDensityKgPerM3": 1600
     },
     {
-      "epdSlug": "concrete_reinforced_in_situ",
-      "matchPatterns": ["beton gewapend", "reinforced concrete", "gewapend", "beton armiert"],
-      "standardName": "Reinforced concrete in-situ",
-      "category": "Concrete",
-      "subcategory": "Reinforced concrete",
-      "matchConfidence": 0.8,
+      "epdSlug": "ceramic_tile",
+      "matchPatterns": [
+        "ceramic tile",
+        "porcelain tile",
+        "keramisch",
+        "vloertegel",
+        "vloertegels",
+        "wandtegel",
+        "wandtegels",
+        "wall tile ceramic",
+        "floor tile ceramic",
+        "coramic"
+      ],
+      "standardName": "Ceramic / porcelain tile",
+      "category": "Finishes",
+      "subcategory": "Tiles",
+      "matchConfidence": 0.58,
       "matchType": "dictionary_fuzzy",
-      "epdSource": "oekobaudat",
-      "epdName": "Reinforced concrete in-situ (placeholder)",
+      "epdSource": "ice",
+      "epdName": "Ceramic tile (route via source)",
       "declaredUnit": "kg",
-      "densityKgPerM3": 2400,
-      "gwpPerUnitKgCO2e": 0.18
+      "defaultDensityKgPerM3": 2400
     },
     {
-      "epdSlug": "concrete_general",
-      "matchPatterns": ["beton", "betonopstort", "fundering", "fundat", "strookfundering", "cast concrete", "betonvloer", "betonvloer prefab"],
-      "standardName": "Concrete (general)",
+      "epdSlug": "precast_breedplaat",
+      "matchPatterns": [
+        "precast concrete wide slab facade",
+        "breedplaat schil",
+        "ifc breedplaat",
+        "precast concrete wide slab",
+        "hollow core concrete slab",
+        "breedplaat",
+        "kanaalplaat",
+        "geisoleerde kanaalplaat"
+      ],
+      "standardName": "Precast concrete façade / breedplaat shell",
       "category": "Concrete",
-      "subcategory": "General concrete",
-      "matchConfidence": 0.65,
+      "subcategory": "Precast façade slab",
+      "matchConfidence": 0.68,
       "matchType": "dictionary_fuzzy",
-      "epdSource": "oekobaudat",
-      "epdName": "Concrete (general) (placeholder)",
+      "epdSource": "kbob",
+      "epdName": "Precast breedplaat (route via source)",
       "declaredUnit": "kg",
-      "densityKgPerM3": 2400,
-      "gwpPerUnitKgCO2e": 0.12
+      "defaultDensityKgPerM3": 2400
+    },
+    {
+      "epdSlug": "timber",
+      "matchPatterns": [
+        "timber roof dormer",
+        "dormer side wall timber",
+        "dakkapel",
+        "dakkapel zijwang",
+        "kapconstructie hout",
+        "hout dakkapel"
+      ],
+      "standardName": "Timber (dormer / roof carpentry)",
+      "category": "Timber",
+      "subcategory": "Dormer / cheek wall",
+      "matchConfidence": 0.58,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "kbob",
+      "epdName": "Timber dormer (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 480
+    },
+    {
+      "epdSlug": "plastic_sheet",
+      "matchPatterns": [
+        "plastic sheet",
+        "platsica",
+        "pvc sheet",
+        "polycarbonaat",
+        "polycarbonate",
+        "schoonloopmat",
+        "entrance walk off mat"
+      ],
+      "standardName": "Plastic / polymer sheet",
+      "category": "Polymers",
+      "subcategory": "Sheet",
+      "matchConfidence": 0.55,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "ice",
+      "epdName": "Plastic sheet (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 950
     },
     {
       "epdSlug": "aac",
-      "matchPatterns": ["gasbeton", "cellenbeton"],
+      "matchPatterns": [
+        "gasbeton",
+        "cellenbeton",
+        "metselwerk - cellenbeton"
+      ],
       "standardName": "Autoclaved aerated concrete",
       "category": "Masonry",
       "subcategory": "AAC blocks",
       "matchConfidence": 0.75,
       "matchType": "dictionary_fuzzy",
-      "epdSource": "oekobaudat",
-      "epdName": "Autoclaved aerated concrete (placeholder)",
+      "epdSource": "kbob",
+      "epdName": "AAC (route via source)",
       "declaredUnit": "kg",
-      "densityKgPerM3": 600,
-      "gwpPerUnitKgCO2e": 0.08
+      "defaultDensityKgPerM3": 500
+    },
+    {
+      "epdSlug": "masonry_brick",
+      "matchPatterns": [
+        "brick masonry",
+        "brick masonry outer leaf",
+        "outer leaf",
+        "mw-baksteen",
+        "baksteen",
+        "gevelsteen"
+      ],
+      "standardName": "Masonry (brick / block)",
+      "category": "Masonry",
+      "subcategory": "Brick facade",
+      "matchConfidence": 0.62,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "ice",
+      "epdName": "Masonry brick (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 1800
+    },
+    {
+      "epdSlug": "insulation_pir",
+      "matchPatterns": [
+        "pir",
+        "polyisocyanurate",
+        "polyisocyanuraat"
+      ],
+      "standardName": "Insulation PIR",
+      "category": "Insulation",
+      "subcategory": "PIR",
+      "matchConfidence": 0.62,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "ice",
+      "epdName": "Insulation PIR (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 35
+    },
+    {
+      "epdSlug": "insulation_eps",
+      "matchPatterns": [
+        "eps",
+        "expanded polystyrene",
+        "expanded polystyreen",
+        "polystyrene"
+      ],
+      "standardName": "Insulation EPS / polystyrene",
+      "category": "Insulation",
+      "subcategory": "EPS",
+      "matchConfidence": 0.6,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "ice",
+      "epdName": "Insulation EPS (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 28
+    },
+    {
+      "epdSlug": "insulation_xps",
+      "matchPatterns": [
+        "xps",
+        "extruded polystyrene"
+      ],
+      "standardName": "Insulation XPS",
+      "category": "Insulation",
+      "subcategory": "XPS",
+      "matchConfidence": 0.6,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "ice",
+      "epdName": "Insulation XPS (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 35
+    },
+    {
+      "epdSlug": "insulation_glass_wool",
+      "matchPatterns": [
+        "glass wool",
+        "glaswol",
+        "glas wol",
+        "mineral wool",
+        "mineraalwol",
+        "rock wool",
+        "steenwol"
+      ],
+      "standardName": "Insulation glass / mineral wool",
+      "category": "Insulation",
+      "subcategory": "Glass wool",
+      "matchConfidence": 0.6,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "ice",
+      "epdName": "Insulation glass wool (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 50
+    },
+    {
+      "epdSlug": "insulation_generic",
+      "matchPatterns": [
+        "insulation",
+        "spouwisolatie",
+        "gevelisolatie",
+        "dakisolatie",
+        "mineraal"
+      ],
+      "standardName": "Thermal insulation (generic)",
+      "category": "Insulation",
+      "subcategory": "Generic",
+      "matchConfidence": 0.58,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "ice",
+      "epdName": "Insulation (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 40
+    },
+    {
+      "epdSlug": "screed_floor",
+      "matchPatterns": [
+        "screed floor",
+        "cement screed",
+        "mortar or screed",
+        "dekvloer",
+        "cementdekvloer"
+      ],
+      "standardName": "Mortar / cement screed",
+      "category": "Finishes",
+      "subcategory": "Screed",
+      "matchConfidence": 0.58,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "ice",
+      "epdName": "Screed / mortar (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 2000
+    },
+    {
+      "epdSlug": "natural_stone",
+      "matchPatterns": [
+        "natural stone",
+        "natuursteen",
+        "granite",
+        "marble",
+        "limestone"
+      ],
+      "standardName": "Natural stone",
+      "category": "Finishes",
+      "subcategory": "Stone",
+      "matchConfidence": 0.55,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "ice",
+      "epdName": "Natural stone (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 2600
+    },
+    {
+      "epdSlug": "gypsum_plaster",
+      "matchPatterns": [
+        "gypsum plaster",
+        "gypsum blocks",
+        "plaster gypsum",
+        "gipsplafond",
+        "gipsblokken",
+        "gypsum plasterboard ceiling suspended",
+        "gypsum partition wall",
+        "gypsum partition wall light",
+        "fire protection gypsum board",
+        "ifc verlaagd plafond",
+        "verlaagd plafond",
+        "promatect",
+        "fire protection calcium silicate board"
+      ],
+      "standardName": "Gypsum plaster / boards",
+      "category": "Finishes",
+      "subcategory": "Gypsum",
+      "matchConfidence": 0.58,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "ice",
+      "epdName": "Gypsum plaster (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 1200
+    },
+    {
+      "epdSlug": "glass_railing",
+      "matchPatterns": [
+        "glass railing",
+        "glas hekwerk"
+      ],
+      "standardName": "Glass (guardrail / infill)",
+      "category": "Glazing",
+      "subcategory": "Glass",
+      "matchConfidence": 0.55,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "ice",
+      "epdName": "Glass (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 2500
+    },
+    {
+      "epdSlug": "concrete_reinforced_in_situ",
+      "matchPatterns": [
+        "beton gewapend",
+        "reinforced concrete",
+        "gewapend",
+        "beton armiert"
+      ],
+      "standardName": "Reinforced concrete in-situ",
+      "category": "Concrete",
+      "subcategory": "Reinforced concrete",
+      "matchConfidence": 0.8,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "kbob",
+      "epdName": "Reinforced concrete in-situ (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 2400
+    },
+    {
+      "epdSlug": "concrete_general",
+      "matchPatterns": [
+        "beton",
+        "betonopstort",
+        "fundering",
+        "fundat",
+        "strookfundering",
+        "cast concrete",
+        "betonvloer",
+        "betonvloer prefab"
+      ],
+      "standardName": "Concrete (general)",
+      "category": "Concrete",
+      "subcategory": "General concrete",
+      "matchConfidence": 0.65,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "kbob",
+      "epdName": "Concrete general (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 2400
+    },
+    {
+      "epdSlug": "zinc_work",
+      "matchPatterns": [
+        "zinkwerk",
+        "zink",
+        "zinc"
+      ],
+      "standardName": "Zinc sheet / zinc work",
+      "category": "Metals",
+      "subcategory": "Zinc",
+      "matchConfidence": 0.55,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "ice",
+      "epdName": "Zinc (no ICE Educational row — manual EPD or future source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 7140
     },
     {
       "epdSlug": "steel",
-      "matchPatterns": ["staal", "steel", "metall", "zink"],
-      "standardName": "Steel (placeholder)",
+      "matchPatterns": [
+        "staal",
+        "steel",
+        "metall",
+        "metalstud",
+        "stripstaal",
+        "constructief staal",
+        "ventilation metal frame",
+        "lucht frame"
+      ],
+      "standardName": "Steel",
       "category": "Metals",
-      "subcategory": "Steel / metal products (placeholder)",
-      "matchConfidence": 0.6,
-      "matchType": "dictionary_fuzzy",
-      "epdSource": "oekobaudat",
-      "epdName": "Steel (placeholder)",
-      "declaredUnit": "kg",
-      "densityKgPerM3": 7850,
-      "gwpPerUnitKgCO2e": 1.6
-    },
-    {
-      "epdSlug": "timber",
-      "matchPatterns": ["hout", "multiplex", "underlayment", "platte", "plank", "timber"],
-      "standardName": "Timber (placeholder)",
-      "category": "Timber",
-      "subcategory": "Wood products (placeholder)",
+      "subcategory": "Steel / metal products",
       "matchConfidence": 0.6,
       "matchType": "dictionary_fuzzy",
       "epdSource": "kbob",
-      "epdName": "Timber (placeholder)",
+      "epdName": "Steel (route via source)",
       "declaredUnit": "kg",
-      "densityKgPerM3": 500,
-      "gwpPerUnitKgCO2e": 0.02
+      "defaultDensityKgPerM3": 7850
+    },
+    {
+      "epdSlug": "timber",
+      "matchPatterns": [
+        "hout",
+        "multiplex",
+        "underlayment",
+        "platte",
+        "plank",
+        "timber"
+      ],
+      "standardName": "Timber",
+      "category": "Timber",
+      "subcategory": "Wood products",
+      "matchConfidence": 0.6,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "kbob",
+      "epdName": "Timber (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 480
     }
   ]
 }
-

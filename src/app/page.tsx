@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import ProjectIdField from "@/components/ProjectIdField";
+import { useToast } from "@/components/ToastProvider";
+import { dbg, dbgButton, dbgLoad } from "@/lib/client-pipeline-debug";
+import { useProjectId } from "@/lib/useProjectId";
 
 type ParseResponse = {
   projectId: string;
@@ -14,7 +18,8 @@ type TriplesResponse = {
 };
 
 export default function Home() {
-  const projectId = "example";
+  const { showToast } = useToast();
+  const { projectId, setProjectId } = useProjectId();
   const [loading, setLoading] = useState(false);
   const [phase2Loading, setPhase2Loading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,33 +80,95 @@ export default function Home() {
   }, [enrichedDownloadUrl]);
 
   const onRunExample = async () => {
+    dbgButton("Phase1", "Import BIM (run-example)", { projectId });
     setError(null);
     setTriples(null);
     setEnriched(null);
     setLoading(true);
+    dbgLoad("Phase1", "start", "POST /api/run-example");
     try {
-      const res = await fetch("/api/run-example", { method: "POST" });
+      const res = await fetch("/api/run-example", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
       if (!res.ok) {
         const msg = await res.text();
         throw new Error(`/api/run-example failed: ${msg}`);
       }
 
       const exampleJson: TriplesResponse = await res.json();
+      dbgLoad("Phase1", "ok", "POST /api/run-example", {
+        ttlPath: exampleJson.ttlPath,
+        ttlBytes: exampleJson.ttl?.length ?? 0,
+      });
       setTriples(exampleJson);
 
       const blob = new Blob([exampleJson.ttl], { type: "text/turtle" });
       const url = URL.createObjectURL(blob);
       setDownloadUrl(url);
+      showToast({ type: "success", message: "BIM imported and TTL generated." });
     } catch (e: any) {
+      dbgLoad("Phase1", "error", "POST /api/run-example", { message: e?.message });
       setError(e?.message ?? String(e));
+      showToast({ type: "error", message: e?.message ?? "BIM import failed." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onResetPipeline = async () => {
+    dbgButton("Phase1", "Reset pipeline data (confirm)", { projectId });
+    const ok = window.confirm(
+      `Delete generated pipeline files for project "${projectId}"?\n\n` +
+        `This removes parse/enriched/translated/KB/calc TTL and JSON under data/ for this id. Source snapshots (data/sources) are kept.`
+    );
+    if (!ok) {
+      dbg("Phase1", "Reset pipeline cancelled");
+      return;
+    }
+
+    setError(null);
+    setLoading(true);
+    dbgLoad("Phase1", "start", "POST /api/clean-pipeline", { projectId });
+    try {
+      const res = await fetch("/api/clean-pipeline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json?.error || (await res.text()) || "Clean failed");
+      }
+      dbgLoad("Phase1", "ok", "POST /api/clean-pipeline", { removed: json?.removed });
+      setTriples(null);
+      setEnriched(null);
+      if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+      if (enrichedDownloadUrl) URL.revokeObjectURL(enrichedDownloadUrl);
+      setDownloadUrl(null);
+      setEnrichedDownloadUrl(null);
+      showToast({
+        type: "success",
+        message:
+          json?.removed?.length > 0
+            ? `Removed ${json.removed.length} file(s).`
+            : "No pipeline files to remove (already clean).",
+      });
+    } catch (e: any) {
+      dbgLoad("Phase1", "error", "POST /api/clean-pipeline", { message: e?.message });
+      setError(e?.message ?? String(e));
+      showToast({ type: "error", message: e?.message ?? "Reset failed." });
     } finally {
       setLoading(false);
     }
   };
 
   const onRunEnrich = async () => {
+    dbgButton("Phase1", "Enrich Import", { projectId });
     setError(null);
     setPhase2Loading(true);
+    dbgLoad("Phase1", "start", "POST /api/enrich", { projectId });
     try {
       const res = await fetch("/api/enrich", {
         method: "POST",
@@ -115,30 +182,56 @@ export default function Home() {
       }
 
       const json: { ttlPath: string; ttl: string } = await res.json();
+      dbgLoad("Phase1", "ok", "POST /api/enrich", {
+        ttlPath: json.ttlPath,
+        ttlBytes: json.ttl?.length ?? 0,
+      });
       setEnriched({ ttlPath: json.ttlPath, ttl: json.ttl });
 
       const blob = new Blob([json.ttl], { type: "text/turtle" });
       const url = URL.createObjectURL(blob);
       setEnrichedDownloadUrl(url);
+      showToast({ type: "success", message: "Enriched graph created." });
     } catch (e: any) {
+      dbgLoad("Phase1", "error", "POST /api/enrich", { message: e?.message });
       setError(e?.message ?? String(e));
+      showToast({ type: "error", message: e?.message ?? "Enrich failed." });
     } finally {
       setPhase2Loading(false);
     }
   };
 
+  useEffect(() => {
+    dbg("Phase1", "state snapshot (projectId / triples / enriched)", {
+      projectId,
+      hasTriples: Boolean(triples),
+      hasEnriched: Boolean(enriched),
+    });
+  }, [projectId, triples, enriched]);
+
   return (
     <div className="min-h-screen p-6 bg-zinc-50 dark:bg-black">
       <div className="max-w-3xl mx-auto flex flex-col gap-4">
-        <h1 className="text-2xl font-semibold">bimimport - Phase 1</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">bimimport - Phase 1</h1>
+          <button
+            type="button"
+            className="text-sm font-medium rounded border border-zinc-300 dark:border-zinc-600 px-3 py-1.5 text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50"
+            disabled={loading || phase2Loading}
+            onClick={onResetPipeline}
+            title="Delete generated data/* pipeline artifacts for the current Project ID"
+          >
+            Reset pipeline data
+          </button>
+        </div>
 
         <div className="p-4 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-          <details className="mt-3">
+          <details className="mt-0">
             <summary className="cursor-pointer text-sm text-zinc-700 dark:text-zinc-200">
-              Phase 1 source (example IFC)
+              Phase 1 source IFC
             </summary>
             <div className="mt-2 text-xs text-zinc-700 dark:text-zinc-200">
-              Example source:{" "}
+              Source:{" "}
               <code className="font-mono">data/IFC Schependomlaan.ifc</code>
               <div className="mt-1">
                 <a
@@ -154,6 +247,14 @@ export default function Home() {
           </details>
 
           <div className="mt-3 flex flex-col gap-2">
+            <ProjectIdField
+              value={projectId}
+              showLabel={false}
+              onChange={(v) => {
+                dbg("Phase1", "projectId input change", { from: projectId, to: v });
+                setProjectId(v);
+              }}
+            />
             <div className="flex flex-wrap items-center gap-2">
               <button
                 className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
@@ -161,33 +262,44 @@ export default function Home() {
                 disabled={loading || phase2Loading}
               >
                 {loading
-                  ? "Processing..."
+                  ? "Importing..."
                   : triples
-                    ? "Imported (Phase 1)"
-                    : "Run example + Generate TTL (Phase 1)"}
+                    ? "Imported"
+                    : "Import BIM"}
               </button>
 
               <button
                 className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
                 onClick={onRunEnrich}
                 disabled={phase2Loading || loading || !triples}
-                title={!triples ? "Run Phase 1 first" : undefined}
+                title={
+                  !triples
+                    ? "Import BIM first"
+                    : "Re-opens the IFC in web-ifc, walks every element for quantities and every material for names — not just a few TTL edits. Large models often take 10s+."
+                }
               >
                 {phase2Loading
                   ? "Enriching..."
                   : enriched
-                    ? "Enriched (Phase 2 - Link)"
-                    : "Enrich (Phase 2 - Link)"}
+                    ? "Enriched"
+                    : "Enrich Import"}
               </button>
-
-              <button
-                className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
-                disabled
-                title="Stub for Phase 3: calculate is not implemented yet"
-              >
-                Calculate (Phase 3, disabled)
-              </button>
+              {enriched ? (
+                <a
+                  className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black"
+                  href={`/kb?projectId=${encodeURIComponent(projectId)}`}
+                  onClick={() =>
+                    dbgButton("Phase1", "navigate → /kb (Go to Phase 2)", { projectId })
+                  }
+                >
+                  Go to Phase 2 - Link
+                </a>
+              ) : null}
             </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Enrich reloads the IFC (WASM + full model) and scans all elements and materials.
+              Runtime scales with model size, not with how many triples changed.
+            </p>
           </div>
 
           {error ? (

@@ -1,0 +1,8 @@
+{
+  "source": "ice-educational",
+  "inputFile": "docs/DataSetMaterials/ICE DB Educational V4.1 - Oct 2025/ICE DB Educational V4.1 - Oct 2025.xlsx",
+  "outputTtl": "data/sources/ice/ice-educational-2025-10-v4.1.ttl",
+  "rowCount": 461,
+  "skippedRows": 1809,
+  "generatedAt": "2026-03-23T20:13:04.194Z"
+}

@@ -8,8 +8,18 @@ export const runtime = "nodejs";
 
 const EXAMPLE_IFC_RELATIVE_PATH = path.join("data", "IFC Schependomlaan.ifc");
 
-export async function POST() {
-  const projectId = "example";
+type RunExampleRequest = {
+  projectId?: string;
+};
+
+export async function POST(request: Request) {
+  let body: RunExampleRequest = {};
+  try {
+    body = (await request.json()) as RunExampleRequest;
+  } catch {
+    // Allow empty body for backwards compatibility.
+  }
+  const projectId = body.projectId?.trim() || "example";
   const ifcPath = path.join(process.cwd(), EXAMPLE_IFC_RELATIVE_PATH);
 
   if (!fs.existsSync(ifcPath)) {

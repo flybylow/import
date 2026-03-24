@@ -1,0 +1,106 @@
+{
+  "projectId": "example",
+  "generatedAt": "2026-03-23T20:03:07.532Z",
+  "topUnmatched": [
+    [
+      "ifc_kozijn_90x114",
+      51
+    ],
+    [
+      "ifc_breedplaat_schil_60mm",
+      42
+    ],
+    [
+      "ifc_baksteen_roodbruin_100mm_staand",
+      22
+    ],
+    [
+      "ifc_dekvloer_zwevend",
+      22
+    ],
+    [
+      "ifc_dekvloer",
+      9
+    ],
+    [
+      "ifc_baksteen_roodbruin_100mm_liggend",
+      5
+    ],
+    [
+      "ifc_dakkapel_zijwang",
+      5
+    ],
+    [
+      "ifc_baksteen_kopergeel_100mm_liggend",
+      4
+    ],
+    [
+      "ifc_baksteen_kopergeel_100mm_staand",
+      2
+    ],
+    [
+      "ifc_isolatie_110mm_glaswol",
+      2
+    ],
+    [
+      "ifc_verlaagd_plafond",
+      2
+    ],
+    [
+      "lege arcering (2)",
+      1
+    ],
+    [
+      "01 plaatmateriaal - platsica 10mm",
+      1
+    ],
+    [
+      "99 isolatie - glaswol 115mm",
+      1
+    ],
+    [
+      "03 mw-baksteen - bruin (liggend)",
+      1
+    ],
+    [
+      "99 isolatie - eps",
+      1
+    ],
+    [
+      "https://tabulas.eu/bim/material-34626",
+      1
+    ],
+    [
+      "https://tabulas.eu/bim/material-40398",
+      1
+    ],
+    [
+      "99 isolatie - pir 74mm",
+      1
+    ],
+    [
+      "03 mw-baksteen - geel (liggend)",
+      1
+    ],
+    [
+      "https://tabulas.eu/bim/material-47484",
+      1
+    ],
+    [
+      "03 mw-baksteen - bruin (staand)",
+      1
+    ],
+    [
+      "99 isolatie - pir 120mm",
+      1
+    ],
+    [
+      "99 lucht frame",
+      1
+    ],
+    [
+      "https://tabulas.eu/bim/material-54634",
+      1
+    ]
+  ]
+}

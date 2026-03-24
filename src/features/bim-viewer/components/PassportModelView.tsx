@@ -19,6 +19,7 @@ type Props = {
   onSelectExpressId: (id: number | null) => void;
   passportByExpressId: Record<number, Phase4ElementPassport>;
   passportsOrdered: Phase4ElementPassport[];
+  className?: string;
 };
 
 export default function PassportModelView(props: Props) {
@@ -29,6 +30,7 @@ export default function PassportModelView(props: Props) {
     onSelectExpressId,
     passportByExpressId,
     passportsOrdered,
+    className = "",
   } = props;
 
   const viewerItems = useMemo<ViewerItem[]>(
@@ -51,16 +53,19 @@ export default function PassportModelView(props: Props) {
   );
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4">
-      <section className="space-y-2">
+    <div
+      className={`grid h-full min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px] ${className}`.trim()}
+    >
+      <section className="flex min-h-0 flex-col">
         {viewerItems.length ? (
           <BimViewer3D
             items={viewerItems}
             selectedExpressId={selectedExpressId}
             onSelectExpressId={(id) => onSelectExpressId(id)}
+            className="min-h-0 flex-1"
           />
         ) : (
-          <div className="h-[60vh] min-h-[24rem] rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 flex items-center justify-center text-sm text-zinc-600 dark:text-zinc-300">
+          <div className="flex min-h-0 flex-1 items-center justify-center rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 text-sm text-zinc-600 dark:text-zinc-300">
             {loading
               ? "Loading viewer data..."
               : kbMissing
@@ -70,7 +75,7 @@ export default function PassportModelView(props: Props) {
         )}
       </section>
 
-      <aside className="space-y-3">
+      <aside className="min-h-0 space-y-3 overflow-y-auto xl:max-h-full">
         <ElementPassportPanel
           passport={selectedPassport}
           selectedExpressId={selectedExpressId}

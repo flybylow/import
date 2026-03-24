@@ -1,0 +1,7 @@
+{
+  "generatedAt": "2026-03-23T12:00:00.000Z",
+  "inputFile": "manual / EPD Hub PDF HUB-4855",
+  "outputTtl": "data/sources/epd-hub/epd-hub-handpick-2026-03-23.ttl",
+  "rowCount": 1,
+  "note": "Curated hand-pick; not from bulk importer. Extend this file with more ont:EPD rows as needed."
+}
