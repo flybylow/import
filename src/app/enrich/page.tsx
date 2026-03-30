@@ -28,6 +28,7 @@ export default function EnrichMvpPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<EnrichResponse | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [showFullEnrichedTtl, setShowFullEnrichedTtl] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "diff" | "materialMatch" | "quantities"
   >("diff");
@@ -176,6 +177,7 @@ export default function EnrichMvpPage() {
     setResult(null);
     setDownloadUrl(null);
     setSavedEnriched(false);
+    setShowFullEnrichedTtl(false);
     setLoading(true);
     try {
       const res = await fetch("/api/enrich", {
@@ -220,6 +222,7 @@ export default function EnrichMvpPage() {
     setError(null);
     setResult(null);
     setDownloadUrl(null);
+    setShowFullEnrichedTtl(false);
     setLoading(true);
     try {
       const res = await fetch("/api/translate", {
@@ -254,6 +257,7 @@ export default function EnrichMvpPage() {
     setResult(null);
     setDownloadUrl(null);
     setSaving(false);
+    setShowFullEnrichedTtl(false);
     setLoading(true);
     try {
       const enrichRes = await fetch("/api/enrich", {
@@ -388,7 +392,7 @@ export default function EnrichMvpPage() {
               href={downloadUrl}
               download={result.ttlPath.split("/").pop() ?? `${result.projectId}.ttl`}
             >
-              Download TTL
+              Download enriched TTL
             </a>
           ) : null}
 
@@ -398,9 +402,35 @@ export default function EnrichMvpPage() {
                 ? "Translated TTL preview (first lines)"
                 : "Enriched TTL preview (first lines)"}
             </summary>
-            <pre className="mt-2 p-3 text-xs leading-5 font-mono max-h-[35vh] overflow-auto border border-zinc-200 dark:border-zinc-800 rounded">
-              {preview.join("\n")}
+            <div className="mt-3 flex items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200">
+                <input
+                  type="checkbox"
+                  checked={showFullEnrichedTtl}
+                  onChange={(e) => setShowFullEnrichedTtl(e.target.checked)}
+                />
+                <span>Show more (render-limited)</span>
+              </label>
+            </div>
+
+            <pre className="mt-3 p-3 text-xs leading-5 font-mono max-h-[35vh] overflow-auto border border-zinc-200 dark:border-zinc-800 rounded">
+              {(() => {
+                if (!result?.ttl) return "—";
+                // We already render a preview elsewhere; this toggle exists for quick inspection.
+                // For very large models, rendering the whole TTL string can get slow, so we cap it.
+                const fullLimitLines = 2000;
+                if (!showFullEnrichedTtl) return preview.join("\n");
+                const lines = result.ttl.split(/\r?\n/);
+                if (lines.length <= fullLimitLines) return lines.join("\n");
+                return lines.slice(0, fullLimitLines).join("\n");
+              })()}
             </pre>
+
+            {showFullEnrichedTtl && result?.ttl ? (
+              <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
+                If the TTL is larger than the render limit, download the file to view it all.
+              </p>
+            ) : null}
           </details>
 
           <div className="mt-4 flex items-center gap-3 border-t border-zinc-200 dark:border-zinc-800 pt-4">

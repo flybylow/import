@@ -54,3 +54,4 @@ docs/DataSetArch/**
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.aider*

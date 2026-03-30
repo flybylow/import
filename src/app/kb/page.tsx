@@ -33,7 +33,7 @@ type KBGraph = {
 type KnowledgeBaseResponse = {
   projectId: string;
   kbPath: string;
-  ttl: string;
+  ttl?: string;
   /** Present after POST /api/kb — avoids a second GET /api/kb/status round-trip. */
   kbGraph?: KBGraph;
   elementCount?: number;
@@ -231,7 +231,34 @@ export default function KnowledgeBasePage() {
     if (!projectId) return;
 
     autoBuildStartedRef.current = true;
-    runBuildKb();
+    (async () => {
+      // If we already have a KB TTL on disk (including any manual overrides),
+      // don't rebuild here; rebuilding overwrites manual links (MVP behavior).
+      try {
+        const statusRes = await fetch(
+          `/api/kb/status?projectId=${encodeURIComponent(projectId)}&includeElementPassports=false&matchedLimit=20&unmatchedLimit=30`
+        );
+        if (statusRes.ok) {
+          const statusJson: any = await statusRes.json();
+          setKbResult({
+            projectId,
+            kbPath: statusJson.kbPath,
+            elementCount: statusJson.elementCount,
+            epdCoverage: statusJson.epdCoverage,
+            matchingPreview: statusJson.matchingPreview,
+            epdCatalog: statusJson.epdCatalog,
+            kbGraph: statusJson.kbGraph ?? undefined,
+            // `ttl` intentionally omitted; manual edits are already persisted on disk.
+          });
+          setKbGraph(statusJson.kbGraph ?? null);
+          return;
+        }
+      } catch {
+        // Fall through to building.
+      }
+
+      runBuildKb();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 

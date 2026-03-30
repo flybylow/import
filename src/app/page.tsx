@@ -29,10 +29,12 @@ export default function Home() {
     ttlPath: string;
     ttl: string;
   } | null>(null);
+  const [showFullEnrichedTtl, setShowFullEnrichedTtl] = useState(false);
   const [enrichedDownloadUrl, setEnrichedDownloadUrl] = useState<string | null>(
     null
   );
   const PREVIEW_MAX_LINES = 220;
+  const ENRICH_FULL_LIMIT_LINES = 1200;
 
   const triplePreviewLines = useMemo(() => {
     const ttl = triples?.ttl;
@@ -84,6 +86,7 @@ export default function Home() {
     setError(null);
     setTriples(null);
     setEnriched(null);
+    setShowFullEnrichedTtl(false);
     setLoading(true);
     dbgLoad("Phase1", "start", "POST /api/run-example");
     try {
@@ -168,6 +171,7 @@ export default function Home() {
     dbgButton("Phase1", "Enrich Import", { projectId });
     setError(null);
     setPhase2Loading(true);
+    setShowFullEnrichedTtl(false);
     dbgLoad("Phase1", "start", "POST /api/enrich", { projectId });
     try {
       const res = await fetch("/api/enrich", {
@@ -357,6 +361,47 @@ export default function Home() {
                 Download enriched TTL
               </a>
             ) : null}
+
+            <details className="mt-4" open>
+              <summary className="cursor-pointer text-sm text-zinc-700 dark:text-zinc-200">
+                Enriched Turtle preview (render-limited)
+              </summary>
+
+              <div className="mt-2 flex items-center gap-3">
+                <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200">
+                  <input
+                    type="checkbox"
+                    checked={showFullEnrichedTtl}
+                    onChange={(e) => setShowFullEnrichedTtl(e.target.checked)}
+                  />
+                  <span>Show more (render-limited)</span>
+                </label>
+              </div>
+
+              <div className="mt-2 max-h-[45vh] overflow-auto rounded border border-zinc-200 dark:border-zinc-800">
+                <pre className="p-3 text-xs leading-5 font-mono">
+                  {(() => {
+                    const ttl = enriched?.ttl;
+                    if (!ttl) return "—";
+                    const lines = ttl.split(/\r?\n/);
+                    const limit = showFullEnrichedTtl
+                      ? ENRICH_FULL_LIMIT_LINES
+                      : PREVIEW_MAX_LINES;
+                    if (lines.length <= limit) return lines.join("\n");
+                    return lines.slice(0, limit).join("\n");
+                  })()}
+                </pre>
+              </div>
+
+              {showFullEnrichedTtl &&
+              enriched?.ttl &&
+              enriched.ttl.split(/\r?\n/).length > ENRICH_FULL_LIMIT_LINES ? (
+                <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
+                  TTL is larger than the render limit; download the file to view all
+                  lines.
+                </p>
+              ) : null}
+            </details>
           </div>
         ) : null}
       </div>

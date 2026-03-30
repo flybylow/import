@@ -1,6 +1,6 @@
 {
   "projectId": "example",
-  "calculationId": "2026-03-24T19:33:10.653Z",
+  "calculationId": "2026-03-30T06:36:58.334Z",
   "cached": false,
   "totalKgCO2e": 1468508.934191,
   "selectedCount": 316,
@@ -4855,8 +4855,8 @@
       "materialIds": [
         472678
       ],
-      "epd": "insulation_eps (Insulation, Glass Wool)",
-      "epdSlug": "insulation_eps",
+      "epd": "gypsum_plaster (Gypsum plaster (route via source))",
+      "epdSlug": "gypsum_plaster",
       "elementCount": 3,
       "quantityRecordCount": 6,
       "compactQuantities": "NA: 89.755632 | GA: 91.344768",
@@ -4866,10 +4866,10 @@
       "activityMetric": 89.755632,
       "layerThicknessMetersFromKb": null,
       "layerThicknessMetersInferred": null,
-      "gwpPerUnitFromKb": 1.5327072819666347,
+      "gwpPerUnitFromKb": 0.3217984160206414,
       "declaredUnitFromKb": "kg",
-      "densityKgPerM3FromKb": 28,
-      "factorKgCO2ePerUnit": 1.5327072819666347,
+      "densityKgPerM3FromKb": 1200,
+      "factorKgCO2ePerUnit": 0.3217984160206414,
       "calculationNote": "quantity_area_unsupported_for_per_kg",
       "kgCO2e": 0
     },
@@ -7916,7 +7916,7 @@
     {
       "epd": "insulation_eps (Insulation, Glass Wool)",
       "kgCO2e": 209.705544,
-      "count": 8
+      "count": 7
     },
     {
       "epd": "precast_breedplaat (Hochbaubeton, NovoCon RC-M10/E20, NPK A, 280 kg CEM II/C-M (F-T) (ohne Bewehrung))",
@@ -7951,7 +7951,7 @@
     {
       "epd": "gypsum_plaster (Gypsum plaster (route via source))",
       "kgCO2e": 12056.825502,
-      "count": 7
+      "count": 8
     },
     {
       "epd": "timber (Timber, Closed panel timber frame system - No Carbon Storage)",
@@ -8004,7 +8004,7 @@
   ],
   "meta": {
     "methodology": "IFC quantity totals (from enriched graph) × GWP/density from Phase 2 KB TTL (`ont:gwpPerUnit`, `ont:density`, `ont:declaredUnit`). Phase A gate: EPD must not be `ont:epdDataProvenance` placeholder routing-only and must have `ont:gwpPerUnit`.",
-    "calculatedAt": "2026-03-24T19:33:10.653Z",
+    "calculatedAt": "2026-03-30T06:36:58.334Z",
     "apiVersion": 2,
     "kbPathUsed": "data/example-kb.ttl"
   }

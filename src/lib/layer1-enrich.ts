@@ -59,28 +59,27 @@ function parseBimExpressId(subjectValue: string, kind: "element" | "material") {
   return Number.isFinite(n) ? n : null;
 }
 
-function extractBaseQuantitiesFromElement(args: {
-  ifcApi: WebIFC.IfcAPI;
-  modelId: number;
-  elementExpressId: number;
-}): Promise<{
-  length?: number;
-  height?: number;
-  width?: number;
-  grossVolume?: number;
-  netVolume?: number;
-  grossSideArea?: number;
-  netSideArea?: number;
-  grossFootprintArea?: number;
-  quantities: Array<{
-    name: string;
-    value: number;
-    unitName?: string;
-  }>;
-}> {
-  const { ifcApi, modelId, elementExpressId } = args;
+/** IFC property sets we map to flat `ont:` predicates on elements. */
+const COMMON_PSET_NAMES = new Set([
+  "Pset_DoorCommon",
+  "Pset_WallCommon",
+  "Pset_WindowCommon",
+  "Pset_SlabCommon",
+]);
 
-  // web-ifc returns inverse properties when inverse=true and inversePropKey=null.
+const COMMON_PSET_SINGLE_VALUE_NAMES = new Set([
+  "FireRating",
+  "ThermalTransmittance",
+  "AcousticRating",
+  "IsExternal",
+  "LoadBearing",
+]);
+
+function collectIsDefinedByRelIds(
+  ifcApi: WebIFC.IfcAPI,
+  modelId: number,
+  elementExpressId: number
+): number[] {
   const elementLine = ifcApi.GetLine(modelId, elementExpressId, false, true);
   const isDefinedBy = elementLine?.IsDefinedBy;
   const relIds: number[] = [];
@@ -96,6 +95,169 @@ function extractBaseQuantitiesFromElement(args: {
     const n = Number(v);
     if (Number.isFinite(n)) relIds.push(n);
   }
+  return relIds;
+}
+
+function toLitBoolean(b: boolean) {
+  return $rdf.lit(b ? "true" : "false", undefined, XSD("boolean"));
+}
+
+/** String label from NominalValue; returns null if missing or whitespace-only (omit triple). */
+function readIfcNominalLabelString(v: any): string | null {
+  if (v == null) return null;
+  if (typeof v === "string") {
+    const t = v.trim();
+    return t === "" ? null : t;
+  }
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  if (typeof v === "object") {
+    const inner = v.value ?? v._value;
+    if (typeof inner === "string") {
+      const t = inner.trim();
+      return t === "" ? null : t;
+    }
+    if (typeof inner === "number" && Number.isFinite(inner)) return String(inner);
+    if (inner != null && typeof inner !== "object") {
+      const t = String(inner).trim();
+      return t === "" ? null : t;
+    }
+  }
+  return null;
+}
+
+function readIfcNominalBoolean(v: any): boolean | null {
+  if (typeof v === "boolean") return v;
+  if (v == null) return null;
+  if (typeof v === "object") {
+    const inner = v.value ?? v._value;
+    if (typeof inner === "boolean") return inner;
+    if (inner === 0 || inner === 1) return inner === 1;
+    if (typeof inner === "number" && Number.isFinite(inner)) return inner !== 0;
+  }
+  return null;
+}
+
+/** Numeric measure (e.g. thermal transmittance); null if absent. Zero is kept. */
+function readIfcNominalNumber(v: any): number | null {
+  const n = readIfcMeasureNumber(v);
+  if (n != null) return n;
+  if (v && typeof v === "object") {
+    const inner = v.value ?? v._value;
+    return readIfcMeasureNumber(inner);
+  }
+  return null;
+}
+
+export type CommonPsetProperties = {
+  fireRating?: string;
+  thermalTransmittance?: number;
+  acousticRating?: string;
+  isExternal?: boolean;
+  loadBearing?: boolean;
+};
+
+/**
+ * Reads IfcPropertySingleValue entries from selected common psets.
+ * Later relations overwrite earlier ones if the same property name appears twice.
+ */
+function extractCommonPsetPropertiesFromElement(args: {
+  ifcApi: WebIFC.IfcAPI;
+  modelId: number;
+  elementExpressId: number;
+  isDefinedByRelIds?: number[];
+}): CommonPsetProperties {
+  const { ifcApi, modelId, elementExpressId, isDefinedByRelIds } = args;
+  const out: CommonPsetProperties = {};
+  const relIds =
+    isDefinedByRelIds ?? collectIsDefinedByRelIds(ifcApi, modelId, elementExpressId);
+
+  for (const relId of relIds) {
+    const rel = ifcApi.GetLine(modelId, relId);
+    const relating = rel?.RelatingPropertyDefinition?.value ?? rel?.RelatingPropertyDefinition;
+    if (relating == null) continue;
+    const defId = Number(relating?.value ?? relating);
+    if (!Number.isFinite(defId)) continue;
+
+    if (ifcApi.GetLineType(modelId, defId) !== WebIFC.IFCPROPERTYSET) continue;
+
+    const pset = ifcApi.GetLine(modelId, defId);
+    const setName = pset?.Name?.value ?? pset?.Name;
+    if (!setName || !COMMON_PSET_NAMES.has(String(setName))) continue;
+
+    const hasProps = pset?.HasProperties;
+    if (!Array.isArray(hasProps)) continue;
+
+    for (const h of hasProps) {
+      const pid = Number(h?.value ?? h);
+      if (!Number.isFinite(pid)) continue;
+      if (ifcApi.GetLineType(modelId, pid) !== WebIFC.IFCPROPERTYSINGLEVALUE) continue;
+
+      const psv = ifcApi.GetLine(modelId, pid);
+      const propName = psv?.Name?.value ?? psv?.Name;
+      if (!propName || !COMMON_PSET_SINGLE_VALUE_NAMES.has(String(propName))) continue;
+
+      const nv = psv?.NominalValue;
+
+      switch (String(propName)) {
+        case "FireRating": {
+          const s = readIfcNominalLabelString(nv);
+          if (s != null) out.fireRating = s;
+          break;
+        }
+        case "AcousticRating": {
+          const s = readIfcNominalLabelString(nv);
+          if (s != null) out.acousticRating = s;
+          break;
+        }
+        case "ThermalTransmittance": {
+          const n = readIfcNominalNumber(nv);
+          if (n != null) out.thermalTransmittance = n;
+          break;
+        }
+        case "IsExternal": {
+          const b = readIfcNominalBoolean(nv);
+          if (b != null) out.isExternal = b;
+          break;
+        }
+        case "LoadBearing": {
+          const b = readIfcNominalBoolean(nv);
+          if (b != null) out.loadBearing = b;
+          break;
+        }
+        default:
+          break;
+      }
+    }
+  }
+
+  return out;
+}
+
+function extractBaseQuantitiesFromElement(args: {
+  ifcApi: WebIFC.IfcAPI;
+  modelId: number;
+  elementExpressId: number;
+  /** When set, skips a second inverse lookup on the element (large models). */
+  isDefinedByRelIds?: number[];
+}): Promise<{
+  length?: number;
+  height?: number;
+  width?: number;
+  grossVolume?: number;
+  netVolume?: number;
+  grossSideArea?: number;
+  netSideArea?: number;
+  grossFootprintArea?: number;
+  quantities: Array<{
+    name: string;
+    value: number;
+    unitName?: string;
+  }>;
+}> {
+  const { ifcApi, modelId, elementExpressId, isDefinedByRelIds } = args;
+
+  const relIds =
+    isDefinedByRelIds ?? collectIsDefinedByRelIds(ifcApi, modelId, elementExpressId);
 
   // Initialize all values as optional. We'll fill what we find.
   const result: any = {};
@@ -257,10 +419,12 @@ export async function enrichLayer1FromIfc(params: {
 
     for (const elementId of elementExpressIds) {
       const elementNode = elementById.get(elementId)!;
+      const relIds = collectIsDefinedByRelIds(ifcApi, modelId, elementId);
       const qtys = await extractBaseQuantitiesFromElement({
         ifcApi,
         modelId,
         elementExpressId: elementId,
+        isDefinedByRelIds: relIds,
       });
 
       if (qtys.length != null) store.add(elementNode, ONT("length"), toLitDecimal(qtys.length));
@@ -288,6 +452,23 @@ export async function enrichLayer1FromIfc(params: {
         if (q.unitName) store.add(qtyNode, ONT("ifcQuantityUnit"), $rdf.lit(q.unitName));
         store.add(elementNode, ONT("hasIfcQuantity"), qtyNode);
       }
+
+      const commonPset = extractCommonPsetPropertiesFromElement({
+        ifcApi,
+        modelId,
+        elementExpressId: elementId,
+        isDefinedByRelIds: relIds,
+      });
+      if (commonPset.fireRating != null)
+        store.add(elementNode, ONT("fireRating"), $rdf.lit(commonPset.fireRating));
+      if (commonPset.acousticRating != null)
+        store.add(elementNode, ONT("acousticRating"), $rdf.lit(commonPset.acousticRating));
+      if (commonPset.thermalTransmittance != null)
+        store.add(elementNode, ONT("thermalTransmittance"), toLitDecimal(commonPset.thermalTransmittance));
+      if (commonPset.isExternal != null)
+        store.add(elementNode, ONT("isExternal"), toLitBoolean(commonPset.isExternal));
+      if (commonPset.loadBearing != null)
+        store.add(elementNode, ONT("loadBearing"), toLitBoolean(commonPset.loadBearing));
     }
 
     for (const [materialId, materialNode] of materialById.entries()) {
