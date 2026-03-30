@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { parsePrimaryQuantity } from "@/lib/phase3-carbon-calc";
 
 export type ElementPassportMaterial = {
   materialId: number;
@@ -62,8 +63,7 @@ export default function ElementPassportView(props: Props) {
 
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
-    if (!t) return passports;
-    return passports.filter((p) => {
+    const matches = (t ? passports.filter((p) => {
       const hay = [
         String(p.elementId),
         p.elementName ?? "",
@@ -79,7 +79,64 @@ export default function ElementPassportView(props: Props) {
         .join(" ")
         .toLowerCase();
       return hay.includes(t);
+    }) : [...passports]);
+
+    // Step 4/5 request:
+    // Sort by quantity magnitude (biggest first) and multiply by multiplicity
+    // when the API dedupes identical element names (`sameNameElementCount`).
+    const PREFERRED_QTY_ORDER = [
+      "NetVolume",
+      "GrossVolume",
+      "NetArea",
+      "Mass",
+      "GrossArea",
+      "NetSideArea",
+      "GrossSideArea",
+      "NetFootprintArea",
+      "GrossFootprintArea",
+      "Length",
+      "Width",
+      "Height",
+    ] as const;
+
+    const scoreForPassport = (p: ElementPassport) => {
+      const preferred = PREFERRED_QTY_ORDER.map((name) =>
+        p.ifcQuantities.find((q) => q.quantityName === name)
+      )
+        .filter(Boolean)
+        .slice(0, 3) as Array<{ quantityName: string; unit?: string; value: number }>;
+
+      const compactParts = preferred.length
+        ? preferred
+        : p.ifcQuantities.length
+          ? [p.ifcQuantities[0]]
+          : [];
+
+      const compactQuantities = compactParts.length
+        ? compactParts
+            .map((q) => {
+              const unit = q.unit ? ` ${q.unit}` : "";
+              return `${q.quantityName}: ${q.value}${unit}`;
+            })
+            .join(" | ")
+        : "";
+
+      const parsed = parsePrimaryQuantity(compactQuantities);
+      const activity = parsed.kind === "none" ? 0 : parsed.value;
+      const multiplicity = p.sameNameElementCount ?? 1;
+      return activity * multiplicity;
+    };
+
+    matches.sort((a, b) => {
+      const ds = scoreForPassport(b) - scoreForPassport(a);
+      if (ds !== 0) return ds;
+      // Stable-ish tie-breakers
+      const dc = (b.materials?.length ?? 0) - (a.materials?.length ?? 0);
+      if (dc !== 0) return dc;
+      return a.elementId - b.elementId;
     });
+
+    return matches;
   }, [passports, q]);
 
   if (!passports.length && total === 0) {

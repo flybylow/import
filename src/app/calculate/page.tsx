@@ -714,114 +714,13 @@ export default function CalculatePrepPage() {
             </div>
           </details>
 
-          <details
-            className="mt-4 p-4 rounded bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800"
-            onToggle={(e) => {
-              if ((e.currentTarget as HTMLDetailsElement).open) {
-                void loadElementPassportsIfNeeded();
-              }
-            }}
-          >
-            <summary className="cursor-pointer text-sm font-medium text-zinc-900 dark:text-zinc-50">
-              Product passport graph (per IFC element)
-            </summary>
-            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-              Loaded on demand to speed up the dashboard. One card per unique element name with IFC,
-              quantities, and EPD; raise <code className="font-mono">elementPassportsLimit</code>{" "}
-              (max 300), or set <code className="font-mono">elementPassportsUniqueName=false</code>{" "}
-              for raw elements.
-            </p>
-            {loadingPassports ? (
-              <p className="mt-3 text-xs text-zinc-500">Loading element passports…</p>
-            ) : null}
-            <div className="mt-3">
-              {status.elementPassports?.length != null ? (
-                <ElementPassportView
-                  passports={status.elementPassports}
-                  total={status.elementPassportTotal ?? status.elementPassports.length}
-                  limit={status.elementPassportsLimit ?? status.elementPassports.length}
-                  totalElementsInModel={
-                    status.elementPassportElementsTotal ?? status.elementCount
-                  }
-                  uniqueByName={status.elementPassportsUniqueName !== false}
-                  co2ByMaterialId={co2ByMaterialId}
-                />
-              ) : (
-                <p className="text-xs text-zinc-500">No passport data in this response.</p>
-              )}
-            </div>
-            {calculateResult ? (
-              <div className="mt-3 rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-2">
-                <div className="text-xs font-medium text-zinc-800 dark:text-zinc-200">
-                  CO2 mapped into passports (below)
-                </div>
-                <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  Values are shown per material and summed per element where material-id matches are available.
-                </p>
-                <div className="mt-2 max-h-48 overflow-auto rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2">
-                  {materialCalcGroups.length ? (
-                    <MaterialCalcGroupList groups={materialCalcGroups} compact />
-                  ) : Object.keys(co2ByMaterialId).length ? (
-                    <div className="space-y-1 text-[11px] font-mono">
-                      {Object.entries(co2ByMaterialId)
-                        .sort((a, b) => Number(b[1]) - Number(a[1]))
-                        .slice(0, 12)
-                        .map(([materialId, kg]) => (
-                          <div key={`passport-co2-${materialId}`} className="flex items-center justify-between gap-2">
-                            <span className="truncate" title={`IFC expressId ${materialId}`}>
-                              {calcLabelByMaterialId.get(Number(materialId)) ??
-                                `IFC expressId ${materialId}`}
-                            </span>
-                            <span>{Number(kg).toFixed(3)} kgCO2e</span>
-                          </div>
-                        ))}
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      No material-level CO2 mapping found yet.
-                    </p>
-                  )}
-                </div>
-              </div>
-            ) : null}
-          </details>
-
-          <details
-            className="mt-4 p-4 rounded bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800"
-            onToggle={(e) => {
-              if ((e.currentTarget as HTMLDetailsElement).open) {
-                setSignaturePanelEnabled(true);
-              }
-            }}
-          >
-            <summary className="cursor-pointer text-sm font-medium text-zinc-900 dark:text-zinc-50">
-              Signature passports (grouped identical elements)
-            </summary>
-            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-              One signature per identical “materials + IFC BaseQuantities” set.
-              Carbon is computed per signature (using the representative EPD + quantities)
-              and scaled by the signature instance count.
-            </p>
-
-            <SignaturePassportsPanel
-              projectId={projectId}
-              enabled={signaturePanelEnabled}
-              pageSize={50}
-            />
-          </details>
-
           <details className="mt-4 p-4 rounded bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
             <summary className="cursor-pointer text-sm font-medium">
-              Materials to calculate (with EPD)
+              Materials to calculate ({matchedMaterials.length} of {status.epdCoverage.materialsTotal} with EPD)
             </summary>
             <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
               Listed from the KB graph, these are the materials included in
               calculation because they already have an EPD link.
-            </p>
-            <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-200">
-              <code className="font-mono">
-                {matchedMaterials.length}/{status.epdCoverage.materialsTotal}
-              </code>
             </p>
             <div className="mt-2 flex items-center gap-2 text-xs">
               <span className="text-zinc-600 dark:text-zinc-300">Group by:</span>
@@ -1046,41 +945,42 @@ export default function CalculatePrepPage() {
                 </pre>
               </details>
 
-              <div className="mt-3 flex items-center gap-3">
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60 text-sm"
-                  onClick={runCalculate}
-                  disabled={calculating || selectionForApi.length === 0}
-                  title={
-                    selectionForApi.length === 0
-                      ? "Select at least one item with quantities"
-                      : undefined
-                  }
-                >
-                  {calculating ? `Calculating... ${calcElapsedSec}s` : "Calculate"}
-                </button>
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Sends selected rows to <code className="font-mono">POST /api/calculate</code>.
-                </span>
-              </div>
-              {calculating ? (
-                <div className="mt-2 rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-2">
-                  <div className="flex items-center justify-between gap-2 text-xs">
-                    <span className="text-zinc-700 dark:text-zinc-200">{calculatePhaseLabel}</span>
-                    <span className="font-mono text-zinc-500 dark:text-zinc-400">{calcElapsedSec}s</span>
-                  </div>
-                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
-                    <div
-                      className="h-full rounded bg-zinc-700 dark:bg-zinc-300 transition-all duration-500"
-                      style={{ width: `${calcProgressPct}%` }}
-                    />
-                  </div>
-                </div>
-              ) : null}
             </div>
 
           </details>
+
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60 text-sm"
+              onClick={runCalculate}
+              disabled={calculating || selectionForApi.length === 0}
+              title={
+                selectionForApi.length === 0
+                  ? "Select at least one item with quantities"
+                  : undefined
+              }
+            >
+              {calculating ? `Calculating... ${calcElapsedSec}s` : "Calculate"}
+            </button>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              Sends selected rows to <code className="font-mono">POST /api/calculate</code>.
+            </span>
+          </div>
+          {calculating ? (
+            <div className="mt-2 rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-2">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="text-zinc-700 dark:text-zinc-200">{calculatePhaseLabel}</span>
+                <span className="font-mono text-zinc-500 dark:text-zinc-400">{calcElapsedSec}s</span>
+              </div>
+              <div className="mt-1 h-1.5 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+                <div
+                  className="h-full rounded bg-zinc-700 dark:bg-zinc-300 transition-all duration-500"
+                  style={{ width: `${calcProgressPct}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
 
         </div>
       ) : null}
@@ -1295,6 +1195,69 @@ export default function CalculatePrepPage() {
             )}
           </div>
         </div>
+      ) : null}
+
+      {calculateResult && status ? (
+        <>
+          <details
+            className="mt-4 p-4 rounded bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800"
+            onToggle={(e) => {
+              if ((e.currentTarget as HTMLDetailsElement).open) {
+                void loadElementPassportsIfNeeded();
+              }
+            }}
+          >
+            <summary className="cursor-pointer text-sm font-medium text-zinc-900 dark:text-zinc-50">
+              Step 5 - Product passport graph (per IFC element)
+            </summary>
+            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+              Loaded on demand. One card per element (or per unique name if deduped). Use this to verify the
+              materials, IFC quantities, and the CO2 mapped into passports.
+            </p>
+            {loadingPassports ? (
+              <p className="mt-3 text-xs text-zinc-500">Loading element passports…</p>
+            ) : null}
+            <div className="mt-3">
+              {status.elementPassports?.length != null ? (
+                <ElementPassportView
+                  passports={status.elementPassports}
+                  total={status.elementPassportTotal ?? status.elementPassports.length}
+                  limit={status.elementPassportsLimit ?? status.elementPassports.length}
+                  totalElementsInModel={
+                    status.elementPassportElementsTotal ?? status.elementCount
+                  }
+                  uniqueByName={status.elementPassportsUniqueName !== false}
+                  co2ByMaterialId={co2ByMaterialId}
+                />
+              ) : (
+                <p className="text-xs text-zinc-500">No passport data in this response.</p>
+              )}
+            </div>
+          </details>
+
+          <details
+            className="mt-4 p-4 rounded bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800"
+            onToggle={(e) => {
+              if ((e.currentTarget as HTMLDetailsElement).open) {
+                setSignaturePanelEnabled(true);
+              }
+            }}
+          >
+            <summary className="cursor-pointer text-sm font-medium text-zinc-900 dark:text-zinc-50">
+              Step 5 - Signature passports (grouped identical elements)
+            </summary>
+            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+              One signature per identical “materials + IFC BaseQuantities” set. Carbon is computed per signature
+              and scaled by the signature instance count.
+            </p>
+
+            <SignaturePassportsPanel
+              projectId={projectId}
+              enabled={signaturePanelEnabled}
+              pageSize={50}
+            />
+          </details>
+        </>
       ) : null}
     </div>
   );

@@ -4,6 +4,8 @@ import { createHash } from "crypto";
 import * as $rdf from "rdflib";
 import { NextResponse } from "next/server";
 
+import { parsePrimaryQuantity } from "@/lib/phase3-carbon-calc";
+
 import { getAvailableEpdsCatalog } from "@/lib/available-epds";
 import { calculationBlockedReason } from "@/lib/kb-read-epd";
 import { extractMatchedSourceBreakdownFromStore } from "@/lib/kb-epd-stats";
@@ -190,6 +192,32 @@ export type SignaturePassport = {
   }>;
 };
 
+type SignaturePassportsCacheEntry = {
+  kbMtimeMs: number;
+  kbSizeBytes: number;
+  orderedSignatures: SignaturePassport[];
+  total: number;
+};
+
+// In-memory cache to avoid re-building + re-sorting all signature groups
+// on every paginated request. Invalidated by KB file mtime/size.
+const signaturePassportsCache = new Map<string, SignaturePassportsCacheEntry>();
+
+const PREFERRED_QTY_ORDER = [
+  "NetVolume",
+  "GrossVolume",
+  "NetArea",
+  "Mass",
+  "GrossArea",
+  "NetSideArea",
+  "GrossSideArea",
+  "NetFootprintArea",
+  "GrossFootprintArea",
+  "Length",
+  "Width",
+  "Height",
+] as const;
+
 function stableStringifyForSignature(v: unknown): string {
   // Minimal stable serializer for signature keys: arrays/objects are canonicalized by sorting keys.
   // We keep it local to avoid bringing in extra deps.
@@ -260,6 +288,31 @@ function signatureIdFromKey(signatureKey: string): string {
   // Short deterministic id for grouping + UI stable key.
   const hex = createHash("sha1").update(signatureKey).digest("hex");
   return `sig-${hex.slice(0, 16)}`;
+}
+
+function activityScoreFromIfcQuantities(
+  ifcQuantities: Array<{ quantityName: string; unit?: string; value: number }>
+): number {
+  const preferred = PREFERRED_QTY_ORDER.map((name) =>
+    ifcQuantities.find((q) => q.quantityName === name)
+  )
+    .filter(Boolean)
+    .slice(0, 3) as Array<{ quantityName: string; unit?: string; value: number }>;
+
+  const compactParts =
+    preferred.length > 0 ? preferred : ifcQuantities.length > 0 ? [ifcQuantities[0]] : [];
+
+  const compactQuantities = compactParts.length
+    ? compactParts
+        .map((q) => {
+          const unit = q.unit ? ` ${q.unit}` : "";
+          return `${q.quantityName}: ${q.value}${unit}`;
+        })
+        .join(" | ")
+    : "";
+
+  const parsed = parsePrimaryQuantity(compactQuantities);
+  return parsed.kind === "none" ? 0 : parsed.value;
 }
 
 function extractElementIdsFromStore(store: $rdf.Store): number[] {
@@ -485,6 +538,7 @@ export async function GET(request: Request) {
   }
 
   const kbTtl = fs.readFileSync(kbPathOnDisk, "utf-8");
+  const kbStat = fs.statSync(kbPathOnDisk);
 
   const rawPassportLimit = url.searchParams.get("elementPassportsLimit");
   const parsedPassportLimit = rawPassportLimit != null ? Number(rawPassportLimit) : 80;
@@ -557,45 +611,89 @@ export async function GET(request: Request) {
   } | null = null;
 
   if (includeSignaturePassports) {
-    const allElementIds = extractElementIdsFromStore(store);
-    const signatureById = new Map<string, { signature: SignaturePassport; repKey: number }>();
+    const cached = signaturePassportsCache.get(projectId);
+    const cacheValid =
+      cached &&
+      cached.kbMtimeMs === kbStat.mtimeMs &&
+      cached.kbSizeBytes === kbStat.size;
 
-    // Iterate in increasing elementId to ensure representative element is deterministic.
-    for (const elementId of allElementIds) {
-      const p = buildOneElementPassport(store, elementId);
-      const signatureKey = signatureKeyFromPassport(p);
-      const signatureId = signatureIdFromKey(signatureKey);
+    let orderedSignatures: SignaturePassport[];
+    let total: number;
 
-      const existing = signatureById.get(signatureId);
-      if (existing) {
-        existing.signature.instanceCount += 1;
-        continue;
+    if (cacheValid) {
+      orderedSignatures = cached!.orderedSignatures;
+      total = cached!.total;
+    } else {
+      const allElementIds = extractElementIdsFromStore(store);
+      const signatureById = new Map<
+        string,
+        { signature: SignaturePassport; repKey: number }
+      >();
+
+      // Iterate in increasing elementId to ensure representative element is deterministic.
+      for (const elementId of allElementIds) {
+        const p = buildOneElementPassport(store, elementId);
+        const signatureKey = signatureKeyFromPassport(p);
+        const signatureId = signatureIdFromKey(signatureKey);
+
+        const existing = signatureById.get(signatureId);
+        if (existing) {
+          existing.signature.instanceCount += 1;
+          continue;
+        }
+
+        const signature: SignaturePassport = {
+          signatureId,
+          instanceCount: 1,
+          representativeElement: {
+            elementId: p.elementId,
+            elementName: p.elementName,
+            ifcType: p.ifcType,
+            globalId: p.globalId,
+            expressId: p.expressId,
+          },
+          materials: p.materials,
+          ifcQuantities: p.ifcQuantities,
+        };
+
+        signatureById.set(signatureId, { signature, repKey: elementId });
       }
 
-      const signature: SignaturePassport = {
-        signatureId,
-        instanceCount: 1,
-        representativeElement: {
-          elementId: p.elementId,
-          elementName: p.elementName,
-          ifcType: p.ifcType,
-          globalId: p.globalId,
-          expressId: p.expressId,
-        },
-        materials: p.materials,
-        ifcQuantities: p.ifcQuantities,
-      };
+      // Global ordering request:
+      // Sort signatures by biggest total quantity magnitude (activity * instanceCount).
+      // This ensures page 2+ continues the correct overall descending ordering.
+      orderedSignatures = Array.from(signatureById.values())
+        .map((v) => {
+          const activityPerInstance = activityScoreFromIfcQuantities(
+            v.signature.ifcQuantities
+          );
+          return {
+            signature: v.signature,
+            score: activityPerInstance * v.signature.instanceCount,
+          };
+        })
+        .sort((a, b) => {
+          const ds = b.score - a.score;
+          if (ds !== 0) return ds;
+          return a.signature.signatureId.localeCompare(
+            b.signature.signatureId
+          );
+        })
+        .map((v) => v.signature);
 
-      signatureById.set(signatureId, { signature, repKey: elementId });
+      total = orderedSignatures.length;
+      signaturePassportsCache.set(projectId, {
+        kbMtimeMs: kbStat.mtimeMs,
+        kbSizeBytes: kbStat.size,
+        orderedSignatures,
+        total,
+      });
     }
 
-    const orderedSignatures = Array.from(signatureById.values())
-      .map((v) => v.signature)
-      .sort((a, b) => a.signatureId.localeCompare(b.signatureId));
-
-    const total = orderedSignatures.length;
-    const rows = orderedSignatures.slice(safeOffset, safeOffset + elementPassportsLimit);
-
+    const rows = orderedSignatures.slice(
+      safeOffset,
+      safeOffset + elementPassportsLimit
+    );
     signaturePassportBundle = {
       rows,
       total,

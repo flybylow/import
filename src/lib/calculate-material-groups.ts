@@ -11,6 +11,11 @@ export type MaterialCalcLine = {
   elementCount?: number;
   compactQuantities?: string;
   calculationNote?: string | null;
+  /**
+   * Quantity magnitude used for conversion in Phase 3 calculate.
+   * Comes from API rows as `activityMetric` (preferred) or `quantityValue` (fallback).
+   */
+  activityMetric?: number;
 };
 
 export type MaterialCalcGroup = {
@@ -20,6 +25,8 @@ export type MaterialCalcGroup = {
   totalKgCO2e: number;
   ifcMaterialCount: number;
   lines: MaterialCalcLine[];
+  /** For Step 4 ordering: largest quantity magnitude first. */
+  maxActivityMetric: number;
 };
 
 /** Remove trailing ` (IFC expressId 123)` from API material labels. */
@@ -59,6 +66,14 @@ export function groupMaterialCalcRows(rows: unknown[] | undefined): MaterialCalc
         typeof row.compactQuantities === "string" ? row.compactQuantities : undefined,
       calculationNote:
         row.calculationNote == null ? null : String(row.calculationNote),
+      activityMetric:
+        (typeof (row as any).activityMetric === "number" &&
+        Number.isFinite((row as any).activityMetric)
+          ? (row as any).activityMetric
+          : typeof (row as any).quantityValue === "number" &&
+              Number.isFinite((row as any).quantityValue)
+            ? (row as any).quantityValue
+            : undefined),
     };
 
     const existing = map.get(key);
@@ -74,7 +89,16 @@ export function groupMaterialCalcRows(rows: unknown[] | undefined): MaterialCalc
     const totalKgCO2e = Number(
       lines.reduce((s, l) => s + (Number.isFinite(l.kgCO2e) ? l.kgCO2e : 0), 0).toFixed(6)
     );
+
+    const maxActivityMetric = lines.reduce((m, l) => {
+      const v = l.activityMetric;
+      if (v == null || !Number.isFinite(v)) return m;
+      return Math.max(m, v);
+    }, 0);
+
     lines.sort((a, b) => {
+      const dq = (b.activityMetric ?? 0) - (a.activityMetric ?? 0);
+      if (dq !== 0) return dq;
       const d = b.kgCO2e - a.kgCO2e;
       if (d !== 0) return d;
       return (a.ifcMaterialExpressId ?? 0) - (b.ifcMaterialExpressId ?? 0);
@@ -86,8 +110,17 @@ export function groupMaterialCalcRows(rows: unknown[] | undefined): MaterialCalc
       totalKgCO2e,
       ifcMaterialCount: lines.length,
       lines,
+      maxActivityMetric,
     });
   }
 
-  return groups.sort((a, b) => b.totalKgCO2e - a.totalKgCO2e);
+  // Step 4: order by biggest quantities first (quantity magnitude),
+  // tie-break by biggest carbon.
+  return groups.sort((a, b) => {
+    const dq = b.maxActivityMetric - a.maxActivityMetric;
+    if (dq !== 0) return dq;
+    const dc = b.totalKgCO2e - a.totalKgCO2e;
+    if (dc !== 0) return dc;
+    return a.humanLabel.localeCompare(b.humanLabel);
+  });
 }

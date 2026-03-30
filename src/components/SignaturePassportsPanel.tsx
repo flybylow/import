@@ -214,10 +214,15 @@ export default function SignaturePassportsPanel({
               ) : null}
             </div>
             <div>
-              Total CO2e (loaded):{" "}
+              CO2e (loaded):{" "}
               <code className="font-mono">
                 {Number(totalKgCO2eLoaded).toFixed(3)} kgCO2e
-              </code>
+              </code>{" "}
+              {total != null ? (
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  ({passports.length}/{total})
+                </span>
+              ) : null}
             </div>
           </div>
         </div>

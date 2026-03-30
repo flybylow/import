@@ -1,9 +1,9 @@
 {
   "projectId": "example",
-  "calculationId": "2026-03-30T06:36:58.334Z",
+  "calculationId": "2026-03-30T08:34:54.793Z",
   "cached": false,
   "totalKgCO2e": 1468508.934191,
-  "selectedCount": 316,
+  "selectedCount": 315,
   "byMaterial": [
     {
       "key": "mat-243",
@@ -4850,30 +4850,6 @@
       "kgCO2e": 0.399395
     },
     {
-      "key": "mat-472678",
-      "materialLabel": "26 Gipsplaat (IFC expressId 472678)",
-      "materialIds": [
-        472678
-      ],
-      "epd": "gypsum_plaster (Gypsum plaster (route via source))",
-      "epdSlug": "gypsum_plaster",
-      "elementCount": 3,
-      "quantityRecordCount": 6,
-      "compactQuantities": "NA: 89.755632 | GA: 91.344768",
-      "ifcMaterialExpressId": 472678,
-      "quantityKind": "area",
-      "quantityValue": 89.755632,
-      "activityMetric": 89.755632,
-      "layerThicknessMetersFromKb": null,
-      "layerThicknessMetersInferred": null,
-      "gwpPerUnitFromKb": 0.3217984160206414,
-      "declaredUnitFromKb": "kg",
-      "densityKgPerM3FromKb": 1200,
-      "factorKgCO2ePerUnit": 0.3217984160206414,
-      "calculationNote": "quantity_area_unsupported_for_per_kg",
-      "kgCO2e": 0
-    },
-    {
       "key": "mat-475091",
       "materialLabel": "IFC_breedplaat_schil_60mm (IFC expressId 475091)",
       "materialIds": [
@@ -7951,7 +7927,7 @@
     {
       "epd": "gypsum_plaster (Gypsum plaster (route via source))",
       "kgCO2e": 12056.825502,
-      "count": 8
+      "count": 7
     },
     {
       "epd": "timber (Timber, Closed panel timber frame system - No Carbon Storage)",
@@ -7990,10 +7966,6 @@
       "reason": "quantity_area_unsupported_for_per_kg"
     },
     {
-      "key": "mat-472678",
-      "reason": "quantity_area_unsupported_for_per_kg"
-    },
-    {
       "key": "mat-822413",
       "reason": "quantity_area_unsupported_for_per_kg"
     },
@@ -8004,7 +7976,7 @@
   ],
   "meta": {
     "methodology": "IFC quantity totals (from enriched graph) × GWP/density from Phase 2 KB TTL (`ont:gwpPerUnit`, `ont:density`, `ont:declaredUnit`). Phase A gate: EPD must not be `ont:epdDataProvenance` placeholder routing-only and must have `ont:gwpPerUnit`.",
-    "calculatedAt": "2026-03-30T06:36:58.334Z",
+    "calculatedAt": "2026-03-30T08:34:54.793Z",
     "apiVersion": 2,
     "kbPathUsed": "data/example-kb.ttl"
   }
