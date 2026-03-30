@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { createHash } from "crypto";
 import * as $rdf from "rdflib";
 import { NextResponse } from "next/server";
 
@@ -142,6 +143,12 @@ export type ElementPassportMaterial = {
   matchType?: string;
   matchConfidence?: number;
   lcaReady?: boolean;
+  /** KB literal `ont:epdDataProvenance` (used for compliance-level “placeholder vs real” evidence). */
+  epdDataProvenance?: string;
+  /** KB literal `ont:sourceProductUri` (external product / fiche URL). */
+  sourceProductUri?: string;
+  /** KB literal `ont:sourceFileName` (local doc identifier for `/api/file` when present). */
+  sourceFileName?: string;
   declaredUnit?: string;
   gwpPerUnit?: number;
   densityKgPerM3?: number;
@@ -162,6 +169,115 @@ export type ElementPassport = {
     value: number;
   }>;
 };
+
+export type SignaturePassport = {
+  signatureId: string;
+  instanceCount: number;
+  representativeElement: {
+    elementId: number;
+    elementName?: string;
+    ifcType?: string;
+    globalId?: string;
+    expressId?: number;
+  };
+  /** Identical materials across the signature group. */
+  materials: ElementPassportMaterial[];
+  /** Identical BaseQuantities across the signature group. */
+  ifcQuantities: Array<{
+    quantityName: string;
+    unit?: string;
+    value: number;
+  }>;
+};
+
+function stableStringifyForSignature(v: unknown): string {
+  // Minimal stable serializer for signature keys: arrays/objects are canonicalized by sorting keys.
+  // We keep it local to avoid bringing in extra deps.
+  if (v == null) return "null";
+  if (typeof v === "string") return JSON.stringify(v);
+  if (typeof v === "number") return Number.isFinite(v) ? String(v) : "NaN";
+  if (typeof v === "boolean") return v ? "true" : "false";
+  if (Array.isArray(v)) return `[${v.map(stableStringifyForSignature).join(",")}]`;
+  if (typeof v === "object") {
+    const obj = v as Record<string, unknown>;
+    const keys = Object.keys(obj).sort();
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringifyForSignature(obj[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(String(v));
+}
+
+function signatureKeyFromPassport(p: ElementPassport): string {
+  // Carbon/evidence depends on the EPD factors attached to materials (gwp + declared unit + density)
+  // plus the BaseQuantities values for the activity metric.
+  const materialSig = p.materials
+    .map((m) => ({
+      materialId: m.materialId,
+      hasEPD: m.hasEPD,
+      epdSlug: m.epdSlug ?? "",
+      declaredUnit: m.declaredUnit ?? "",
+      gwpPerUnit: m.gwpPerUnit ?? null,
+      densityKgPerM3: m.densityKgPerM3 ?? null,
+      epdDataProvenance: m.epdDataProvenance ?? "",
+    }))
+    .sort((a, b) => {
+      const sa = [
+        a.materialId,
+        a.epdSlug,
+        a.declaredUnit,
+        String(a.gwpPerUnit),
+        String(a.densityKgPerM3),
+      ].join("|");
+      const sb = [
+        b.materialId,
+        b.epdSlug,
+        b.declaredUnit,
+        String(b.gwpPerUnit),
+        String(b.densityKgPerM3),
+      ].join("|");
+      return sa.localeCompare(sb);
+    });
+
+  const quantitiesSig = p.ifcQuantities
+    .map((q) => ({
+      quantityName: q.quantityName,
+      unit: q.unit ?? "",
+      value: q.value,
+    }))
+    .sort((a, b) => {
+      const sa = `${a.quantityName}|${a.unit}|${String(a.value)}`;
+      const sb = `${b.quantityName}|${b.unit}|${String(b.value)}`;
+      return sa.localeCompare(sb);
+    });
+
+  return stableStringifyForSignature({
+    // optional extra safety: schema:name could be included later
+    materials: materialSig,
+    ifcQuantities: quantitiesSig,
+  });
+}
+
+function signatureIdFromKey(signatureKey: string): string {
+  // Short deterministic id for grouping + UI stable key.
+  const hex = createHash("sha1").update(signatureKey).digest("hex");
+  return `sig-${hex.slice(0, 16)}`;
+}
+
+function extractElementIdsFromStore(store: $rdf.Store): number[] {
+  const stmts = store.statementsMatching(null as any, RDF("type"), BOT("Element"));
+  const ids: number[] = [];
+  const seen = new Set<number>();
+  for (const st of stmts) {
+    const m = /element-(\d+)$/.exec(String(st.subject.value));
+    if (!m) continue;
+    const id = Number(m[1]);
+    if (!Number.isFinite(id)) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  ids.sort((a, b) => a - b);
+  return ids;
+}
 
 function getMaterialDisplayName(store: $rdf.Store, materialId: number): string {
   return materialDisplayNameFromStore(store, materialId);
@@ -228,6 +344,9 @@ function buildOneElementPassport(
     const matchConfidence = safeNum(getLitValue(store, mat, ONT("matchConfidence")));
 
     let lcaReady: boolean | undefined;
+    let epdDataProvenance: string | undefined;
+    let sourceProductUri: string | undefined;
+    let sourceFileName: string | undefined;
     let declaredUnit: string | undefined;
     let gwpPerUnit: number | undefined;
     let densityKgPerM3: number | undefined;
@@ -237,9 +356,10 @@ function buildOneElementPassport(
       gwpPerUnit = safeNum(getLitValue(store, ep, ONT("gwpPerUnit")));
       declaredUnit = getLitValue(store, ep, ONT("declaredUnit")) || undefined;
       densityKgPerM3 = safeNum(getLitValue(store, ep, ONT("density")));
-      const prov = getLitValue(store, ep, ONT("epdDataProvenance")) as
-        | string
-        | undefined;
+      epdDataProvenance = getLitValue(store, ep, ONT("epdDataProvenance")) || undefined;
+      sourceProductUri = getLitValue(store, ep, ONT("sourceProductUri")) || undefined;
+      sourceFileName = getLitValue(store, ep, ONT("sourceFileName")) || undefined;
+      const prov = epdDataProvenance;
       lcaReady =
         calculationBlockedReason({
           gwpPerUnit: gwpPerUnit,
@@ -256,6 +376,9 @@ function buildOneElementPassport(
       matchType,
       matchConfidence,
       lcaReady,
+      epdDataProvenance,
+      sourceProductUri,
+      sourceFileName,
       declaredUnit,
       gwpPerUnit,
       densityKgPerM3,
@@ -343,6 +466,9 @@ function buildElementPassports(
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const projectId = url.searchParams.get("projectId") ?? undefined;
+  const elementPassportsMode = url.searchParams.get("elementPassportsMode") ?? "raw";
+  const rawOffset = url.searchParams.get("elementPassportsOffset");
+  const elementPassportsOffset = rawOffset != null ? Number(rawOffset) : 0;
 
   if (!projectId) {
     return NextResponse.json({ error: "Missing `projectId`" }, { status: 400 });
@@ -361,12 +487,16 @@ export async function GET(request: Request) {
   const kbTtl = fs.readFileSync(kbPathOnDisk, "utf-8");
 
   const rawPassportLimit = url.searchParams.get("elementPassportsLimit");
-  const parsedPassportLimit =
-    rawPassportLimit != null ? Number(rawPassportLimit) : 80;
+  const parsedPassportLimit = rawPassportLimit != null ? Number(rawPassportLimit) : 80;
+
+  const isSignatureMode = elementPassportsMode === "signature";
+  const maxLimit = isSignatureMode ? 1000 : 300;
+
   const elementPassportsLimit = Math.min(
-    300,
+    maxLimit,
     Math.max(0, Number.isFinite(parsedPassportLimit) ? parsedPassportLimit : 80)
   );
+  const safeOffset = Number.isFinite(elementPassportsOffset) ? elementPassportsOffset : 0;
 
   const uniqueByElementName =
     url.searchParams.get("elementPassportsUniqueName") !== "false";
@@ -374,6 +504,8 @@ export async function GET(request: Request) {
   /** When false, skip per-element passport rows (still one KB parse). Faster Calculate dashboard first paint. */
   const includeElementPassports =
     url.searchParams.get("includeElementPassports") !== "false";
+
+  const includeSignaturePassports = isSignatureMode && includeElementPassports;
 
   const rawMatchedLimit = url.searchParams.get("matchedLimit");
   const parsedMatched =
@@ -401,15 +533,76 @@ export async function GET(request: Request) {
     .filter((id) => !matchedSet.has(id))
     .sort((a, b) => a - b);
 
-  const elementPassportBundle = includeElementPassports
-    ? buildElementPassports(store, elementPassportsLimit, {
-        uniqueByElementName,
-      })
+  const elementPassportBundle = !includeSignaturePassports
+    ? includeElementPassports
+      ? buildElementPassports(store, elementPassportsLimit, {
+          uniqueByElementName,
+        })
+      : {
+          rows: [] as ElementPassport[],
+          total: elementCount,
+          totalElements: elementCount,
+        }
     : {
-        rows: [] as ElementPassport[],
+        rows: [],
         total: elementCount,
         totalElements: elementCount,
       };
+
+  let signaturePassportBundle: {
+    rows: SignaturePassport[];
+    total: number;
+    offset: number;
+    limit: number;
+  } | null = null;
+
+  if (includeSignaturePassports) {
+    const allElementIds = extractElementIdsFromStore(store);
+    const signatureById = new Map<string, { signature: SignaturePassport; repKey: number }>();
+
+    // Iterate in increasing elementId to ensure representative element is deterministic.
+    for (const elementId of allElementIds) {
+      const p = buildOneElementPassport(store, elementId);
+      const signatureKey = signatureKeyFromPassport(p);
+      const signatureId = signatureIdFromKey(signatureKey);
+
+      const existing = signatureById.get(signatureId);
+      if (existing) {
+        existing.signature.instanceCount += 1;
+        continue;
+      }
+
+      const signature: SignaturePassport = {
+        signatureId,
+        instanceCount: 1,
+        representativeElement: {
+          elementId: p.elementId,
+          elementName: p.elementName,
+          ifcType: p.ifcType,
+          globalId: p.globalId,
+          expressId: p.expressId,
+        },
+        materials: p.materials,
+        ifcQuantities: p.ifcQuantities,
+      };
+
+      signatureById.set(signatureId, { signature, repKey: elementId });
+    }
+
+    const orderedSignatures = Array.from(signatureById.values())
+      .map((v) => v.signature)
+      .sort((a, b) => a.signatureId.localeCompare(b.signatureId));
+
+    const total = orderedSignatures.length;
+    const rows = orderedSignatures.slice(safeOffset, safeOffset + elementPassportsLimit);
+
+    signaturePassportBundle = {
+      rows,
+      total,
+      offset: safeOffset,
+      limit: elementPassportsLimit,
+    };
+  }
 
   const matchingPreview = buildMatchingPreview(store, {
     matchedIds: epdMatchedMaterialIds,
@@ -444,6 +637,11 @@ export async function GET(request: Request) {
     materialQuantityTrace,
     elementPassports: elementPassportBundle.rows,
     elementPassportTotal: elementPassportBundle.total,
+    // Signature mode outputs. In raw mode these are omitted (or null) to avoid UI confusion.
+    signaturePassports: signaturePassportBundle?.rows ?? undefined,
+    signaturePassportTotal: signaturePassportBundle?.total ?? undefined,
+    signaturePassportsOffset: signaturePassportBundle?.offset ?? undefined,
+    signaturePassportsLimit: signaturePassportBundle?.limit ?? undefined,
     /** Same as counting `bot:Element` subjects in the KB (may match `elementCount`). */
     elementPassportElementsTotal: elementPassportBundle.totalElements,
     elementPassportsUniqueName: uniqueByElementName,

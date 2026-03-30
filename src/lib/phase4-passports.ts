@@ -7,6 +7,9 @@ export type Phase4PassportMaterial = {
   matchType?: string;
   matchConfidence?: number;
   lcaReady?: boolean;
+  epdDataProvenance?: string;
+  sourceProductUri?: string;
+  sourceFileName?: string;
   declaredUnit?: string;
   gwpPerUnit?: number;
   densityKgPerM3?: number;

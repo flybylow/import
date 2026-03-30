@@ -176,6 +176,12 @@ function copyEpdFromSourceToBim(
   if (ds) dest.add(epdNode, ONT("source"), $rdf.lit(ds));
 
   dest.add(epdNode, ONT("sourceProductUri"), $rdf.lit(srcTerm.uri));
+  // Local doc identifier used by `/api/file?name=...` when the source also exists
+  // under `data/`.
+  const srcFileName = getLit(sourceStore, srcTerm, ONT("sourceFileName"));
+  if (srcFileName) {
+    dest.add(epdNode, ONT("sourceFileName"), $rdf.lit(srcFileName));
+  }
   dest.add(
     epdNode,
     ONT("resolvedAt"),

@@ -8,6 +8,7 @@ import ProjectIdField from "@/components/ProjectIdField";
 import StackedTotalBar from "@/components/StackedTotalBar";
 import { useToast } from "@/components/ToastProvider";
 import MaterialCalcGroupList from "@/components/MaterialCalcGroupList";
+import SignaturePassportsPanel from "@/components/SignaturePassportsPanel";
 import { dbg, dbgButton, dbgLoad } from "@/lib/client-pipeline-debug";
 import { groupMaterialCalcRows } from "@/lib/calculate-material-groups";
 import { useProjectId } from "@/lib/useProjectId";
@@ -125,6 +126,7 @@ export default function CalculatePrepPage() {
   const [calcElapsedSec, setCalcElapsedSec] = useState(0);
   const [loadingPassports, setLoadingPassports] = useState(false);
   const passportsFetchedRef = useRef(false);
+  const [signaturePanelEnabled, setSignaturePanelEnabled] = useState(false);
 
   const readyText = useMemo(() => {
     if (!status) return "";
@@ -782,6 +784,30 @@ export default function CalculatePrepPage() {
                 </div>
               </div>
             ) : null}
+          </details>
+
+          <details
+            className="mt-4 p-4 rounded bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800"
+            onToggle={(e) => {
+              if ((e.currentTarget as HTMLDetailsElement).open) {
+                setSignaturePanelEnabled(true);
+              }
+            }}
+          >
+            <summary className="cursor-pointer text-sm font-medium text-zinc-900 dark:text-zinc-50">
+              Signature passports (grouped identical elements)
+            </summary>
+            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+              One signature per identical “materials + IFC BaseQuantities” set.
+              Carbon is computed per signature (using the representative EPD + quantities)
+              and scaled by the signature instance count.
+            </p>
+
+            <SignaturePassportsPanel
+              projectId={projectId}
+              enabled={signaturePanelEnabled}
+              pageSize={50}
+            />
           </details>
 
           <details className="mt-4 p-4 rounded bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
