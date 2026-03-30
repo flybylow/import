@@ -27,7 +27,7 @@ export default function RootLayout({ children }) {
     >
       <body className="min-h-full flex flex-col">
         <header className="border-b border-zinc-200 dark:border-zinc-800">
-          <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+          <div className="w-full max-w-[1400px] mx-auto px-6 py-3 flex items-center justify-between gap-4">
             <nav className="flex flex-wrap items-center gap-4" aria-label="Main">
               <Link
                 href="/"

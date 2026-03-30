@@ -642,7 +642,7 @@ export default function CalculatePrepPage() {
   }, [calculateResult]);
 
   return (
-    <div className="max-w-4xl mx-auto p-6 flex flex-col gap-4">
+    <div className="w-full max-w-[1400px] mx-auto p-6 flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">Phase 3 - Calculate Dashboard</h1>
       <p className="text-sm text-zinc-700 dark:text-zinc-200">
         Final-stage overview for this project: readiness, selection, calculation,
@@ -914,9 +914,62 @@ export default function CalculatePrepPage() {
                               });
                             }}
                           />
-                          <span>
-                            <span className="font-mono">{row.materialLabel}</span>{" "}
-                            {"->"} {row.epd}
+                          <span className="flex-1 min-w-0">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-1">
+                              <div className="lg:col-span-2 min-w-0">
+                                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                                  Source (IFC trace)
+                                </div>
+                                <div
+                                  className="font-mono text-[11px] truncate"
+                                  title={row.materialLabel}
+                                >
+                                  {row.materialLabel}
+                                </div>
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                                  Mapped EPD (KB)
+                                </div>
+                                <div
+                                  className="font-mono text-[11px] truncate"
+                                  title={row.epd}
+                                >
+                                  {row.epd}
+                                </div>
+                              </div>
+
+                              <div>
+                                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                                  Elements
+                                </div>
+                                <div className="font-mono text-[11px]">
+                                  {row.elementCount}
+                                </div>
+                              </div>
+
+                              <div>
+                                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                                  Qty records
+                                </div>
+                                <div className="font-mono text-[11px]">
+                                  {row.quantityRecordCount}
+                                </div>
+                              </div>
+
+                              <div className="lg:col-span-4 sm:col-span-2">
+                                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                                  Quantities (compact)
+                                </div>
+                                <div
+                                  className="font-mono text-[11px] truncate"
+                                  title={row.compactQuantities}
+                                >
+                                  {row.compactQuantities}
+                                </div>
+                              </div>
+                            </div>
                           </span>
                         </label>
                       );
@@ -933,16 +986,78 @@ export default function CalculatePrepPage() {
                 <summary className="cursor-pointer text-xs underline">
                   Preview selected output list
                 </summary>
-                <pre className="mt-2 p-2 text-[11px] leading-5 font-mono max-h-[20vh] overflow-auto rounded border border-zinc-200 dark:border-zinc-800">
-                  {selectedCalculableRows.length
-                    ? selectedCalculableRows
-                        .map(
-                          (row) =>
-                            `${row.materialLabel} -> ${row.epd} | elements=${row.elementCount} | qtyRecords=${row.quantityRecordCount} | ${row.compactQuantities}`
-                        )
-                        .join("\n")
-                    : "No selected rows."}
-                </pre>
+                {selectedCalculableRows.length ? (
+                  <div className="mt-2 max-h-[20vh] overflow-auto rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2">
+                    <div className="space-y-2">
+                      {selectedCalculableRows.map((row) => (
+                        <div
+                          key={`preview-${row.key}`}
+                          className="border-b border-zinc-100 dark:border-zinc-800 pb-2 last:border-b-0"
+                        >
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-1">
+                            <div className="lg:col-span-2 min-w-0">
+                              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                                Source (IFC trace)
+                              </div>
+                              <div
+                                className="font-mono text-[11px] truncate"
+                                title={row.materialLabel}
+                              >
+                                {row.materialLabel}
+                              </div>
+                            </div>
+
+                            <div className="min-w-0">
+                              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                                Mapped EPD (KB)
+                              </div>
+                              <div
+                                className="font-mono text-[11px] truncate"
+                                title={row.epd}
+                              >
+                                {row.epd}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                                Elements
+                              </div>
+                              <div className="font-mono text-[11px]">
+                                {row.elementCount}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                                Qty records
+                              </div>
+                              <div className="font-mono text-[11px]">
+                                {row.quantityRecordCount}
+                              </div>
+                            </div>
+
+                            <div className="lg:col-span-4 sm:col-span-2">
+                              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                                Quantities (compact)
+                              </div>
+                              <div
+                                className="font-mono text-[11px] truncate"
+                                title={row.compactQuantities}
+                              >
+                                {row.compactQuantities}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-2 text-zinc-500 dark:text-zinc-400 text-xs">
+                    No selected rows.
+                  </div>
+                )}
               </details>
 
             </div>

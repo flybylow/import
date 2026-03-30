@@ -245,7 +245,7 @@ export default function SourcesPage() {
   const containerClass =
     showGapPanel && gapData
       ? "max-w-7xl mx-auto p-4 sm:p-6 flex flex-col gap-4"
-      : "max-w-4xl mx-auto p-6 flex flex-col gap-4";
+      : "w-full max-w-[1400px] mx-auto p-6 flex flex-col gap-4";
 
   const copyApiLine = async (materialId: number, text: string) => {
     try {

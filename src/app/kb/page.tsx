@@ -504,7 +504,7 @@ export default function KnowledgeBasePage() {
     unmatchedSelected.length === allUnmatchedIds.length;
 
   return (
-    <div className="max-w-4xl mx-auto p-6 flex flex-col gap-4">
+    <div className="w-full max-w-[1400px] mx-auto p-6 flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">Phase 2 - Link</h1>
       {detailsReady ? (
         <details className="text-sm text-zinc-700 dark:text-zinc-200">
