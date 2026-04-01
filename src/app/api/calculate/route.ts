@@ -508,6 +508,27 @@ export async function POST(request: Request) {
   const latestPath = path.join(dataDir, `${projectId}-calc-latest.json`);
   const ttlPath = path.join(dataDir, `${projectId}-calc.ttl`);
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+
+  // Preserve an append-only history so we never lose the "previous latest" on disk.
+  // This is especially important for the `example` project which we often regenerate during dev.
+  if (fs.existsSync(latestPath)) {
+    try {
+      const prevRaw = fs.readFileSync(latestPath, "utf-8");
+      const prev = JSON.parse(prevRaw) as { calculationId?: string } | null;
+      const prevId = String(prev?.calculationId ?? "").trim();
+      if (prevId && prevId !== calculationId) {
+        const historyDir = path.join(dataDir, `${projectId}-calc-history`);
+        if (!fs.existsSync(historyDir)) fs.mkdirSync(historyDir, { recursive: true });
+        const safePrevId = prevId.replace(/[^0-9A-Za-z_.-]/g, "_");
+        const historyPath = path.join(historyDir, `${safePrevId}.json`);
+        if (!fs.existsSync(historyPath)) {
+          fs.writeFileSync(historyPath, prevRaw, "utf-8");
+        }
+      }
+    } catch {
+      // best-effort; ignore corrupted previous files
+    }
+  }
   fs.writeFileSync(latestPath, JSON.stringify(result, null, 2), "utf-8");
 
   const calcNodeId = `calc-${toSafeSlug(projectId)}`;

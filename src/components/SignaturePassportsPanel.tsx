@@ -398,6 +398,36 @@ export default function SignaturePassportsPanel({
                     <div className="text-xl font-semibold tabular-nums font-mono text-emerald-700 dark:text-emerald-400">
                       {selectedCarbon.totalKgCO2e.toFixed(3)} kg CO₂e
                     </div>
+                    {(() => {
+                      const materials = selectedCarbon.materials ?? [];
+                      const hasNoQuantities = materials.some((m) => m.quantityKind === "none");
+                      const nonComputable = materials.filter(
+                        (m) =>
+                          (m.calculationNote && m.calculationNote !== "—") ||
+                          m.quantityKind === "none"
+                      );
+                      const sampleNote = nonComputable[0]?.calculationNote;
+                      if (!hasNoQuantities && nonComputable.length === 0) return null;
+                      return (
+                        <div className="mt-2 rounded-md border border-amber-200 dark:border-amber-800/70 bg-amber-50 dark:bg-amber-950/20 px-2.5 py-2 text-[11px] text-amber-900 dark:text-amber-200 leading-snug space-y-1">
+                          <div className="font-medium">Not fully computable from current data.</div>
+                          {hasNoQuantities ? (
+                            <div>
+                              Missing IFC quantities for this signature (shows as <span className="font-mono">none</span>
+                              ). Add quantities in the IFC/enrichment pipeline, or provide a manual quantity/EPD match.
+                            </div>
+                          ) : null}
+                          {sampleNote ? (
+                            <div className="font-mono break-words opacity-90">
+                              Example: {sampleNote}
+                            </div>
+                          ) : null}
+                          <div>
+                            Tip: use the per-material <span className="font-mono">Note</span> below to see exactly what’s missing.
+                          </div>
+                        </div>
+                      );
+                    })()}
                     <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
                       Total for one instance. Multiply by{" "}
                       <span className="tabular-nums">

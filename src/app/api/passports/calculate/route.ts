@@ -202,7 +202,7 @@ function buildOneElementPassport(store: $rdf.Store, elementId: number): ElementP
   const ifcQuantities: ElementPassport["ifcQuantities"] = [];
   const qtyStmts = store.statementsMatching(el as any, ONT("hasIfcQuantity"), null as any);
   for (const st of qtyStmts) {
-    const qtyNode = st.object as $rdf.Term;
+    const qtyNode = st.object as unknown as $rdf.Node;
     const quantityName =
       store.any(qtyNode as any, ONT("ifcQuantityName"), null)?.value || "unknown";
     const unit = store.any(qtyNode as any, ONT("ifcQuantityUnit"), null)?.value || undefined;
@@ -220,7 +220,7 @@ function buildOneElementPassport(store: $rdf.Store, elementId: number): ElementP
   const materials: ElementPassportMaterial[] = [];
   const madeStmts = store.statementsMatching(el as any, ONT("madeOf"), null as any);
   for (const st of madeStmts) {
-    const obj = st.object as $rdf.Term;
+    const obj = st.object as unknown as $rdf.Node;
     const mm = /material-(\d+)$/.exec(String(obj.value));
     if (!mm) continue;
     const mid = Number(mm[1]);

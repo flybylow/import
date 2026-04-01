@@ -350,7 +350,7 @@ export default function KnowledgeBasePage() {
       });
       setKbResult(json);
 
-      const blob = new Blob([json.ttl], { type: "text/turtle" });
+      const blob = new Blob([json.ttl ?? ""], { type: "text/turtle" });
       const url = URL.createObjectURL(blob);
       setDownloadUrl(url);
       showToast({ type: "success", message: "Link graph built successfully." });
@@ -475,7 +475,7 @@ export default function KnowledgeBasePage() {
       });
       setKbResult(json);
 
-      const blob = new Blob([json.ttl], { type: "text/turtle" });
+      const blob = new Blob([json.ttl ?? ""], { type: "text/turtle" });
       const url = URL.createObjectURL(blob);
       setDownloadUrl(url);
       await refreshKbGraph();

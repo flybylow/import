@@ -21,6 +21,9 @@
 /data/*.ttl
 /data/*.jsonld
 /data/exports/
+# Calculation history snapshots are preserved on disk for safety,
+# but should not be committed (they are append-only and can grow quickly).
+/data/*-calc-history/
 #
 # Keep local IFC/model inputs out of Git history.
 /data/**/*.ifc
