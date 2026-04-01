@@ -3,7 +3,7 @@
     {
       "id": "b-epd-be",
       "type": "b-epd-be",
-      "ttlPath": "data/sources/B-EPD/b-epd-2026-03-28.ttl",
+      "ttlPath": "data/sources/B-EPD/b-epd-2026-04-01-175536.ttl",
       "enabled": true
     },
     {
