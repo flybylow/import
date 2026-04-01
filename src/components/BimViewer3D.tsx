@@ -33,10 +33,13 @@ export default function BimViewer3D(props: Props) {
   const selectedPrevRef = useRef<number | null>(null);
   const onSelectExpressIdRef = useRef(props.onSelectExpressId);
   const onViewerStateRef = useRef(props.onViewerState);
-  onSelectExpressIdRef.current = props.onSelectExpressId;
-  onViewerStateRef.current = props.onViewerState;
 
   const prepared = useMemo(() => props.items.slice(0, 600), [props.items]);
+
+  useEffect(() => {
+    onSelectExpressIdRef.current = props.onSelectExpressId;
+    onViewerStateRef.current = props.onViewerState;
+  }, [props.onSelectExpressId, props.onViewerState]);
 
   useEffect(() => {
     const mount = mountRef.current;

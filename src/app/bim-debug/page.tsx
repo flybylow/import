@@ -82,7 +82,7 @@ export default function BimDebugPage() {
       renderer.dispose();
       mount.removeChild(renderer.domElement);
     };
-  }, []);
+  }, [projectId, sourceMode]);
 
   useEffect(() => {
     let cancelled = false;
