@@ -880,6 +880,7 @@ export default function SourcesPage() {
         <pre className="mt-2 p-3 text-xs leading-5 font-mono overflow-auto border border-zinc-200 dark:border-zinc-800 rounded">
           {`npm run import:kbob
 npm run import:ice
+npm run import:b-epd
 npm run import:sources`}
         </pre>
         <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">

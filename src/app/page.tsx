@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Button from "@/components/Button";
 import ProjectIdField from "@/components/ProjectIdField";
 import { useToast } from "@/components/ToastProvider";
 import { dbg, dbgButton, dbgLoad } from "@/lib/client-pipeline-debug";
@@ -218,92 +219,138 @@ export default function Home() {
       <div className="max-w-3xl mx-auto flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold">bimimport - Phase 1</h1>
-          <button
+          <Button
             type="button"
-            className="text-sm font-medium rounded border border-zinc-300 dark:border-zinc-600 px-3 py-1.5 text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50"
+            variant="outline"
+            className="px-3 py-1.5 text-sm"
             disabled={loading || phase2Loading}
             onClick={onResetPipeline}
             title="Delete generated data/* pipeline artifacts for the current Project ID"
           >
             Reset pipeline data
-          </button>
+          </Button>
         </div>
 
-        <div className="p-4 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-          <details className="mt-0">
-            <summary className="cursor-pointer text-sm text-zinc-700 dark:text-zinc-200">
-              Phase 1 source IFC
-            </summary>
-            <div className="mt-2 text-xs text-zinc-700 dark:text-zinc-200">
-              Source:{" "}
-              <code className="font-mono">data/IFC Schependomlaan.ifc</code>
-              <div className="mt-1">
-                <a
-                  className="underline"
-                  href={`/api/file?name=${encodeURIComponent(
-                    "IFC Schependomlaan.ifc"
-                  )}`}
+        <div className="p-4 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
+                Upload BIM
+              </h2>
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                Choose a model from your computer (coming soon) or from the sample library,
+                then name the project.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-5">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                1. Source
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="muted"
+                  disabled
+                  title="Upload from disk will be available in a later release"
                 >
-                  Open / download
-                </a>
+                  Upload IFC…
+                </Button>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">or</span>
+                <details className="rounded-md border border-zinc-200 bg-zinc-50/80 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950/50">
+                  <summary className="cursor-pointer font-medium text-zinc-800 dark:text-zinc-100">
+                    Sample library
+                  </summary>
+                  <div className="mt-2 text-xs text-zinc-700 dark:text-zinc-200">
+                    <code className="font-mono">data/IFC Schependomlaan.ifc</code>
+                    <div className="mt-1">
+                      <a
+                        className="underline"
+                        href={`/api/file?name=${encodeURIComponent(
+                          "IFC Schependomlaan.ifc"
+                        )}`}
+                      >
+                        Open / download
+                      </a>
+                    </div>
+                  </div>
+                </details>
+              </div>
+              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                Import from library runs the demo pipeline on the bundled IFC.
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                2. Project name
+              </p>
+              <div className="mt-2 max-w-md">
+                <ProjectIdField
+                  value={projectId}
+                  label="Project name"
+                  onChange={(v) => {
+                    dbg("Phase1", "projectId input change", { from: projectId, to: v });
+                    setProjectId(v);
+                  }}
+                />
               </div>
             </div>
-          </details>
 
-          <div className="mt-3 flex flex-col gap-2">
-            <ProjectIdField
-              value={projectId}
-              showLabel={false}
-              onChange={(v) => {
-                dbg("Phase1", "projectId input change", { from: projectId, to: v });
-                setProjectId(v);
-              }}
-            />
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
-                onClick={onRunExample}
-                disabled={loading || phase2Loading}
-              >
-                {loading
-                  ? "Importing..."
-                  : triples
-                    ? "Imported"
-                    : "Import BIM"}
-              </button>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                3. Run
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={onRunExample}
+                  disabled={loading || phase2Loading}
+                >
+                  {loading
+                    ? "Importing…"
+                    : triples
+                      ? "Re-import from library"
+                      : "Import from library"}
+                </Button>
 
-              <button
-                className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
-                onClick={onRunEnrich}
-                disabled={phase2Loading || loading || !triples}
-                title={
-                  !triples
-                    ? "Import BIM first"
-                    : "Re-opens the IFC in web-ifc, walks every element for quantities and every material for names — not just a few TTL edits. Large models often take 10s+."
-                }
-              >
-                {phase2Loading
-                  ? "Enriching..."
-                  : enriched
-                    ? "Enriched"
-                    : "Enrich Import"}
-              </button>
-              {enriched ? (
-                <a
-                  className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black"
-                  href={`/kb?projectId=${encodeURIComponent(projectId)}`}
-                  onClick={() =>
-                    dbgButton("Phase1", "navigate → /kb (Go to Phase 2)", { projectId })
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onRunEnrich}
+                  disabled={phase2Loading || loading || !triples}
+                  title={
+                    !triples
+                      ? "Import from library first"
+                      : "Re-opens the IFC in web-ifc, walks every element for quantities and every material for names — not just a few TTL edits. Large models often take 10s+."
                   }
                 >
-                  Go to Phase 2 - Link
-                </a>
-              ) : null}
+                  {phase2Loading
+                    ? "Enriching…"
+                    : enriched
+                      ? "Re-enrich"
+                      : "Enrich"}
+                </Button>
+                {enriched ? (
+                  <a
+                    className="inline-flex items-center gap-1.5 text-sm font-medium underline text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-zinc-50"
+                    href={`/kb?projectId=${encodeURIComponent(projectId)}`}
+                    onClick={() =>
+                      dbgButton("Phase1", "navigate → /kb (Go to Phase 2)", { projectId })
+                    }
+                  >
+                    Go to Phase 2 - Link
+                  </a>
+                ) : null}
+              </div>
+              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                Enrich reloads the IFC (WASM + full model) and scans all elements and materials.
+                Runtime scales with model size, not with how many triples changed.
+              </p>
             </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Enrich reloads the IFC (WASM + full model) and scans all elements and materials.
-              Runtime scales with model size, not with how many triples changed.
-            </p>
           </div>
 
           {error ? (
@@ -313,20 +360,33 @@ export default function Home() {
 
         {triples ? (
           <div className="p-4 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-            <p className="text-sm text-zinc-700 dark:text-zinc-200">
-              Turtle generated at: <code className="font-mono">{triples.ttlPath}</code>
-            </p>
-            {downloadUrl ? (
-              <a
-                className="mt-2 inline-block text-sm font-medium underline"
-                href={downloadUrl}
-                download={`${triples.projectId}.ttl`}
-              >
-                Download {triples.projectId}.ttl
-              </a>
-            ) : null}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-sm text-zinc-700 dark:text-zinc-200">
+                BIM is imported
+              </div>
+              {downloadUrl ? (
+                <a
+                  className="inline-flex items-center gap-1.5 text-sm font-medium underline"
+                  href={downloadUrl}
+                  download={`${triples.projectId}.ttl`}
+                  title={`Download ${triples.projectId}.ttl`}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="h-4 w-4"
+                    aria-hidden
+                  >
+                    <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v7.69L6.53 7.72a.75.75 0 1 0-1.06 1.06l4 4a.75.75 0 0 0 1.06 0l4-4a.75.75 0 0 0-1.06-1.06l-2.72 2.72V2.75Z" />
+                    <path d="M3.5 13.25a.75.75 0 0 1 .75.75v1.25c0 .69.56 1.25 1.25 1.25h9c.69 0 1.25-.56 1.25-1.25V14a.75.75 0 0 1 1.5 0v1.25A2.75 2.75 0 0 1 14.5 18h-9a2.75 2.75 0 0 1-2.75-2.75V14a.75.75 0 0 1 .75-.75Z" />
+                  </svg>
+                  Imported
+                </a>
+              ) : null}
+            </div>
 
-            <details className="mt-4" open>
+            <details className="mt-4">
               <summary className="cursor-pointer text-sm text-zinc-700 dark:text-zinc-200">
                 Triple Preview (limited)
               </summary>
@@ -346,23 +406,35 @@ export default function Home() {
 
         {enriched ? (
           <div className="p-4 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-            <p className="text-sm text-zinc-700 dark:text-zinc-200">
-              Enriched TTL written to:{" "}
-              <code className="font-mono">{enriched.ttlPath}</code>
-            </p>
-            {enrichedDownloadUrl ? (
-              <a
-                className="mt-2 inline-block text-sm font-medium underline"
-                href={enrichedDownloadUrl}
-                download={
-                  enriched.ttlPath.split("/").pop() ?? "example-enriched.ttl"
-                }
-              >
-                Download enriched TTL
-              </a>
-            ) : null}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-sm text-zinc-700 dark:text-zinc-200">
+                Data is enriched
+              </div>
+              {enrichedDownloadUrl ? (
+                <a
+                  className="inline-flex items-center gap-1.5 text-sm font-medium underline"
+                  href={enrichedDownloadUrl}
+                  download={
+                    enriched.ttlPath.split("/").pop() ?? "example-enriched.ttl"
+                  }
+                  title="Download enriched TTL"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="h-4 w-4"
+                    aria-hidden
+                  >
+                    <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v7.69L6.53 7.72a.75.75 0 1 0-1.06 1.06l4 4a.75.75 0 0 0 1.06 0l4-4a.75.75 0 0 0-1.06-1.06l-2.72 2.72V2.75Z" />
+                    <path d="M3.5 13.25a.75.75 0 0 1 .75.75v1.25c0 .69.56 1.25 1.25 1.25h9c.69 0 1.25-.56 1.25-1.25V14a.75.75 0 0 1 1.5 0v1.25A2.75 2.75 0 0 1 14.5 18h-9a2.75 2.75 0 0 1-2.75-2.75V14a.75.75 0 0 1 .75-.75Z" />
+                  </svg>
+                  Enriched
+                </a>
+              ) : null}
+            </div>
 
-            <details className="mt-4" open>
+            <details className="mt-4">
               <summary className="cursor-pointer text-sm text-zinc-700 dark:text-zinc-200">
                 Enriched Turtle preview (render-limited)
               </summary>

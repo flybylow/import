@@ -28,7 +28,7 @@ export type KbVizMode = "force" | "grouped" | "outline";
 
 export default function KbGraphVisualization(props: { kbGraph: KBGraph }) {
   const { kbGraph } = props;
-  const [mode, setMode] = useState<KbVizMode>("force");
+  const [mode, setMode] = useState<KbVizMode>("grouped");
 
   return (
     <div className="space-y-3">
@@ -39,9 +39,9 @@ export default function KbGraphVisualization(props: { kbGraph: KBGraph }) {
       >
         {(
           [
-            ["force", "Force graph"],
             ["grouped", "Grouped by EPD"],
-            ["outline", "Hub outline (SVG)"],
+            ["force", "Force graph"],
+            ["outline", "Hub outline"],
           ] as const
         ).map(([id, label]) => (
           <button

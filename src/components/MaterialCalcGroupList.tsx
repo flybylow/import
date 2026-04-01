@@ -2,6 +2,7 @@
 
 import { Fragment, useState } from "react";
 
+import TruncatedWithTooltip from "@/components/TruncatedWithTooltip";
 import type { MaterialCalcGroup } from "@/lib/calculate-material-groups";
 
 type Props = {
@@ -54,9 +55,12 @@ export default function MaterialCalcGroupList({ groups, compact }: Props) {
                       {g.humanLabel}
                     </span>
                   </td>
-                  <td className={`${td} font-mono text-[11px] text-zinc-700 dark:text-zinc-300`}>
-                    <span className="block truncate whitespace-nowrap" title={g.epdSlug}>
-                      {g.epdSlug}
+                  <td className={`${td} text-[11px] text-zinc-700 dark:text-zinc-300`}>
+                    <span
+                      className="block truncate whitespace-nowrap"
+                      title={`${g.epdName} (${g.epdSlug})`}
+                    >
+                      {g.epdName}
                     </span>
                   </td>
                   <td className={`${td} text-right font-mono tabular-nums text-zinc-800 dark:text-zinc-100`}>
@@ -108,11 +112,8 @@ export default function MaterialCalcGroupList({ groups, compact }: Props) {
                                 <td className="py-1 pr-2 font-mono whitespace-nowrap">
                                   {line.elementCount ?? "—"}
                                 </td>
-                                <td
-                                  className="py-1 max-w-[min(24rem,55vw)] truncate"
-                                  title={line.compactQuantities}
-                                >
-                                  {line.compactQuantities ?? "—"}
+                                <td className="py-1 max-w-[min(24rem,55vw)]">
+                                  <TruncatedWithTooltip value={line.compactQuantities} />
                                 </td>
                               </tr>
                             ))}

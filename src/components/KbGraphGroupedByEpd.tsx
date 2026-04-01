@@ -102,6 +102,11 @@ export default function KbGraphGroupedByEpd(props: { kbGraph: KBGraphGrouped }) 
       </div>
 
       <div className="max-h-[min(52vh,560px)] overflow-auto rounded border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800">
+        <div className="sticky top-0 z-10 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[220px_minmax(0,1fr)_auto] gap-x-3 gap-y-1 px-3 py-2 bg-zinc-100/95 dark:bg-zinc-900/95 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-500">
+          <span>EPD route / slug</span>
+          <span>EPD label</span>
+          <span>Materials</span>
+        </div>
         {groups.map((g) => {
           const mats = g.materials.filter((m) =>
             filterMat(m.materialName, m.materialId)
@@ -115,33 +120,51 @@ export default function KbGraphGroupedByEpd(props: { kbGraph: KBGraphGrouped }) 
             <details
               key={g.epdSlug}
               className="group open:bg-zinc-50/80 dark:open:bg-zinc-900/40"
-              open={mats.length <= 8}
             >
-              <summary className="cursor-pointer list-none px-3 py-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 hover:bg-zinc-50 dark:hover:bg-zinc-900/60">
-                <span className="font-mono text-xs text-emerald-700 dark:text-emerald-400 shrink-0">
-                  {g.epdSlug}
-                </span>
-                <span className="text-zinc-800 dark:text-zinc-100 flex-1 min-w-0">
-                  {g.epdName}
-                </span>
-                <span className="text-xs text-zinc-500 dark:text-zinc-500">
-                  {g.materials.length} material
-                  {g.materials.length === 1 ? "" : "s"}
-                </span>
+              <summary className="cursor-pointer list-none px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-900/60">
+                <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[220px_minmax(0,1fr)_auto] gap-x-3 gap-y-1 items-start">
+                  <div
+                    className="font-mono text-xs text-emerald-700 dark:text-emerald-400 truncate min-w-0"
+                    title={g.epdSlug}
+                  >
+                    {g.epdSlug}
+                  </div>
+                  <div
+                    className="text-zinc-800 dark:text-zinc-100 truncate min-w-0"
+                    title={g.epdName}
+                  >
+                    {g.epdName}
+                  </div>
+                  <div className="text-xs text-zinc-500 dark:text-zinc-500 whitespace-nowrap">
+                    {g.materials.length} material
+                    {g.materials.length === 1 ? "" : "s"}
+                  </div>
+                </div>
               </summary>
-              <ul className="px-3 pb-3 pt-0 space-y-1.5">
+              <div className="px-3 pb-3 pt-0">
+                <div className="grid grid-cols-[80px_minmax(0,1fr)_110px] gap-x-3 px-2 py-1 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-500">
+                  <span>Id</span>
+                  <span>Material name</span>
+                  <span>Confidence</span>
+                </div>
+                <ul className="space-y-1.5">
                 {(qLower ? mats : g.materials).length ? (
                   (qLower ? mats : g.materials).map((m) => (
                     <li
                       key={m.materialId}
-                      className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-mono text-zinc-700 dark:text-zinc-300 pl-2 border-l-2 border-zinc-200 dark:border-zinc-700"
+                      className="grid grid-cols-[80px_minmax(0,1fr)_110px] gap-x-3 gap-y-0.5 items-start text-xs font-mono text-zinc-700 dark:text-zinc-300 pl-2 border-l-2 border-zinc-200 dark:border-zinc-700"
                     >
                       <span className="text-zinc-500 dark:text-zinc-500 shrink-0">
                         {m.materialId}
                       </span>
-                      <span className="break-words flex-1">{m.materialName}</span>
+                      <span className="truncate" title={m.materialName}>
+                        {m.materialName}
+                      </span>
                       {typeof m.matchConfidence === "number" ? (
-                        <span className="text-zinc-500 dark:text-zinc-500">
+                        <span
+                          className="text-zinc-500 dark:text-zinc-500 whitespace-nowrap"
+                          title={String(m.matchConfidence)}
+                        >
                           conf {m.matchConfidence.toFixed(2)}
                         </span>
                       ) : null}
@@ -152,38 +175,49 @@ export default function KbGraphGroupedByEpd(props: { kbGraph: KBGraphGrouped }) 
                     No materials match this filter.
                   </li>
                 )}
-              </ul>
+                </ul>
+              </div>
             </details>
           );
         })}
 
         {unmatched.length ? (
-          <details className="open:bg-red-50/40 dark:open:bg-red-950/20">
-            <summary className="cursor-pointer list-none px-3 py-2.5 flex flex-wrap items-baseline gap-2 hover:bg-red-50/60 dark:hover:bg-red-950/30">
-              <span className="font-medium text-red-800 dark:text-red-300">
-                Without EPD
-              </span>
-              <span className="text-xs text-zinc-500">
-                {unmatched.length} material
-                {unmatched.length === 1 ? "" : "s"}
-              </span>
-            </summary>
-            <ul className="px-3 pb-3 space-y-1.5">
-              {unmatched
-                .filter((m) => filterMat(m.materialName, m.materialId))
-                .map((m) => (
-                  <li
-                    key={m.materialId}
-                    className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-mono text-zinc-700 dark:text-zinc-300 pl-2 border-l-2 border-red-200 dark:border-red-900"
-                  >
-                    <span className="text-zinc-500 dark:text-zinc-500">
-                      {m.materialId}
-                    </span>
-                    <span className="break-words">{m.materialName}</span>
-                  </li>
-                ))}
-            </ul>
-          </details>
+          <div className="bg-red-50/60 dark:bg-red-950/25 border-t border-red-200/70 dark:border-red-900/60">
+            <div className="px-3 py-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 items-start">
+                <span className="font-medium text-red-800 dark:text-red-300">
+                  Without EPD
+                </span>
+                <span className="text-xs text-red-700 dark:text-red-300 whitespace-nowrap">
+                  {unmatched.length} material
+                  {unmatched.length === 1 ? "" : "s"}
+                </span>
+              </div>
+            </div>
+            <div className="px-3 pb-3">
+              <div className="grid grid-cols-[80px_minmax(0,1fr)] gap-x-3 px-2 py-1 text-[10px] uppercase tracking-wide text-red-700 dark:text-red-300">
+                <span>Id</span>
+                <span>Material name</span>
+              </div>
+              <ul className="space-y-1.5">
+                {unmatched
+                  .filter((m) => filterMat(m.materialName, m.materialId))
+                  .map((m) => (
+                    <li
+                      key={m.materialId}
+                      className="grid grid-cols-[80px_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs font-mono text-zinc-700 dark:text-zinc-300 pl-2 border-l-2 border-red-300 dark:border-red-800"
+                    >
+                      <span className="text-zinc-500 dark:text-zinc-500">
+                        {m.materialId}
+                      </span>
+                      <span className="truncate" title={m.materialName}>
+                        {m.materialName}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          </div>
         ) : null}
       </div>
     </div>

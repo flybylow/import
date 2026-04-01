@@ -9,6 +9,7 @@ import StackedTotalBar from "@/components/StackedTotalBar";
 import { useToast } from "@/components/ToastProvider";
 import MaterialCalcGroupList from "@/components/MaterialCalcGroupList";
 import SignaturePassportsPanel from "@/components/SignaturePassportsPanel";
+import TruncatedWithTooltip from "@/components/TruncatedWithTooltip";
 import { dbg, dbgButton, dbgLoad } from "@/lib/client-pipeline-debug";
 import { groupMaterialCalcRows } from "@/lib/calculate-material-groups";
 import { useProjectId } from "@/lib/useProjectId";
@@ -115,6 +116,9 @@ export default function CalculatePrepPage() {
   const [status, setStatus] = useState<KbStatusResponse | null>(null);
   const [groupMode, setGroupMode] = useState<"materialId" | "materialName" | "epd">(
     "materialName"
+  );
+  const [traceSortMode, setTraceSortMode] = useState<"qtyRecords" | "elements">(
+    "qtyRecords"
   );
   const [selectedCalcKeys, setSelectedCalcKeys] = useState<string[]>([]);
   const [showFullTraceTable, setShowFullTraceTable] = useState(false);
@@ -323,12 +327,31 @@ export default function CalculatePrepPage() {
       .sort((a, b) => a.materialLabel.localeCompare(b.materialLabel));
   }, [groupMode, matchedMaterialTraceRows]);
 
+  const sortedDisplayRows = useMemo(() => {
+    const rows = [...displayRows];
+    rows.sort((a, b) => {
+      if (traceSortMode === "elements") {
+        if (b.elementCount !== a.elementCount) return b.elementCount - a.elementCount;
+        if (b.quantityRecordCount !== a.quantityRecordCount) {
+          return b.quantityRecordCount - a.quantityRecordCount;
+        }
+      } else {
+        if (b.quantityRecordCount !== a.quantityRecordCount) {
+          return b.quantityRecordCount - a.quantityRecordCount;
+        }
+        if (b.elementCount !== a.elementCount) return b.elementCount - a.elementCount;
+      }
+      return a.materialLabel.localeCompare(b.materialLabel);
+    });
+    return rows;
+  }, [displayRows, traceSortMode]);
+
   const calculableRows = useMemo(
     () =>
-      displayRows.filter(
+      sortedDisplayRows.filter(
         (row) => row.quantityRecordCount > 0 && row.lcaReady
       ),
-    [displayRows]
+    [sortedDisplayRows]
   );
 
   useEffect(() => {
@@ -762,7 +785,7 @@ export default function CalculatePrepPage() {
             <div className="mt-3">
               <button
                 type="button"
-                className="text-xs underline"
+                className="underline text-xs"
                 onClick={() => {
                   dbgButton("Phase3", "toggle full trace table", {
                     nextOpen: !showFullTraceTable,
@@ -775,8 +798,37 @@ export default function CalculatePrepPage() {
                   : "Show full trace table"}
               </button>
               {showFullTraceTable ? (
-                <div className="mt-2 max-h-[52vh] overflow-auto rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-                  {displayRows.length ? (
+                <div className="mt-2 space-y-2">
+                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                    <span className="text-zinc-600 dark:text-zinc-300">Order by:</span>
+                    <button
+                      type="button"
+                      className={`inline-flex items-center rounded px-2 py-0.5 ${
+                        traceSortMode === "qtyRecords"
+                          ? "ring-1 ring-amber-400/80 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+                          : "underline"
+                      }`}
+                      onClick={() => setTraceSortMode("qtyRecords")}
+                    >
+                      Data completeness
+                    </button>
+                    <button
+                      type="button"
+                      className={`inline-flex items-center rounded px-2 py-0.5 ${
+                        traceSortMode === "elements"
+                          ? "ring-1 ring-amber-400/80 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+                          : "underline"
+                      }`}
+                      onClick={() => setTraceSortMode("elements")}
+                    >
+                      Model frequency
+                    </button>
+                    <span className="text-zinc-500 dark:text-zinc-400">
+                      (priority: Qty records → Elements → Label)
+                    </span>
+                  </div>
+                  <div className="max-h-[52vh] overflow-auto rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                  {sortedDisplayRows.length ? (
                     <table className="min-w-full text-xs">
                       <thead className="sticky top-0 bg-zinc-100 dark:bg-zinc-900">
                         <tr className="text-left">
@@ -804,15 +856,20 @@ export default function CalculatePrepPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {displayRows.map((row) => (
+                        {sortedDisplayRows.map((row) => (
                           <tr
                             key={row.key}
                             className="align-top border-b border-zinc-100 dark:border-zinc-900"
                           >
-                            <td className="px-2 py-2 font-mono whitespace-nowrap">
-                              {row.materialLabel}
+                            <td className="px-2 py-2 max-w-[420px]">
+                              <TruncatedWithTooltip
+                                value={row.materialLabel}
+                                className="font-mono"
+                              />
                             </td>
-                            <td className="px-2 py-2">{row.epd}</td>
+                            <td className="px-2 py-2 max-w-[420px]">
+                              <TruncatedWithTooltip value={row.epd} />
+                            </td>
                             <td className="px-2 py-2">
                               {row.lcaReady ? (
                                 <span className="text-emerald-700 dark:text-emerald-400">Yes</span>
@@ -828,11 +885,8 @@ export default function CalculatePrepPage() {
                             <td className="px-2 py-2 font-mono whitespace-nowrap">
                               {row.quantityRecordCount}
                             </td>
-                            <td
-                              className="px-2 py-2 max-w-[420px] truncate"
-                              title={row.compactQuantities}
-                            >
-                              {row.compactQuantities}
+                            <td className="px-2 py-2 max-w-[420px]">
+                              <TruncatedWithTooltip value={row.compactQuantities} />
                             </td>
                             <td className="px-2 py-2">
                               <details>
@@ -852,11 +906,8 @@ export default function CalculatePrepPage() {
                     <div className="p-3 text-xs">No matched materials found in KB status.</div>
                   )}
                 </div>
-              ) : (
-                <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  Full trace table hidden.
                 </div>
-              )}
+              ) : null}
             </div>
 
             <div className="mt-4 p-3 rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
@@ -895,170 +946,79 @@ export default function CalculatePrepPage() {
                   </code>
                 </span>
               </div>
-              <div className="mt-2 max-h-[22vh] overflow-auto rounded border border-zinc-200 dark:border-zinc-800">
-                <div className="p-2 space-y-1 text-xs">
-                  {calculableRows.length ? (
-                    calculableRows.map((row) => {
-                      const checked = selectedCalcKeys.includes(row.key);
-                      return (
-                        <label key={`calc-${row.key}`} className="flex items-start gap-2">
-                          <input
-                            type="checkbox"
-                            className="mt-0.5"
-                            checked={checked}
-                            onChange={(e) => {
-                              const isChecked = e.target.checked;
-                              setSelectedCalcKeys((prev) => {
-                                if (isChecked) return Array.from(new Set([...prev, row.key]));
-                                return prev.filter((k) => k !== row.key);
-                              });
-                            }}
-                          />
-                          <span className="flex-1 min-w-0">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-1">
-                              <div className="lg:col-span-2 min-w-0">
-                                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                                  Source (IFC trace)
-                                </div>
-                                <div
-                                  className="font-mono text-[11px] truncate"
-                                  title={row.materialLabel}
-                                >
-                                  {row.materialLabel}
-                                </div>
-                              </div>
-
-                              <div className="min-w-0">
-                                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                                  Mapped EPD (KB)
-                                </div>
-                                <div
-                                  className="font-mono text-[11px] truncate"
-                                  title={row.epd}
-                                >
-                                  {row.epd}
-                                </div>
-                              </div>
-
-                              <div>
-                                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                                  Elements
-                                </div>
-                                <div className="font-mono text-[11px]">
-                                  {row.elementCount}
-                                </div>
-                              </div>
-
-                              <div>
-                                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                                  Qty records
-                                </div>
-                                <div className="font-mono text-[11px]">
-                                  {row.quantityRecordCount}
-                                </div>
-                              </div>
-
-                              <div className="lg:col-span-4 sm:col-span-2">
-                                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                                  Quantities (compact)
-                                </div>
-                                <div
-                                  className="font-mono text-[11px] truncate"
-                                  title={row.compactQuantities}
-                                >
-                                  {row.compactQuantities}
-                                </div>
-                              </div>
-                            </div>
-                          </span>
-                        </label>
-                      );
-                    })
-                  ) : (
-                    <div className="text-zinc-500 dark:text-zinc-400">
-                      No rows with quantity records yet.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <details className="mt-3">
-                <summary className="cursor-pointer text-xs underline">
-                  Preview selected output list
-                </summary>
-                {selectedCalculableRows.length ? (
-                  <div className="mt-2 max-h-[20vh] overflow-auto rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2">
-                    <div className="space-y-2">
-                      {selectedCalculableRows.map((row) => (
-                        <div
-                          key={`preview-${row.key}`}
-                          className="border-b border-zinc-100 dark:border-zinc-800 pb-2 last:border-b-0"
-                        >
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-1">
-                            <div className="lg:col-span-2 min-w-0">
-                              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                                Source (IFC trace)
-                              </div>
-                              <div
-                                className="font-mono text-[11px] truncate"
-                                title={row.materialLabel}
-                              >
-                                {row.materialLabel}
-                              </div>
-                            </div>
-
-                            <div className="min-w-0">
-                              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                                Mapped EPD (KB)
-                              </div>
-                              <div
-                                className="font-mono text-[11px] truncate"
-                                title={row.epd}
-                              >
-                                {row.epd}
-                              </div>
-                            </div>
-
-                            <div>
-                              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                                Elements
-                              </div>
-                              <div className="font-mono text-[11px]">
-                                {row.elementCount}
-                              </div>
-                            </div>
-
-                            <div>
-                              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                                Qty records
-                              </div>
-                              <div className="font-mono text-[11px]">
-                                {row.quantityRecordCount}
-                              </div>
-                            </div>
-
-                            <div className="lg:col-span-4 sm:col-span-2">
-                              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                                Quantities (compact)
-                              </div>
-                              <div
-                                className="font-mono text-[11px] truncate"
-                                title={row.compactQuantities}
-                              >
-                                {row.compactQuantities}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+              <div className="mt-2 max-h-[min(52vh,40rem)] overflow-auto rounded border border-zinc-200 dark:border-zinc-800">
+                {calculableRows.length ? (
+                  <table className="min-w-full text-xs">
+                    <thead className="sticky top-0 bg-zinc-100 dark:bg-zinc-900">
+                      <tr className="text-left">
+                        <th className="px-2 py-2 font-medium border-b border-zinc-200 dark:border-zinc-800 w-10">
+                          Pick
+                        </th>
+                        <th className="px-2 py-2 font-medium border-b border-zinc-200 dark:border-zinc-800">
+                          Source (IFC trace)
+                        </th>
+                        <th className="px-2 py-2 font-medium border-b border-zinc-200 dark:border-zinc-800">
+                          Mapped EPD (KB)
+                        </th>
+                        <th className="px-2 py-2 font-medium border-b border-zinc-200 dark:border-zinc-800">
+                          Elements
+                        </th>
+                        <th className="px-2 py-2 font-medium border-b border-zinc-200 dark:border-zinc-800">
+                          Qty records
+                        </th>
+                        <th className="px-2 py-2 font-medium border-b border-zinc-200 dark:border-zinc-800">
+                          Quantities (compact)
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {calculableRows.map((row) => {
+                        const checked = selectedCalcKeys.includes(row.key);
+                        return (
+                          <tr
+                            key={`calc-${row.key}`}
+                            className="align-top border-b border-zinc-100 dark:border-zinc-900"
+                          >
+                            <td className="px-2 py-2">
+                              <input
+                                type="checkbox"
+                                className="mt-0.5"
+                                checked={checked}
+                                onChange={(e) => {
+                                  const isChecked = e.target.checked;
+                                  setSelectedCalcKeys((prev) => {
+                                    if (isChecked) return Array.from(new Set([...prev, row.key]));
+                                    return prev.filter((k) => k !== row.key);
+                                  });
+                                }}
+                              />
+                            </td>
+                            <td className="px-2 py-2 max-w-[320px]">
+                              <TruncatedWithTooltip value={row.materialLabel} className="font-mono" />
+                            </td>
+                            <td className="px-2 py-2 max-w-[360px]">
+                              <TruncatedWithTooltip value={row.epd} className="font-mono" />
+                            </td>
+                            <td className="px-2 py-2 font-mono whitespace-nowrap">
+                              {row.elementCount}
+                            </td>
+                            <td className="px-2 py-2 font-mono whitespace-nowrap">
+                              {row.quantityRecordCount}
+                            </td>
+                            <td className="px-2 py-2 max-w-[420px]">
+                              <TruncatedWithTooltip value={row.compactQuantities} className="font-mono" />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 ) : (
-                  <div className="mt-2 text-zinc-500 dark:text-zinc-400 text-xs">
-                    No selected rows.
+                  <div className="p-2 text-zinc-500 dark:text-zinc-400 text-xs">
+                    No rows with quantity records yet.
                   </div>
                 )}
-              </details>
+              </div>
 
             </div>
 
@@ -1191,7 +1151,7 @@ export default function CalculatePrepPage() {
                     rows={
                       Array.isArray(calculateResult.byEpd)
                         ? calculateResult.byEpd.map((row: any) => ({
-                            label: row.epd,
+                            label: row.epdName ?? row.epd ?? "—",
                             value: Number(row.kgCO2e ?? 0),
                           }))
                         : []
@@ -1219,7 +1179,7 @@ export default function CalculatePrepPage() {
                         rows={
                           Array.isArray(calculateResult.byEpd)
                             ? calculateResult.byEpd.map((row: any) => ({
-                                left: row.epd,
+                                left: row.epdName ?? row.epd ?? "—",
                                 right: row.kgCO2e,
                               }))
                             : []
@@ -1240,7 +1200,7 @@ export default function CalculatePrepPage() {
                   <StackedTotalBar
                     title="Material contribution (grouped by name + EPD, top segments)"
                     rows={materialCalcGroups.map((g) => ({
-                      label: `${g.humanLabel} (${g.ifcMaterialCount}) · ${g.epdSlug}`,
+                      label: `${g.humanLabel} (${g.ifcMaterialCount}) · ${g.epdName}`,
                       value: g.totalKgCO2e,
                     }))}
                     total={Number(calculateResult.totalKgCO2e ?? 0)}
@@ -1275,8 +1235,10 @@ export default function CalculatePrepPage() {
       ) : null}
 
       {calculateResult ? (
-        <div className="p-4 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-          <div className="text-sm font-medium">Step 4 - CO2 mapped into passports</div>
+        <details className="mt-4 p-4 rounded bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+          <summary className="cursor-pointer text-sm font-medium text-zinc-900 dark:text-zinc-50">
+            Step 4 - CO2 mapped into passports
+          </summary>
           <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
             Rendered after calculation. Shows material CO2 values reused by the passport view.
           </p>
@@ -1309,7 +1271,7 @@ export default function CalculatePrepPage() {
               </p>
             )}
           </div>
-        </div>
+        </details>
       ) : null}
 
       {calculateResult && status ? (
@@ -1359,7 +1321,7 @@ export default function CalculatePrepPage() {
             }}
           >
             <summary className="cursor-pointer text-sm font-medium text-zinc-900 dark:text-zinc-50">
-              Step 5 - Signature passports (grouped identical elements)
+              Step 6 - Signature passports (grouped identical elements)
             </summary>
             <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
               One signature per identical “materials + IFC BaseQuantities” set. Carbon is computed per signature

@@ -580,21 +580,30 @@ export default function KnowledgeBasePage() {
           </p>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button
-            className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
-            disabled={loading}
-            onClick={runBuildKb}
-            suppressHydrationWarning
-          >
-            {loading ? "Linking materials..." : "Link materials to EPD"}
-          </button>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {kbResult ? (
+            <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+              Materials linked to EPD
+            </p>
+          ) : (
+            <button
+              className="inline-flex items-center justify-center rounded px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-black disabled:opacity-60"
+              disabled={loading}
+              onClick={runBuildKb}
+              suppressHydrationWarning
+            >
+              {loading ? "Linking materials…" : "Link materials to EPD"}
+            </button>
+          )}
           {kbResult ? (
             <Link
               href={`/calculate?projectId=${encodeURIComponent(projectId)}`}
-              className="inline-flex items-center justify-center rounded px-4 py-2 border border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="inline-flex items-center gap-1.5 text-sm font-medium underline text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-zinc-50"
+              onClick={() =>
+                dbgButton("Phase2", "navigate → /calculate (Phase 3)", { projectId })
+              }
             >
-              Materials linked to EPD - Phase 3
+              Go to calculator phase three
             </Link>
           ) : null}
         </div>
@@ -604,19 +613,26 @@ export default function KnowledgeBasePage() {
 
       {kbResult ? (
         <div className="p-4 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-700 dark:text-zinc-200">
-            <p>
-            KB written to:{" "}
-            <code className="font-mono">{kbResult.kbPath}</code>
-            </p>
-
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm text-zinc-700 dark:text-zinc-200">KB is written</div>
             {downloadUrl ? (
               <a
-                className="text-sm font-medium underline"
+                className="inline-flex items-center gap-1.5 text-sm font-medium underline"
                 href={downloadUrl}
                 download={kbResult.kbPath.split("/").pop() ?? `${projectId}-kb.ttl`}
+                title={`Download ${kbResult.kbPath.split("/").pop() ?? `${projectId}-kb.ttl`}`}
               >
-                Download KB TTL
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="h-4 w-4"
+                  aria-hidden
+                >
+                  <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v7.69L6.53 7.72a.75.75 0 1 0-1.06 1.06l4 4a.75.75 0 0 0 1.06 0l4-4a.75.75 0 0 0-1.06-1.06l-2.72 2.72V2.75Z" />
+                  <path d="M3.5 13.25a.75.75 0 0 1 .75.75v1.25c0 .69.56 1.25 1.25 1.25h9c.69 0 1.25-.56 1.25-1.25V14a.75.75 0 0 1 1.5 0v1.25A2.75 2.75 0 0 1 14.5 18h-9a2.75 2.75 0 0 1-2.75-2.75V14a.75.75 0 0 1 .75-.75Z" />
+                </svg>
+                Written
               </a>
             ) : null}
           </div>
@@ -703,29 +719,65 @@ export default function KnowledgeBasePage() {
           {kbResult.matchingPreview ? (
             <div className="mt-4 p-3 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
               <p className="text-sm text-zinc-700 dark:text-zinc-200">
-                What matches what (top preview)
+                Matching results
               </p>
 
               <div className="mt-2">
                 <ToggleSection
-                  title="Matched materials (have EPD)"
+                  title={`Matched materials (${kbResult.epdCoverage?.materialsWithEPD ?? kbResult.matchingPreview.matched.length} have EPD)`}
                   summaryClassName="cursor-pointer text-xs text-zinc-700 dark:text-zinc-200"
                 >
-                  <div className="mt-2 space-y-1 text-xs text-zinc-700 dark:text-zinc-200">
+                  <div className="mt-2 text-xs text-zinc-700 dark:text-zinc-200">
+                    {kbResult.epdCoverage &&
+                    kbResult.matchingPreview.matched.length <
+                      kbResult.epdCoverage.materialsWithEPD ? (
+                      <div className="mb-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        Showing top preview rows:{" "}
+                        <code className="font-mono">
+                          {kbResult.matchingPreview.matched.length}/
+                          {kbResult.epdCoverage.materialsWithEPD}
+                        </code>
+                      </div>
+                    ) : null}
+                    <div className="grid grid-cols-[70px_minmax(0,1fr)_minmax(0,1fr)_150px_90px_90px] gap-x-3 px-2 py-1 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                      <span>ID</span>
+                      <span>Material</span>
+                      <span>EPD</span>
+                      <span>Match</span>
+                      <span>Confidence</span>
+                      <span>Actions</span>
+                    </div>
+                    <div className="space-y-1">
                     {kbResult.matchingPreview.matched.length ? (
                       kbResult.matchingPreview.matched.map((m) => (
                         <div
                           key={`m-${m.materialId}`}
                           className="rounded border border-zinc-200 dark:border-zinc-800 px-2 py-1"
                         >
-                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                            <span className="font-mono">{m.materialId}</span>
+                          <div className="grid grid-cols-[70px_minmax(0,1fr)_minmax(0,1fr)_150px_90px_90px] gap-x-3 gap-y-1 items-start">
                             <span className="font-mono text-zinc-500 dark:text-zinc-400">
-                              material-{m.materialId}
+                              {m.materialId}
                             </span>
-                            <span className="truncate">{m.materialName}</span>
-                            <span aria-hidden>→</span>
-                            <span className="font-mono">{m.epdSlug}</span>
+                            <span className="truncate" title={m.materialName}>
+                              {m.materialName}
+                            </span>
+                            <span
+                              className="truncate font-mono text-zinc-700 dark:text-zinc-200"
+                              title={`${m.epdSlug} — ${m.epdName}`}
+                            >
+                              {m.epdSlug}
+                            </span>
+                            <span
+                              className="truncate text-zinc-500 dark:text-zinc-400"
+                              title={m.matchType ?? "—"}
+                            >
+                              {m.matchType ?? "—"}
+                            </span>
+                            <span className="text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                              {typeof m.matchConfidence === "number"
+                                ? m.matchConfidence.toFixed(2)
+                                : "—"}
+                            </span>
                             <Link
                               href={`/sources?from=kb&projectId=${encodeURIComponent(
                                 projectId
@@ -738,21 +790,13 @@ export default function KnowledgeBasePage() {
                             >
                               ↗
                             </Link>
-                            <span className="truncate text-zinc-600 dark:text-zinc-300">
-                              {m.epdName}
-                            </span>
                           </div>
-                          {typeof m.matchConfidence === "number" ? (
-                            <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                              conf: {m.matchConfidence.toFixed(2)}
-                              {m.matchType ? ` · ${m.matchType}` : ""}
-                            </div>
-                          ) : null}
                         </div>
                       ))
                     ) : (
                       <div>—</div>
                     )}
+                    </div>
                   </div>
                 </ToggleSection>
               </div>
@@ -773,10 +817,7 @@ export default function KnowledgeBasePage() {
                 defaultOpen={focusMaterialId != null}
                 title={
                   <>
-                    Unmatched materials (no EPD)
-                    <span className="ml-2 font-normal text-zinc-600 dark:text-zinc-300">
-                      — {unmatchedTotal} total
-                    </span>
+                    Unmatched materials ({unmatchedTotal} have NO EPD)
                     {unmatchedSelected.length ? (
                       <span className="ml-2 text-[11px] text-zinc-500 dark:text-zinc-400">
                         {unmatchedSelected.length} selected
@@ -991,7 +1032,7 @@ export default function KnowledgeBasePage() {
           {kbGraph ? (
             <div className="mt-4 p-3 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
               <div className="text-sm text-zinc-700 dark:text-zinc-200">
-                Knowledge graph — force graph, grouped list, or SVG outline
+                Knowledge graph
               </div>
               {kbGraphLoading ? (
                 <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
@@ -1018,16 +1059,6 @@ export default function KnowledgeBasePage() {
         </div>
       ) : null}
 
-      <div className="p-4 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-        <details>
-          <summary className="cursor-pointer text-base font-medium">
-            Last Enriched Preview
-          </summary>
-          <pre className="mt-2 p-3 text-xs leading-5 font-mono max-h-[35vh] overflow-auto border border-zinc-200 dark:border-zinc-800 rounded">
-            {previewEnriched?.join("\n") ?? "—"}
-          </pre>
-        </details>
-      </div>
     </div>
   );
 }
