@@ -6,7 +6,7 @@ Bulk imports today: **KBOB** + **ICE** (`npm run import:kbob` / `import:ice`). F
 
 1. **Author TTL** under `data/sources/epd-hub/` (one file or versioned `*-YYYY-MM-DD.ttl` — see [`sources-contract.md`](./sources-contract.md)).
 2. **Point `config.json`** at the file with `"type": "epd-hub"` (see active [`config.json`](../config.json)).
-3. **Order matters:** `pickFirstOrderedSourceMatch` uses **first enabled source that scores ≥ `MIN_SOURCE_SCORE`**. Move `epd-hub` **up** if these products should win over ICE/KBOB for the same IFC text.
+3. **Order matters (strict priority):** `pickFirstOrderedSourceMatch` checks enabled sources **top-to-bottom** and takes the **first** source that has a candidate scoring ≥ `MIN_SOURCE_SCORE`. Put `epd-hub` higher in `config.json` if these hand-picks must win before bulk catalogues.
 4. **Rebuild KB** (Phase 2 — Link). Matcher loads `ont:EPD` subjects from the TTL; **`ont:matchText`** (or `schema:name`) drives overlap with normalized IFC material strings (`material-norm.ts`).
 5. **Phase 3** uses **`ont:gwpPerUnit`**, **`ont:declaredUnit`**, **`ont:density`** copied into `data/<projectId>-kb.ttl` — same as other sources.
 

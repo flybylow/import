@@ -4,7 +4,7 @@ The **material dictionary** (`src/data/material-dictionary.json`) is **routing-o
 
 ## Flow
 
-1. **Preferred:** `pickFirstOrderedSourceMatch` scores IFC text against each source EPD’s `ont:matchText` / name. The **raw score** is stored on the material as **`ont:sourceMatchScore`** (real overlap statistic from `src/lib/source-match.ts`). **`ont:matchConfidence`** for source-backed rows is derived from that score (not an LCA number).
+1. **Preferred:** `pickFirstOrderedSourceMatch` checks enabled sources in **config order** and picks the **first** source that yields a hit (score ≥ `MIN_SOURCE_SCORE`). The **raw score** is stored on the material as **`ont:sourceMatchScore`**. **`ont:matchConfidence`** for source-backed rows is derived from that score (not an LCA number).
 2. **EPD literals:** `copyEpdFromSourceToBim` copies **GWP/density/name** from the source graph when available.
 3. **Dictionary-only path (no source above `MIN_SOURCE_SCORE`):** the material still gets `bim:epd-{slug}` with **name / declared unit / programme hint** only; **`ont:epdDataProvenance`** = `dictionary-no-lca-data` — **no** `ont:gwpPerUnit` in the graph until you add a source match or manual data.
 
@@ -24,7 +24,7 @@ The **material dictionary** (`src/data/material-dictionary.json`) is **routing-o
 
 | Value | Meaning |
 |-------|---------|
-| `source-import` | Copied from KBOB/ICE. |
+| `source-import` | Copied from a programme source TTL (KBOB, ICE, EPD Hub, B-EPD, …). |
 | `dictionary-no-lca-data` | Routing only; no GWP/density in TTL. |
 
 Legacy graphs may still show `dictionary-placeholder` on old EPD nodes; new exports use the labels above.
