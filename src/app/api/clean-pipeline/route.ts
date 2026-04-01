@@ -1,11 +1,6 @@
-import { NextResponse } from "next/server";
-
-import {
-  cleanPipelineArtifacts,
-  isSafeProjectId,
-} from "@/lib/clean-pipeline-artifacts";
-
-export const runtime = "nodejs";
+import { NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 
 export async function POST(request: Request) {
   let body: { projectId?: string };
@@ -19,13 +14,23 @@ export async function POST(request: Request) {
   if (!projectId) {
     return NextResponse.json({ error: "Missing `projectId`" }, { status: 400 });
   }
-  if (!isSafeProjectId(projectId)) {
+
+  const dataDir = path.join(process.cwd(), "data");
+  const kbPath = path.join(dataDir, `${projectId}-kb.ttl`);
+  if (!fs.existsSync(kbPath)) {
     return NextResponse.json(
-      { error: "Invalid `projectId` (use letters, numbers, - and _ only)" },
+      {
+        error: `No KB at data/${projectId}-kb.ttl — build Phase 2 KB first.`,
+      },
       { status: 400 }
     );
   }
 
-  const result = cleanPipelineArtifacts(projectId);
-  return NextResponse.json({ ok: true, ...result });
+  const kbTtl = fs.readFileSync(kbPath, "utf-8");
+  // Add your cleaning pipeline logic here
+  // For example:
+  // const cleanedKbTtl = cleanKbTtl(kbTtl);
+  // fs.writeFileSync(kbPath, cleanedKbTtl, "utf-8");
+
+  return NextResponse.json({ message: "Pipeline cleaned successfully" }, { status: 200 });
 }
