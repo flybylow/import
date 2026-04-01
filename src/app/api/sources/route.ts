@@ -44,6 +44,7 @@ export async function GET() {
 function scriptsForSourceType(type: string): string | null {
   if (type === "kbob") return "scripts/import-kbob.js";
   if (type === "ice-educational") return "scripts/import-ice.js";
+  if (type === "b-epd-be") return "scripts/import-b-epd.js";
   return null;
 }
 

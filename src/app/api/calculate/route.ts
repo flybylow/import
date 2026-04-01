@@ -455,14 +455,31 @@ export async function POST(request: Request) {
     dataGapsSample: dataGaps.slice(0, 5),
   });
 
-  const byEpdMap = new Map<string, { epd: string; kgCO2e: number; count: number }>();
+  const parseEpdNameFromLabel = (label: string): string => {
+    const s = String(label ?? "").trim();
+    const openIdx = s.indexOf(" (");
+    const closeIdx = s.endsWith(")") ? s.length - 1 : -1;
+    if (openIdx > 0 && closeIdx > openIdx + 2) {
+      return s.slice(openIdx + 2, closeIdx).trim() || s;
+    }
+    return s || "—";
+  };
+
+  const byEpdMap = new Map<
+    string,
+    { epdSlug: string; epdName: string; kgCO2e: number; count: number }
+  >();
   for (const row of byMaterial) {
-    const prev = byEpdMap.get(row.epd) ?? { epd: row.epd, kgCO2e: 0, count: 0 };
+    const epdSlug = String(row.epdSlug ?? "").trim() || epdSlugFromLabel(row.epd) || "—";
+    const epdName = parseEpdNameFromLabel(row.epd);
+
+    const prev = byEpdMap.get(epdSlug) ?? { epdSlug, epdName, kgCO2e: 0, count: 0 };
     prev.kgCO2e += row.kgCO2e;
     prev.count += 1;
-    byEpdMap.set(row.epd, prev);
+    byEpdMap.set(epdSlug, prev);
   }
   const byEpd = Array.from(byEpdMap.values()).map((v) => ({
+    epd: `${v.epdSlug} (${v.epdName})`,
     ...v,
     kgCO2e: Number(v.kgCO2e.toFixed(6)),
   }));
@@ -517,11 +534,12 @@ export async function POST(request: Request) {
 
   const epdTriples = byEpd
     .map((row) => {
-      const node = `calc-epd-${toSafeSlug(row.epd)}`;
+      const node = `calc-epd-${toSafeSlug(row.epdSlug)}`;
       return [
         `bim:${node}`,
         `    a ont:CalculationEPDSummary;`,
-        `    schema:name "${escapeTurtleString(row.epd)}";`,
+        `    schema:name "${escapeTurtleString(row.epdName)}";`,
+        `    ont:epdSlug "${escapeTurtleString(row.epdSlug)}";`,
         `    ont:kgCO2e "${row.kgCO2e}"^^xsd:decimal;`,
         `    ont:itemCount "${row.count}"^^xsd:integer;`,
         `    ont:partOfCalculation bim:${calcNodeId} .`,

@@ -22,12 +22,23 @@ export type MaterialCalcGroup = {
   groupKey: string;
   humanLabel: string;
   epdSlug: string;
+  epdName: string;
   totalKgCO2e: number;
   ifcMaterialCount: number;
   lines: MaterialCalcLine[];
   /** For Step 4 ordering: largest quantity magnitude first. */
   maxActivityMetric: number;
 };
+
+function epdNameFromCombinedLabel(epd: string): string {
+  const s = String(epd ?? "").trim();
+  const openIdx = s.indexOf(" (");
+  const closeIdx = s.endsWith(")") ? s.length - 1 : -1;
+  if (openIdx > 0 && closeIdx > openIdx + 2) {
+    return s.slice(openIdx + 2, closeIdx).trim() || s;
+  }
+  return s || "—";
+}
 
 /** Remove trailing ` (IFC expressId 123)` from API material labels. */
 export function stripIfcExpressIdSuffix(label: string): string {
@@ -41,13 +52,14 @@ export function groupMaterialCalcRows(rows: unknown[] | undefined): MaterialCalc
 
   const map = new Map<
     string,
-    { humanLabel: string; epdSlug: string; lines: MaterialCalcLine[] }
+    { humanLabel: string; epdSlug: string; epdName: string; lines: MaterialCalcLine[] }
   >();
 
   for (const raw of rows) {
     const row = raw as Record<string, unknown>;
     const humanLabel = stripIfcExpressIdSuffix(String(row.materialLabel ?? ""));
     const epdSlug = String(row.epdSlug ?? "—").trim() || "—";
+    const epdName = epdNameFromCombinedLabel(String(row.epd ?? ""));
     const key = JSON.stringify({ humanLabel, epdSlug });
 
     const line: MaterialCalcLine = {
@@ -80,12 +92,12 @@ export function groupMaterialCalcRows(rows: unknown[] | undefined): MaterialCalc
     if (existing) {
       existing.lines.push(line);
     } else {
-      map.set(key, { humanLabel, epdSlug, lines: [line] });
+      map.set(key, { humanLabel, epdSlug, epdName, lines: [line] });
     }
   }
 
   const groups: MaterialCalcGroup[] = [];
-  for (const { humanLabel, epdSlug, lines } of map.values()) {
+  for (const { humanLabel, epdSlug, epdName, lines } of map.values()) {
     const totalKgCO2e = Number(
       lines.reduce((s, l) => s + (Number.isFinite(l.kgCO2e) ? l.kgCO2e : 0), 0).toFixed(6)
     );
@@ -107,6 +119,7 @@ export function groupMaterialCalcRows(rows: unknown[] | undefined): MaterialCalc
       groupKey: JSON.stringify({ humanLabel, epdSlug }),
       humanLabel,
       epdSlug,
+      epdName,
       totalKgCO2e,
       ifcMaterialCount: lines.length,
       lines,
@@ -114,9 +127,12 @@ export function groupMaterialCalcRows(rows: unknown[] | undefined): MaterialCalc
     });
   }
 
-  // Step 4: order by biggest quantities first (quantity magnitude),
-  // tie-break by biggest carbon.
+  // Step 4: order by IFC material count first (most frequent in model),
+  // then quantity magnitude, then carbon.
   return groups.sort((a, b) => {
+    const dn = b.ifcMaterialCount - a.ifcMaterialCount;
+    if (dn !== 0) return dn;
+
     const dq = b.maxActivityMetric - a.maxActivityMetric;
     if (dq !== 0) return dq;
     const dc = b.totalKgCO2e - a.totalKgCO2e;

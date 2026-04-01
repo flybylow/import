@@ -23,6 +23,7 @@ const XSD_URI = "http://www.w3.org/2001/XMLSchema#";
 
 const BIM = $rdf.Namespace(BIM_URI);
 const ONT = $rdf.Namespace(ONT_URI);
+const DCT = $rdf.Namespace("http://purl.org/dc/terms/");
 
 type PassportCarbonRequest = {
   projectId?: string;
@@ -42,6 +43,11 @@ type PassportCarbonMaterial = {
   epdDataProvenance?: string;
   sourceProductUri?: string;
   sourceFileName?: string;
+  producer?: string;
+  productionLocation?: string;
+  issueDate?: string;
+  validUntil?: string;
+  epdIdentifier?: string;
   matchType?: string;
   matchConfidence?: number;
   quantityKind: string;
@@ -79,6 +85,11 @@ type ElementPassportMaterial = {
   epdDataProvenance?: string;
   sourceProductUri?: string;
   sourceFileName?: string;
+  producer?: string;
+  productionLocation?: string;
+  issueDate?: string;
+  validUntil?: string;
+  epdIdentifier?: string;
   declaredUnit?: string;
   gwpPerUnit?: number;
   densityKgPerM3?: number;
@@ -227,6 +238,11 @@ function buildOneElementPassport(store: $rdf.Store, elementId: number): ElementP
     let epdDataProvenance: string | undefined;
     let sourceProductUri: string | undefined;
     let sourceFileName: string | undefined;
+    let producer: string | undefined;
+    let productionLocation: string | undefined;
+    let issueDate: string | undefined;
+    let validUntil: string | undefined;
+    let epdIdentifier: string | undefined;
 
     if (epdTerm?.value) {
       const sm = /epd-(.+)$/.exec(epdTerm.value);
@@ -242,6 +258,11 @@ function buildOneElementPassport(store: $rdf.Store, elementId: number): ElementP
         const provRaw = store.any(epn as any, ONT("epdDataProvenance"), null)?.value;
         const srcUriRaw = store.any(epn as any, ONT("sourceProductUri"), null)?.value;
         const srcFileRaw = store.any(epn as any, ONT("sourceFileName"), null)?.value;
+        const producerRaw = store.any(epn as any, ONT("producer"), null)?.value;
+        const productionLocationRaw = store.any(epn as any, ONT("productionLocation"), null)?.value;
+        const issueDateRaw = store.any(epn as any, ONT("issueDate"), null)?.value;
+        const validUntilRaw = store.any(epn as any, ONT("validUntil"), null)?.value;
+        const identifierRaw = store.any(epn as any, DCT("identifier"), null)?.value;
 
         if (gwpRaw != null) {
           const n = Number(gwpRaw);
@@ -255,6 +276,11 @@ function buildOneElementPassport(store: $rdf.Store, elementId: number): ElementP
         if (provRaw) epdDataProvenance = provRaw;
         if (srcUriRaw) sourceProductUri = srcUriRaw;
         if (srcFileRaw) sourceFileName = srcFileRaw;
+        if (producerRaw) producer = producerRaw;
+        if (productionLocationRaw) productionLocation = productionLocationRaw;
+        if (issueDateRaw) issueDate = issueDateRaw;
+        if (validUntilRaw) validUntil = validUntilRaw;
+        if (identifierRaw) epdIdentifier = identifierRaw;
       }
     }
 
@@ -285,6 +311,11 @@ function buildOneElementPassport(store: $rdf.Store, elementId: number): ElementP
       epdDataProvenance,
       sourceProductUri,
       sourceFileName,
+      producer,
+      productionLocation,
+      issueDate,
+      validUntil,
+      epdIdentifier,
     });
   }
 
@@ -484,6 +515,11 @@ export async function POST(request: Request) {
         epdDataProvenance: m.epdDataProvenance,
         sourceProductUri: m.sourceProductUri,
         sourceFileName: m.sourceFileName,
+        producer: m.producer,
+        productionLocation: m.productionLocation,
+        issueDate: m.issueDate,
+        validUntil: m.validUntil,
+        epdIdentifier: m.epdIdentifier,
         matchType: m.matchType,
         matchConfidence: m.matchConfidence,
         quantityKind,

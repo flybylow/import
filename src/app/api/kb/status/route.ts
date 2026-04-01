@@ -30,6 +30,7 @@ const ONT = $rdf.Namespace(ONT_URI);
 const RDF = $rdf.Namespace(RDF_URI);
 const SCHEMA = $rdf.Namespace(SCHEMA_URI);
 const BOT = $rdf.Namespace(BOT_URI);
+const DCT = $rdf.Namespace("http://purl.org/dc/terms/");
 
 function getLitValue(store: any, subject: any, predicate: any) {
   const term = store.any(subject, predicate, null);
@@ -151,6 +152,11 @@ export type ElementPassportMaterial = {
   sourceProductUri?: string;
   /** KB literal `ont:sourceFileName` (local doc identifier for `/api/file` when present). */
   sourceFileName?: string;
+  producer?: string;
+  productionLocation?: string;
+  issueDate?: string;
+  validUntil?: string;
+  epdIdentifier?: string;
   declaredUnit?: string;
   gwpPerUnit?: number;
   densityKgPerM3?: number;
@@ -400,6 +406,11 @@ function buildOneElementPassport(
     let epdDataProvenance: string | undefined;
     let sourceProductUri: string | undefined;
     let sourceFileName: string | undefined;
+    let producer: string | undefined;
+    let productionLocation: string | undefined;
+    let issueDate: string | undefined;
+    let validUntil: string | undefined;
+    let epdIdentifier: string | undefined;
     let declaredUnit: string | undefined;
     let gwpPerUnit: number | undefined;
     let densityKgPerM3: number | undefined;
@@ -412,6 +423,11 @@ function buildOneElementPassport(
       epdDataProvenance = getLitValue(store, ep, ONT("epdDataProvenance")) || undefined;
       sourceProductUri = getLitValue(store, ep, ONT("sourceProductUri")) || undefined;
       sourceFileName = getLitValue(store, ep, ONT("sourceFileName")) || undefined;
+      producer = getLitValue(store, ep, ONT("producer")) || undefined;
+      productionLocation = getLitValue(store, ep, ONT("productionLocation")) || undefined;
+      issueDate = getLitValue(store, ep, ONT("issueDate")) || undefined;
+      validUntil = getLitValue(store, ep, ONT("validUntil")) || undefined;
+      epdIdentifier = getLitValue(store, ep, DCT("identifier")) || undefined;
       const prov = epdDataProvenance;
       lcaReady =
         calculationBlockedReason({
@@ -432,6 +448,11 @@ function buildOneElementPassport(
       epdDataProvenance,
       sourceProductUri,
       sourceFileName,
+      producer,
+      productionLocation,
+      issueDate,
+      validUntil,
+      epdIdentifier,
       declaredUnit,
       gwpPerUnit,
       densityKgPerM3,
@@ -560,6 +581,11 @@ export async function GET(request: Request) {
     url.searchParams.get("includeElementPassports") !== "false";
 
   const includeSignaturePassports = isSignatureMode && includeElementPassports;
+  const signatureSortParam = url.searchParams.get("signatureSort") ?? "quantity";
+  const signatureSort: "quantity" | "instances" =
+    signatureSortParam === "instances" ? "instances" : "quantity";
+  const signatureOnlyCalculable =
+    url.searchParams.get("signatureOnlyCalculable") === "true";
 
   const rawMatchedLimit = url.searchParams.get("matchedLimit");
   const parsedMatched =
@@ -611,7 +637,8 @@ export async function GET(request: Request) {
   } | null = null;
 
   if (includeSignaturePassports) {
-    const cached = signaturePassportsCache.get(projectId);
+    const cacheKey = `${projectId}::${signatureSort}::${signatureOnlyCalculable ? "calcOnly" : "all"}`;
+    const cached = signaturePassportsCache.get(cacheKey);
     const cacheValid =
       cached &&
       cached.kbMtimeMs === kbStat.mtimeMs &&
@@ -633,6 +660,12 @@ export async function GET(request: Request) {
       // Iterate in increasing elementId to ensure representative element is deterministic.
       for (const elementId of allElementIds) {
         const p = buildOneElementPassport(store, elementId);
+        if (signatureOnlyCalculable) {
+          const hasCalculableMaterial = p.materials.some(
+            (m) => m.hasEPD && (m.lcaReady ?? true)
+          );
+          if (!hasCalculableMaterial) continue;
+        }
         const signatureKey = signatureKeyFromPassport(p);
         const signatureId = signatureIdFromKey(signatureKey);
 
@@ -669,12 +702,20 @@ export async function GET(request: Request) {
           );
           return {
             signature: v.signature,
+            activityPerInstance,
             score: activityPerInstance * v.signature.instanceCount,
           };
         })
         .sort((a, b) => {
-          const ds = b.score - a.score;
-          if (ds !== 0) return ds;
+          if (signatureSort === "instances") {
+            const di = b.signature.instanceCount - a.signature.instanceCount;
+            if (di !== 0) return di;
+            const da = b.activityPerInstance - a.activityPerInstance;
+            if (da !== 0) return da;
+          } else {
+            const ds = b.score - a.score;
+            if (ds !== 0) return ds;
+          }
           return a.signature.signatureId.localeCompare(
             b.signature.signatureId
           );
@@ -682,7 +723,7 @@ export async function GET(request: Request) {
         .map((v) => v.signature);
 
       total = orderedSignatures.length;
-      signaturePassportsCache.set(projectId, {
+      signaturePassportsCache.set(cacheKey, {
         kbMtimeMs: kbStat.mtimeMs,
         kbSizeBytes: kbStat.size,
         orderedSignatures,

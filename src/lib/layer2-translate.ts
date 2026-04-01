@@ -26,6 +26,7 @@ const BIM = $rdf.Namespace(BIM_URI);
 const BOT = $rdf.Namespace(BOT_URI);
 const ONT = $rdf.Namespace(ONT_URI);
 const SCHEMA = $rdf.Namespace(SCHEMA_URI);
+const DCTERMS = $rdf.Namespace(DCTERMS_URI);
 const XSD = $rdf.Namespace(XSD_URI);
 const RDF = $rdf.Namespace("http://www.w3.org/1999/02/22-rdf-syntax-ns#");
 
@@ -175,12 +176,35 @@ function copyEpdFromSourceToBim(
   const ds = getLit(sourceStore, srcTerm, ONT("sourceDataset"));
   if (ds) dest.add(epdNode, ONT("source"), $rdf.lit(ds));
 
-  dest.add(epdNode, ONT("sourceProductUri"), $rdf.lit(srcTerm.uri));
+  const sourceProductUri = getLit(sourceStore, srcTerm, ONT("sourceProductUri"));
+  if (sourceProductUri) {
+    dest.add(epdNode, ONT("sourceProductUri"), $rdf.lit(sourceProductUri));
+  }
   // Local doc identifier used by `/api/file?name=...` when the source also exists
   // under `data/`.
   const srcFileName = getLit(sourceStore, srcTerm, ONT("sourceFileName"));
   if (srcFileName) {
     dest.add(epdNode, ONT("sourceFileName"), $rdf.lit(srcFileName));
+  }
+  const producer = getLit(sourceStore, srcTerm, ONT("producer"));
+  if (producer) {
+    dest.add(epdNode, ONT("producer"), $rdf.lit(producer));
+  }
+  const productionLocation = getLit(sourceStore, srcTerm, ONT("productionLocation"));
+  if (productionLocation) {
+    dest.add(epdNode, ONT("productionLocation"), $rdf.lit(productionLocation));
+  }
+  const issueDate = getLit(sourceStore, srcTerm, ONT("issueDate"));
+  if (issueDate) {
+    dest.add(epdNode, ONT("issueDate"), $rdf.lit(issueDate));
+  }
+  const validUntil = getLit(sourceStore, srcTerm, ONT("validUntil"));
+  if (validUntil) {
+    dest.add(epdNode, ONT("validUntil"), $rdf.lit(validUntil));
+  }
+  const identifier = getLit(sourceStore, srcTerm, DCTERMS("identifier"));
+  if (identifier) {
+    dest.add(epdNode, DCTERMS("identifier"), $rdf.lit(identifier));
   }
   dest.add(
     epdNode,

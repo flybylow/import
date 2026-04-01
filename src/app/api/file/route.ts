@@ -5,9 +5,10 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 function safeJoinDataFile(dataDir: string, requestedName: string) {
-  // Prevent traversal: allow only simple names without path separators.
-  if (requestedName.includes("/") || requestedName.includes("\\")) return null;
-  const fullPath = path.join(dataDir, requestedName);
+  // Prevent traversal: allow relative paths under `data/` only.
+  const normalizedRequest = requestedName.replace(/\\/g, "/").trim();
+  if (!normalizedRequest || normalizedRequest.startsWith("/")) return null;
+  const fullPath = path.join(dataDir, normalizedRequest);
   const normalized = path.normalize(fullPath);
   if (!normalized.startsWith(dataDir)) return null;
   return fullPath;
