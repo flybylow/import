@@ -24,6 +24,8 @@
 # Calculation history snapshots are preserved on disk for safety,
 # but should not be committed (they are append-only and can grow quickly).
 /data/*-calc-history/
+# Manual quantity overrides are local operator state.
+/data/*-passport-quantity-overrides.json
 #
 # Keep local IFC/model inputs out of Git history.
 /data/**/*.ifc

@@ -32,6 +32,27 @@ type PassportCarbonRequest = {
   debugSampleCount?: number;
 };
 
+type ManualSignatureQuantityOverride = {
+  quantityKind: "mass" | "volume" | "area" | "length";
+  /** Per-instance quantity value (NOT scaled by instanceCount). */
+  quantityValue: number;
+};
+
+function readQuantityOverrides(projectId: string): Record<string, ManualSignatureQuantityOverride> {
+  try {
+    const dataDir = path.join(process.cwd(), "data");
+    const p = path.join(dataDir, `${projectId}-passport-quantity-overrides.json`);
+    if (!fs.existsSync(p)) return {};
+    const raw = fs.readFileSync(p, "utf-8");
+    const parsed = JSON.parse(raw) as { overrides?: Record<string, ManualSignatureQuantityOverride> } | null;
+    const overrides = parsed?.overrides;
+    if (!overrides || typeof overrides !== "object") return {};
+    return overrides;
+  } catch {
+    return {};
+  }
+}
+
 type PassportCarbonMaterial = {
   materialId: number;
   materialName: string;
@@ -366,6 +387,7 @@ export async function POST(request: Request) {
   $rdf.parse(kbTtl, store, BIM_URI, "text/turtle");
 
   const epdLookup = buildEpdLookupFromStore(store);
+  const quantityOverrides = readQuantityOverrides(projectId);
 
   const elementIds = extractElementIdsFromStore(store);
 
@@ -482,9 +504,22 @@ export async function POST(request: Request) {
           .join(" | ")
       : "";
 
+    const manualOverride = quantityOverrides[signatureId];
+    const overrideKind = manualOverride?.quantityKind;
+    const overrideValuePerInstance = manualOverride?.quantityValue;
+
     const parsed = parsePrimaryQuantity(scaledCompactQuantities);
-    const quantityKind = parsed.kind;
-    const quantityValue = parsed.value;
+    const quantityKind =
+      overrideKind && ["mass", "volume", "area", "length"].includes(overrideKind)
+        ? overrideKind
+        : parsed.kind;
+    const quantityValue =
+      overrideKind &&
+      overrideValuePerInstance != null &&
+      Number.isFinite(overrideValuePerInstance) &&
+      overrideValuePerInstance > 0
+        ? overrideValuePerInstance * instanceCount
+        : parsed.value;
 
     for (const m of materials) {
       const epd: EpdFromKb = m.epdSlug ? epdLookup.getBySlug(m.epdSlug) : {};
@@ -526,7 +561,10 @@ export async function POST(request: Request) {
         activityMetric: quantityValue,
         layerThicknessMetersFromKb: thicknessFromKb,
         layerThicknessMetersInferred: thicknessInferred,
-        calculationNote: calc.note ?? null,
+        calculationNote:
+          overrideKind && overrideValuePerInstance != null
+            ? `manual_quantity_override:${overrideKind}:${overrideValuePerInstance};${calc.note ?? ""}`
+            : calc.note ?? null,
         kgCO2e,
       });
     }

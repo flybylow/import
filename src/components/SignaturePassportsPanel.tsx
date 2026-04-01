@@ -160,6 +160,11 @@ export default function SignaturePassportsPanel({
     ? carbonBySignatureId[selectedSignatureId] ?? null
     : null;
 
+  const [manualQtyKind, setManualQtyKind] = useState<"area" | "volume" | "mass" | "length">("area");
+  const [manualQtyValue, setManualQtyValue] = useState<string>("");
+  const [manualQtySaving, setManualQtySaving] = useState(false);
+  const [manualQtyError, setManualQtyError] = useState<string | null>(null);
+
   const selectedPassport = useMemo(() => {
     if (!selectedSignatureId) return null;
     return passports.find((p) => p.signatureId === selectedSignatureId) ?? null;
@@ -174,6 +179,49 @@ export default function SignaturePassportsPanel({
     if (!selectedPassport) return false;
     return selectedPassport.materials.some((m) => m.hasEPD && (m.lcaReady ?? false));
   }, [selectedPassport]);
+
+  const selectedNeedsManualQuantity = useMemo(() => {
+    if (!selectedSignatureId) return false;
+    if (!selectedPassport) return false;
+    const noPassportQty = selectedPassport.ifcQuantities.length === 0;
+    const carbonQtyNone = selectedCarbon?.materials?.some((m) => m.quantityKind === "none") ?? false;
+    return noPassportQty || carbonQtyNone;
+  }, [selectedSignatureId, selectedPassport, selectedCarbon]);
+
+  useEffect(() => {
+    setManualQtyError(null);
+    setManualQtySaving(false);
+    setManualQtyKind("area");
+    setManualQtyValue("");
+  }, [selectedSignatureId]);
+
+  async function saveManualQuantityOverride() {
+    if (!selectedSignatureId) return;
+    setManualQtyError(null);
+    setManualQtySaving(true);
+    try {
+      const res = await fetch("/api/passports/quantity-override", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          signatureId: selectedSignatureId,
+          quantityKind: manualQtyKind,
+          quantityValue: Number(manualQtyValue),
+        }),
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || "Failed to save manual quantity");
+      }
+      // Recompute carbon for this signature (even if it wasn't precomputed in the current batch).
+      await computeCarbonForSignatures([selectedSignatureId]);
+    } catch (e: unknown) {
+      setManualQtyError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setManualQtySaving(false);
+    }
+  }
 
   const totalKgCO2eLoaded = useMemo(() => {
     let sum = 0;
@@ -507,6 +555,60 @@ export default function SignaturePassportsPanel({
                     </DetailRow>
                   </div>
                 </div>
+
+                {selectedNeedsManualQuantity ? (
+                  <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 space-y-2">
+                    <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-50">
+                      Manual quantity (override)
+                    </div>
+                    <div className="text-[11px] text-zinc-600 dark:text-zinc-300 leading-snug">
+                      This signature has no usable IFC quantities, so CO₂e can be non-computable. Provide a per-instance
+                      quantity here to recompute.
+                    </div>
+                    <div className="flex flex-wrap items-end gap-2">
+                      <label className="text-[11px] text-zinc-600 dark:text-zinc-300">
+                        <div className="mb-1">Kind</div>
+                        <select
+                          className="h-8 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2 text-[12px]"
+                          value={manualQtyKind}
+                          onChange={(e) =>
+                            setManualQtyKind(
+                              (e.target.value as any) ?? "area"
+                            )
+                          }
+                        >
+                          <option value="area">area (m²)</option>
+                          <option value="volume">volume (m³)</option>
+                          <option value="mass">mass (kg)</option>
+                          <option value="length">length (m)</option>
+                        </select>
+                      </label>
+                      <label className="text-[11px] text-zinc-600 dark:text-zinc-300">
+                        <div className="mb-1">Value (per instance)</div>
+                        <input
+                          className="h-8 w-44 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2 text-[12px] font-mono"
+                          inputMode="decimal"
+                          placeholder="e.g. 1.23"
+                          value={manualQtyValue}
+                          onChange={(e) => setManualQtyValue(e.target.value)}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="h-8 rounded bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-3 text-[12px] disabled:opacity-60"
+                        disabled={manualQtySaving || !manualQtyValue || Number(manualQtyValue) <= 0}
+                        onClick={() => void saveManualQuantityOverride()}
+                      >
+                        {manualQtySaving ? "Saving…" : "Save & recompute"}
+                      </button>
+                    </div>
+                    {manualQtyError ? (
+                      <div className="text-[11px] text-red-700 dark:text-red-300 break-words">
+                        {manualQtyError}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <div>
                   <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-50 mb-2">
