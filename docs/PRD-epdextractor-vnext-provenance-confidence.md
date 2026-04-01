@@ -337,6 +337,7 @@ Fields:
 - `functional.declared_unit.text` (full phrase)
 - `functional.functional_unit.text` (optional)
 - `functional.reference_service_life_years` (number; optional)
+- `functional.density_kg_per_m3` (number; optional; extract when explicitly stated)
 
 ### 8.4 System boundary and modules declared
 
@@ -356,6 +357,15 @@ Provenance policy:
 
 Indicators:
 - All mandatory EN 15804+A2 indicators as already implemented (impact assessment, resource use, waste/output flows).
+
+### 8.5.1 Downstream calculation note (non-goal, but important contract)
+
+This PRD specifies extraction, not BIM quantity takeoff. However, downstream carbon computation commonly requires:
+- a usable BIM quantity (mass/volume/area/length), and
+- compatible EPD units (declared unit + GWP), and sometimes
+- density (for volume→mass conversion when GWP is per kg, or area×thickness×density cases).
+
+If any required inputs are missing, downstream systems must treat results as **not computable** (do not coerce to “0” without an explicit warning).
 
 ### 8.6 Scenarios & packaging (Level 2)
 
@@ -409,7 +419,7 @@ Must-pass criteria:
 Not in v1; add later under a `technical` top-level block:
 - fire reaction class (Euroclass)
 - thermal conductivity (lambda)
-- compressive strength
+- compressive strengthx
 - density
 - acoustic ratings
 - composition and recycled content
