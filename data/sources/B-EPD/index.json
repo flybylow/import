@@ -1,0 +1,24 @@
+{
+  "source": "b-epd-be",
+  "snapshots": [
+    {
+      "sourceVersion": "2026-03-28",
+      "generatedAt": "2026-04-01T06:50:32.905Z",
+      "files": {
+        "json": "sources/B-EPD/epd_data_2026-03-28.json",
+        "ttl": "sources/B-EPD/b-epd-2026-03-28.ttl",
+        "report": "sources/B-EPD/b-epd-2026-03-28.report.json"
+      },
+      "sha256": {
+        "json": "64d16c70261d8257d94a56e128cee2fdf44f86a6ed05f9581821d658d0e896d9",
+        "ttl": "dccf07f7f39a35082bae47c6e0d137b3c98376050b31df46c930bfc53000fa5e",
+        "report": "08db6f2bad2bc3cc8c10766516b559122db67146715fa9d648ee4f1ee4350288"
+      },
+      "counts": {
+        "totalInputRows": 168,
+        "rowCount": 106,
+        "skippedRows": 62
+      }
+    }
+  ]
+}

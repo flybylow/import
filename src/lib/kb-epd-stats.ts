@@ -6,10 +6,11 @@ const ONT_URI = "https://tabulas.eu/ontology/";
 const ONT = $rdf.Namespace(ONT_URI);
 
 function breakdownKeyFromDatasetLiteral(raw: string): string {
+  // Prefer the dataset literal as-is (e.g. `b-epd-be`, `kbob`).
+  // Keep legacy `*-source` keys stable by stripping the suffix.
   const s = raw.trim();
   if (!s) return "unknown";
-  if (s.endsWith("-source")) return s;
-  return `${s}-source`;
+  return s.endsWith("-source") ? s.slice(0, -"-source".length) : s;
 }
 
 /**

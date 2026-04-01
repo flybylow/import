@@ -170,6 +170,11 @@ export default function SignaturePassportsPanel({
     [selectedPassport]
   );
 
+  const selectedIsLcaReady = useMemo(() => {
+    if (!selectedPassport) return false;
+    return selectedPassport.materials.some((m) => m.hasEPD && (m.lcaReady ?? false));
+  }, [selectedPassport]);
+
   const totalKgCO2eLoaded = useMemo(() => {
     let sum = 0;
     for (const p of passports) {
@@ -403,9 +408,28 @@ export default function SignaturePassportsPanel({
                     </p>
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-dashed border-zinc-200 dark:border-zinc-700 px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
-                    Carbon loads when this signature is in the current batch.
-                    If this stays empty, open the list item again after loading.
+                  <div className="rounded-lg border border-dashed border-zinc-200 dark:border-zinc-700 px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span>Carbon unavailable.</span>
+                      {selectedIsLcaReady ? (
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] bg-amber-50 text-amber-900 ring-1 ring-amber-300/70 dark:bg-amber-950/30 dark:text-amber-200 dark:ring-amber-700/60">
+                          Not loaded yet
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] bg-red-50 text-red-900 ring-1 ring-red-200 dark:bg-red-950/30 dark:text-red-200 dark:ring-red-800/60">
+                          Not LCA-ready
+                        </span>
+                      )}
+                    </div>
+                    {selectedIsLcaReady ? (
+                      <div className="text-[11px]">
+                        Load more signatures to compute carbon for this group.
+                      </div>
+                    ) : (
+                      <div className="text-[11px]">
+                        This signature has no materials with LCA factors in the KB yet.
+                      </div>
+                    )}
                   </div>
                 )}
 
