@@ -289,6 +289,9 @@ export default function SignaturePassportsPanel({
 
       // Compute carbon for the new slice so the detail panel has totals when opened.
       const ids = next
+        // If there are no IFC quantities, Phase 3 can't compute a meaningful CO₂e yet.
+        // (Unless the user supplies a manual quantity override for the signature.)
+        .filter((p) => p.ifcQuantities.length > 0)
         .filter((p) => p.materials.some((m) => m.hasEPD && (m.lcaReady ?? false)))
         .map((p) => p.signatureId);
       await computeCarbonForSignatures(ids);
@@ -550,6 +553,9 @@ export default function SignaturePassportsPanel({
                       ) : (
                         <span className="text-zinc-500 dark:text-zinc-400">
                           None in passport
+                          <span className="block mt-0.5">
+                            No quantities → carbon can’t be computed (use manual quantity override).
+                          </span>
                         </span>
                       )}
                     </DetailRow>
