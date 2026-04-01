@@ -182,7 +182,7 @@ export default function BimDebugPage() {
         elapsedMs: Math.round(performance.now() - startedAt),
       });
     };
-  }, [ifcUrl]);
+  }, [ifcUrl, projectId, sourceMode]);
 
   return (
     <div className="max-w-[1200px] mx-auto px-6 py-8 space-y-4">
