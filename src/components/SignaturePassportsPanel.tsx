@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import TruncatedWithTooltip from "@/components/TruncatedWithTooltip";
 
 type KbSignaturePassport = {
   signatureId: string;
@@ -24,6 +25,11 @@ type KbSignaturePassport = {
     epdDataProvenance?: string;
     sourceProductUri?: string;
     sourceFileName?: string;
+    producer?: string;
+    productionLocation?: string;
+    issueDate?: string;
+    validUntil?: string;
+    epdIdentifier?: string;
     declaredUnit?: string;
     gwpPerUnit?: number;
     densityKgPerM3?: number;
@@ -46,6 +52,11 @@ type CarbonMaterial = {
   epdDataProvenance?: string;
   sourceProductUri?: string;
   sourceFileName?: string;
+  producer?: string;
+  productionLocation?: string;
+  issueDate?: string;
+  validUntil?: string;
+  epdIdentifier?: string;
   matchType?: string;
   matchConfidence?: number;
   quantityKind: string;
@@ -81,11 +92,55 @@ type Props = {
   pageSize?: number;
 };
 
+function signatureHeadline(
+  p: Pick<KbSignaturePassport, "representativeElement">
+): string {
+  const repName = (p.representativeElement.elementName ?? "").trim();
+  const ifc = p.representativeElement.ifcType ?? "";
+  if (repName && ifc) return `${repName} · ${ifc}`;
+  if (repName) return repName;
+  return ifc || "Element";
+}
+
+function DetailRow({
+  label,
+  children,
+  dense,
+}: {
+  label: string;
+  children: ReactNode;
+  dense?: boolean;
+}) {
+  const text = dense ? "text-[11px]" : "text-xs";
+  return (
+    <div
+      className={`grid grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)] gap-x-3 gap-y-0.5 ${text} leading-snug items-baseline`}
+    >
+      <span className="text-zinc-500 dark:text-zinc-400 shrink-0">{label}</span>
+      <div className="min-w-0 text-zinc-800 dark:text-zinc-100">{children}</div>
+    </div>
+  );
+}
+
 export default function SignaturePassportsPanel({
   projectId,
   enabled,
   pageSize = 50,
 }: Props) {
+  const isUsableExternalLink = (url: string | undefined) =>
+    Boolean(
+      url &&
+        /^https?:\/\//i.test(url) &&
+        !url.includes("tabulas.eu/sources/")
+    );
+
+  const getLocalFileHref = (fileName: string | undefined) => {
+    if (!fileName) return null;
+    const normalized = fileName.replace(/\\/g, "/").trim();
+    if (!normalized || normalized.includes("..")) return null;
+    return `/api/file?name=${encodeURIComponent(normalized)}`;
+  };
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,6 +164,11 @@ export default function SignaturePassportsPanel({
     if (!selectedSignatureId) return null;
     return passports.find((p) => p.signatureId === selectedSignatureId) ?? null;
   }, [passports, selectedSignatureId]);
+
+  const selectedHeadline = useMemo(
+    () => (selectedPassport ? signatureHeadline(selectedPassport) : ""),
+    [selectedPassport]
+  );
 
   const totalKgCO2eLoaded = useMemo(() => {
     let sum = 0;
@@ -155,7 +215,7 @@ export default function SignaturePassportsPanel({
       const limit = pageSize;
       const url = `/api/kb/status?projectId=${encodeURIComponent(
         projectId
-      )}&elementPassportsMode=signature&includeElementPassports=true&elementPassportsOffset=${encodeURIComponent(
+      )}&elementPassportsMode=signature&signatureSort=instances&signatureOnlyCalculable=false&includeElementPassports=true&elementPassportsOffset=${encodeURIComponent(
         String(offset)
       )}&elementPassportsLimit=${encodeURIComponent(String(limit))}`;
 
@@ -174,8 +234,10 @@ export default function SignaturePassportsPanel({
       setTotal(nextTotal ?? null);
       setPassports((prev) => [...prev, ...next]);
 
-      // Compute carbon for the new slice immediately so list shows CO2.
-      const ids = next.map((p) => p.signatureId);
+      // Compute carbon for the new slice so the detail panel has totals when opened.
+      const ids = next
+        .filter((p) => p.materials.some((m) => m.hasEPD && (m.lcaReady ?? false)))
+        .map((p) => p.signatureId);
       await computeCarbonForSignatures(ids);
 
       setOffset((prev) => prev + next.length);
@@ -243,55 +305,49 @@ export default function SignaturePassportsPanel({
       ) : null}
 
       {passports.length ? (
-        <div className="mt-3 grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-3">
-          <div className="max-h-[62vh] overflow-auto pr-1">
+        <div className="mt-3 grid grid-cols-1 lg:grid-cols-[minmax(0,280px)_1fr] gap-3">
+          <div className="max-h-[62vh] overflow-auto pr-1 min-w-0">
             <div className="space-y-2">
               {passports.map((p) => {
-                const c = carbonBySignatureId[p.signatureId];
-                const co2 =
-                  c && Number.isFinite(c.totalKgCO2e) ? c.totalKgCO2e : null;
-                const repName = p.representativeElement.elementName ?? "";
+                const repName = (p.representativeElement.elementName ?? "").trim();
+                const ifc = p.representativeElement.ifcType ?? "";
+                const headline =
+                  repName && ifc
+                    ? `${repName} · ${ifc}`
+                    : repName
+                      ? repName
+                      : ifc || "Element";
                 const repExpressId = p.representativeElement.expressId;
                 return (
                   <button
                     key={p.signatureId}
                     type="button"
-                    className="w-full text-left rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/40 p-3 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                    className="w-full text-left rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/40 px-2.5 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900"
                     onClick={() => setSelectedSignatureId(p.signatureId)}
                   >
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <span className="font-mono text-sm text-zinc-900 dark:text-zinc-50">
-                        {p.signatureId}
-                      </span>
-                      {repExpressId != null ? (
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                          expressId {repExpressId}
-                        </span>
-                      ) : null}
-                      {p.representativeElement.ifcType ? (
-                        <span className="text-xs text-blue-700 dark:text-blue-400">
-                          {p.representativeElement.ifcType}
-                        </span>
-                      ) : null}
-                      <span className="ml-auto font-mono text-[11px] text-zinc-600 dark:text-zinc-300">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1 text-sm font-medium text-zinc-900 dark:text-zinc-50 leading-snug">
+                        <TruncatedWithTooltip
+                          value={headline}
+                          className="text-left"
+                        />
+                      </div>
+                      <span
+                        className="shrink-0 tabular-nums text-xs font-medium text-zinc-600 dark:text-zinc-300"
+                        title={`${p.instanceCount} identical instances`}
+                      >
                         {p.instanceCount}x
                       </span>
                     </div>
-                    {repName ? (
-                      <div className="mt-1 text-xs text-zinc-700 dark:text-zinc-200 truncate">
-                        {repName}
+                    <div className="mt-1.5 space-y-0.5 text-[10px] leading-tight text-zinc-500 dark:text-zinc-400">
+                      <div className="font-mono truncate" title={p.signatureId}>
+                        {p.signatureId}
                       </div>
-                    ) : null}
-                    <div className="mt-2 text-xs">
-                      {co2 != null ? (
-                        <span className="font-mono text-emerald-700 dark:text-emerald-400">
-                          {co2.toFixed(3)} kgCO2e
-                        </span>
-                      ) : (
-                        <span className="text-zinc-500 dark:text-zinc-400">
-                          CO2 not computed
-                        </span>
-                      )}
+                      {repExpressId != null ? (
+                        <div className="font-mono">
+                          expressId {repExpressId}
+                        </div>
+                      ) : null}
                     </div>
                   </button>
                 );
@@ -299,137 +355,212 @@ export default function SignaturePassportsPanel({
             </div>
           </div>
 
-          <div className="border-t lg:border-t-0 lg:border-l border-zinc-200 dark:border-zinc-800 pt-3 lg:pt-0 lg:pl-3">
+          <div className="border-t lg:border-t-0 lg:border-l border-zinc-200 dark:border-zinc-800 pt-3 lg:pt-0 lg:pl-3 min-w-0">
             {selectedSignatureId && selectedPassport ? (
-              <div className="space-y-3">
-                <div>
-                  <div className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                    Signature detail
-                  </div>
-                  <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-                    <div>
-                      {selectedSignatureId} ·{" "}
-                      <code className="font-mono">
-                        {selectedPassport.instanceCount}x
-                      </code>{" "}
-                      instances
-                    </div>
-                    <div>
-                      Representative element:{" "}
-                      <code className="font-mono">
-                        {selectedPassport.representativeElement.elementId}
-                      </code>{" "}
-                      {selectedPassport.representativeElement.ifcType ? (
-                        <span className="text-blue-700 dark:text-blue-400">
-                          · {selectedPassport.representativeElement.ifcType}
-                        </span>
-                      ) : null}
-                    </div>
+              <div className="space-y-4 min-w-0">
+                <div className="space-y-2">
+                  <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-50 leading-tight">
+                    <TruncatedWithTooltip value={selectedHeadline} />
+                  </h3>
+                  <div className="space-y-1.5">
+                    <DetailRow label="Instances">
+                      <span className="tabular-nums">
+                        {selectedPassport.instanceCount}× identical in the model
+                      </span>
+                    </DetailRow>
+                    <DetailRow label="Representative">
+                      <span>
+                        BIM element{" "}
+                        <code className="font-mono text-[11px] text-zinc-700 dark:text-zinc-200">
+                          {selectedPassport.representativeElement.elementId}
+                        </code>
+                        {selectedPassport.representativeElement.ifcType ? (
+                          <span className="text-blue-700 dark:text-blue-400">
+                            {" "}
+                            · {selectedPassport.representativeElement.ifcType}
+                          </span>
+                        ) : null}
+                      </span>
+                    </DetailRow>
                   </div>
                 </div>
 
                 {selectedCarbon ? (
-                  <div className="rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/40 p-3">
-                    <div className="text-xs font-medium text-zinc-900 dark:text-zinc-50">
-                      Carbon result
+                  <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-950/50 p-3 space-y-1">
+                    <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                      Carbon (representative element)
                     </div>
-                    <div className="mt-1 text-sm font-mono text-emerald-700 dark:text-emerald-400">
-                      {selectedCarbon.totalKgCO2e.toFixed(3)} kgCO2e
+                    <div className="text-xl font-semibold tabular-nums font-mono text-emerald-700 dark:text-emerald-400">
+                      {selectedCarbon.totalKgCO2e.toFixed(3)} kg CO₂e
                     </div>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
+                      Total for one instance. Multiply by{" "}
+                      <span className="tabular-nums">
+                        {selectedPassport.instanceCount}
+                      </span>{" "}
+                      for all identical elements (if quantities scale the same
+                      way).
+                    </p>
                   </div>
                 ) : (
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Select will compute carbon from EPD factors on demand.
+                  <div className="rounded-lg border border-dashed border-zinc-200 dark:border-zinc-700 px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    Carbon loads when this signature is in the current batch.
+                    If this stays empty, open the list item again after loading.
                   </div>
                 )}
 
-                <div>
-                  <div className="text-xs font-medium text-zinc-900 dark:text-zinc-50">
-                    Materials (identification + factors)
+                <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/40 p-3 space-y-2">
+                  <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-50">
+                    At a glance
                   </div>
-                  <div className="mt-2 space-y-2 max-h-[40vh] overflow-auto pr-1">
+                  <div className="space-y-1.5">
+                    <DetailRow label="Materials" dense>
+                      {selectedPassport.materials.length ? (
+                        <span>
+                          {selectedPassport.materials
+                            .slice(0, 3)
+                            .map((m) => m.materialName)
+                            .join(", ")}
+                          {selectedPassport.materials.length > 3
+                            ? ` (+${selectedPassport.materials.length - 3} more)`
+                            : ""}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-500 dark:text-zinc-400">
+                          None listed
+                        </span>
+                      )}
+                    </DetailRow>
+                    <DetailRow label="Quantities" dense>
+                      {selectedPassport.ifcQuantities.length ? (
+                        <span className="font-mono">
+                          {selectedPassport.ifcQuantities
+                            .slice(0, 4)
+                            .map((q) => {
+                              const u = q.unit ? ` ${q.unit}` : "";
+                              return `${q.quantityName}: ${q.value}${u}`;
+                            })
+                            .join(" · ")}
+                          {selectedPassport.ifcQuantities.length > 4
+                            ? ` (+${selectedPassport.ifcQuantities.length - 4})`
+                            : ""}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-500 dark:text-zinc-400">
+                          None in passport
+                        </span>
+                      )}
+                    </DetailRow>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-50 mb-2">
+                    Materials & calculation
+                  </div>
+                  <div className="space-y-3 max-h-[40vh] overflow-auto pr-1">
                     {selectedPassport.materials.map((m) => {
                       const cmat =
                         selectedCarbon?.materials.find(
                           (x) => x.materialId === m.materialId
                         ) ?? null;
+                      const epdReadable =
+                        m.epdName && m.epdSlug
+                          ? `${m.epdName} (${m.epdSlug})`
+                          : m.epdName || m.epdSlug || null;
 
                       return (
                         <div
                           key={`${selectedPassport.signatureId}-${m.materialId}`}
-                          className="rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2 space-y-1"
+                          className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 space-y-2"
                         >
-                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                            <span className="font-mono text-emerald-800 dark:text-emerald-300">
-                              material-{m.materialId}
-                            </span>
-                            <span className="text-xs text-zinc-800 dark:text-zinc-100 truncate">
-                              {m.materialName}
-                            </span>
+                          <div className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                            <TruncatedWithTooltip value={m.materialName} />
+                          </div>
+                          <div className="font-mono text-[10px] text-zinc-500 dark:text-zinc-400">
+                            material-{m.materialId}
                           </div>
 
-                          <div className="text-[11px] text-zinc-600 dark:text-zinc-300">
-                            {m.hasEPD ? (
-                              <>
-                                EPD:{" "}
-                                <span className="font-mono">{m.epdSlug ?? "—"}</span>{" "}
-                                {m.matchType ? (
-                                  <span className="ml-2">
-                                    · match {m.matchType}
-                                    {typeof m.matchConfidence === "number"
-                                      ? ` (${m.matchConfidence.toFixed(2)})`
-                                      : ""}
-                                  </span>
-                                ) : null}
-                              </>
-                            ) : (
-                              <span className="text-amber-700 dark:text-amber-400">
-                                No EPD linked
+                          <div className="space-y-1 pt-0.5 border-t border-zinc-100 dark:border-zinc-800/80">
+                            <DetailRow label="EPD" dense>
+                              {m.hasEPD ? (
+                                <span>
+                                  {epdReadable ? (
+                                    <span>{epdReadable}</span>
+                                  ) : (
+                                    <span className="font-mono">
+                                      {m.epdSlug ?? "—"}
+                                    </span>
+                                  )}
+                                  {m.matchType ? (
+                                    <span className="block mt-0.5 text-zinc-600 dark:text-zinc-300">
+                                      Match: {m.matchType}
+                                      {typeof m.matchConfidence === "number"
+                                        ? ` (${m.matchConfidence.toFixed(2)})`
+                                        : ""}
+                                    </span>
+                                  ) : null}
+                                </span>
+                              ) : (
+                                <span className="text-amber-700 dark:text-amber-400">
+                                  No EPD linked
+                                </span>
+                              )}
+                            </DetailRow>
+                            <DetailRow label="Producer" dense>
+                              <span>{m.producer ?? "—"}</span>
+                            </DetailRow>
+                            <DetailRow label="Produced in" dense>
+                              <span>{m.productionLocation ?? "—"}</span>
+                            </DetailRow>
+                            <DetailRow label="Issue date" dense>
+                              <span className="font-mono">{m.issueDate ?? "—"}</span>
+                            </DetailRow>
+                            <DetailRow label="Valid until" dense>
+                              <span className="font-mono">{m.validUntil ?? "—"}</span>
+                            </DetailRow>
+                            <DetailRow label="EPD ID" dense>
+                              <span className="font-mono break-all">
+                                {m.epdIdentifier ?? "—"}
                               </span>
-                            )}
+                            </DetailRow>
+
+                            {selectedCarbon && cmat ? (
+                              <>
+                                <DetailRow label="Quantity" dense>
+                                  <span className="font-mono break-all">
+                                    {cmat.quantityKind} = {cmat.activityMetric}
+                                  </span>
+                                </DetailRow>
+                                <DetailRow label="GWP" dense>
+                                  <span className="font-mono break-all">
+                                    {cmat.gwpPerUnitFromKb ?? "—"} /{" "}
+                                    {cmat.declaredUnitFromKb ?? "—"}
+                                  </span>
+                                </DetailRow>
+                                <DetailRow label="Thickness (m)" dense>
+                                  <span className="font-mono">
+                                    {cmat.layerThicknessMetersFromKb ??
+                                      cmat.layerThicknessMetersInferred ??
+                                      "—"}
+                                  </span>
+                                </DetailRow>
+                                <DetailRow label="Note" dense>
+                                  <span className="font-mono break-words text-zinc-700 dark:text-zinc-300">
+                                    {cmat.calculationNote ?? "—"}
+                                  </span>
+                                </DetailRow>
+                                <DetailRow label="Layer CO₂e" dense>
+                                  <span className="font-mono text-emerald-700 dark:text-emerald-400 font-medium">
+                                    {cmat.kgCO2e.toFixed(3)} kg CO₂e
+                                  </span>
+                                </DetailRow>
+                              </>
+                            ) : null}
                           </div>
 
-                          {selectedCarbon && cmat ? (
-                            <div className="text-[11px] space-y-0.5 text-zinc-700 dark:text-zinc-300">
-                              <div>
-                                Qty:{" "}
-                                <span className="font-mono">
-                                  {cmat.quantityKind}
-                                </span>{" "}
-                                ={" "}
-                                <span className="font-mono">
-                                  {cmat.activityMetric}
-                                </span>
-                              </div>
-                              <div>
-                                GWP:{" "}
-                                <span className="font-mono">
-                                  {cmat.gwpPerUnitFromKb ?? "—"}
-                                </span>{" "}
-                                / <span className="font-mono">{cmat.declaredUnitFromKb ?? "—"}</span>
-                              </div>
-                              <div>
-                                Thickness m:{" "}
-                                <span className="font-mono">
-                                  {cmat.layerThicknessMetersFromKb ??
-                                    cmat.layerThicknessMetersInferred ??
-                                    "—"}
-                                </span>
-                              </div>
-                              <div>
-                                Note:{" "}
-                                <span className="font-mono">
-                                  {cmat.calculationNote ?? "—"}
-                                </span>
-                              </div>
-                              <div className="font-mono text-emerald-700 dark:text-emerald-400">
-                                {cmat.kgCO2e.toFixed(3)} kgCO2e
-                              </div>
-                            </div>
-                          ) : null}
-
-                          <div className="mt-1 flex flex-wrap gap-2 items-center">
-                            {m.sourceProductUri ? (
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 items-center pt-1">
+                            {isUsableExternalLink(m.sourceProductUri) ? (
                               <a
                                 className="text-[11px] underline text-blue-700 dark:text-blue-400"
                                 href={m.sourceProductUri}
@@ -439,17 +570,16 @@ export default function SignaturePassportsPanel({
                                 Technical fiche (external)
                               </a>
                             ) : null}
-                            {m.sourceFileName ? (
+                            {getLocalFileHref(m.sourceFileName) ? (
                               <a
                                 className="text-[11px] underline text-blue-700 dark:text-blue-400"
-                                href={`/api/file?name=${encodeURIComponent(
-                                  m.sourceFileName
-                                )}`}
+                                href={getLocalFileHref(m.sourceFileName) ?? undefined}
                               >
                                 Technical fiche (local)
                               </a>
                             ) : null}
-                            {m.sourceProductUri && m.sourceFileName ? (
+                            {isUsableExternalLink(m.sourceProductUri) &&
+                            getLocalFileHref(m.sourceFileName) ? (
                               <button
                                 type="button"
                                 disabled
@@ -459,7 +589,8 @@ export default function SignaturePassportsPanel({
                                 Verify later (coming soon)
                               </button>
                             ) : null}
-                            {!m.sourceProductUri && !m.sourceFileName ? (
+                            {!isUsableExternalLink(m.sourceProductUri) &&
+                            !getLocalFileHref(m.sourceFileName) ? (
                               <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
                                 No fiche link yet
                               </span>
@@ -470,6 +601,33 @@ export default function SignaturePassportsPanel({
                     })}
                   </div>
                 </div>
+
+                <details className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/30 px-3 py-2 text-[11px]">
+                  <summary className="cursor-pointer font-medium text-zinc-700 dark:text-zinc-200 select-none">
+                    Technical IDs
+                  </summary>
+                  <div className="mt-2 space-y-1">
+                    <DetailRow label="Signature" dense>
+                      <span className="font-mono break-all text-zinc-700 dark:text-zinc-300">
+                        {selectedSignatureId}
+                      </span>
+                    </DetailRow>
+                    {selectedPassport.representativeElement.expressId != null ? (
+                      <DetailRow label="expressId" dense>
+                        <span className="font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
+                          {selectedPassport.representativeElement.expressId}
+                        </span>
+                      </DetailRow>
+                    ) : null}
+                    {selectedPassport.representativeElement.globalId ? (
+                      <DetailRow label="globalId" dense>
+                        <span className="font-mono break-all text-zinc-700 dark:text-zinc-300">
+                          {selectedPassport.representativeElement.globalId}
+                        </span>
+                      </DetailRow>
+                    ) : null}
+                  </div>
+                </details>
               </div>
             ) : (
               <div className="text-xs text-zinc-500 dark:text-zinc-400">
