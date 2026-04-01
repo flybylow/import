@@ -1,6 +1,12 @@
 {
   "sources": [
     {
+      "id": "b-epd-be",
+      "type": "b-epd-be",
+      "ttlPath": "data/sources/B-EPD/b-epd-2026-03-28.ttl",
+      "enabled": true
+    },
+    {
       "id": "epd-hub",
       "type": "epd-hub",
       "ttlPath": "data/sources/epd-hub/epd-hub-handpick-2026-03-23.ttl",
