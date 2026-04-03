@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { EpdCatalogSelect } from "@/components/EpdCatalogSelect";
 import type { UnmatchedMaterialRowKind } from "@/lib/material-unmatched-diagnostics";
@@ -10,25 +10,7 @@ import ToggleSection from "@/components/ToggleSection";
 import { useToast } from "@/components/ToastProvider";
 import { dbg, dbgButton, dbgLoad } from "@/lib/client-pipeline-debug";
 import { useProjectId } from "@/lib/useProjectId";
-
-type KBGraph = {
-  materials: Array<{
-    materialId: number;
-    materialName: string;
-    hasEPD: boolean;
-    epdSlug?: string;
-    matchType?: string;
-    matchConfidence?: number;
-  }>;
-  epds: Array<{
-    epdSlug: string;
-    epdName: string;
-  }>;
-  links: Array<{
-    materialId: number;
-    epdSlug: string;
-  }>;
-};
+import type { KBGraph } from "@/lib/kb-store-queries";
 
 type KnowledgeBaseResponse = {
   projectId: string;
@@ -110,7 +92,7 @@ function formatStableDateTime(iso: string): string {
 
 export default function KnowledgeBasePage() {
   const { showToast } = useToast();
-  const { projectId, setProjectId } = useProjectId();
+  const { projectId } = useProjectId();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -126,9 +108,14 @@ export default function KnowledgeBasePage() {
   const [kbGraph, setKbGraph] = useState<KBGraph | null>(null);
   const [kbGraphLoading, setKbGraphLoading] = useState<boolean>(false);
   const [sourcesStatus, setSourcesStatus] = useState<SourceApiRow[] | null>(null);
+  const [sourceToggleId, setSourceToggleId] = useState<string | null>(null);
   const [detailsReady, setDetailsReady] = useState(false);
   /** Deep-link from Sources (or bookmarks): `/kb?...&focusMaterialId=123` */
   const [focusMaterialId, setFocusMaterialId] = useState<number | null>(null);
+  /** Deep-link from BIM passports: `/kb?...&expressId=33028` — force graph + zoom element node */
+  const [focusExpressId, setFocusExpressId] = useState<number | undefined>(
+    undefined
+  );
 
   const autoBuildStartedRef = useRef(false);
 
@@ -185,6 +172,17 @@ export default function KnowledgeBasePage() {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const rawEx = params.get("expressId");
+    if (!rawEx) {
+      setFocusExpressId(undefined);
+      return;
+    }
+    const n = Number(rawEx);
+    setFocusExpressId(Number.isFinite(n) ? n : undefined);
+  }, [projectId]);
+
+  useEffect(() => {
     if (focusMaterialId == null || !kbResult?.matchingPreview) return;
     if (!unmatchedRows.some((r) => r.materialId === focusMaterialId)) return;
 
@@ -213,17 +211,9 @@ export default function KnowledgeBasePage() {
   }, [focusMaterialId, kbResult?.matchingPreview, unmatchedIdsKey, unmatchedRows]);
 
   useEffect(() => {
-    // Allow deep-linking from the Phase 2 pipeline.
-    // Use `window.location.search` instead of `useSearchParams` to avoid
-    // Next.js pre-rendering/Suspense constraints for this page.
+    // Deep-link: `?autoBuild=1` from enrich/pipeline (`projectId` comes from `useProjectId` + URL).
     const params = new URLSearchParams(window.location.search);
-    const pid = params.get("projectId");
     const autoBuild = params.get("autoBuild");
-
-    if (pid && pid !== projectId) {
-      setProjectId(pid);
-      return;
-    }
 
     if (!autoBuild) return;
     if (autoBuild === "0" || autoBuild === "false") return;
@@ -295,9 +285,8 @@ export default function KnowledgeBasePage() {
     };
   }, [projectId]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
+  const loadSourcesStatus = useCallback(() => {
+    void (async () => {
       dbgLoad("Phase2", "start", "GET /api/sources");
       try {
         const res = await fetch("/api/sources");
@@ -311,15 +300,67 @@ export default function KnowledgeBasePage() {
           count: list.length,
           ids: list.map((s) => s.id),
         });
-        if (!cancelled) setSourcesStatus(list);
+        setSourcesStatus(list);
       } catch (e: any) {
         dbgLoad("Phase2", "error", "GET /api/sources", { message: e?.message });
       }
     })();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    loadSourcesStatus();
+  }, [loadSourcesStatus]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") loadSourcesStatus();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [loadSourcesStatus]);
+
+  const toggleSourceEnabled = async (s: SourceApiRow) => {
+    const nextEnabled = !s.enabled;
+    const action = nextEnabled ? "set-active" : "set-inactive";
+    const prevEnabled = s.enabled;
+    setSourceToggleId(s.id);
+    setSourcesStatus((list) =>
+      list
+        ? list.map((row) =>
+            row.id === s.id ? { ...row, enabled: nextEnabled } : row
+          )
+        : list
+    );
+    try {
+      const res = await fetch("/api/sources", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, sourceId: s.id }),
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || "POST /api/sources failed");
+      }
+      showToast({
+        type: "success",
+        message: `${s.id} ${nextEnabled ? "on" : "off"} (config saved). Rebuild link graph to apply.`,
+      });
+    } catch (e: any) {
+      setSourcesStatus((list) =>
+        list
+          ? list.map((row) =>
+              row.id === s.id ? { ...row, enabled: prevEnabled } : row
+            )
+          : list
+      );
+      showToast({
+        type: "error",
+        message: e?.message ?? "Could not update source.",
+      });
+    } finally {
+      setSourceToggleId(null);
+    }
+  };
 
   const runBuildKb = async () => {
     dbgButton("Phase2", "Build KB (from enriched)", { projectId });
@@ -506,6 +547,81 @@ export default function KnowledgeBasePage() {
   return (
     <div className="w-full max-w-[1400px] mx-auto p-6 flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">Phase 2 - Link</h1>
+
+      <div className="sticky top-0 z-20 -mx-6 border-b border-zinc-200/90 dark:border-zinc-800/90 bg-zinc-50/95 px-6 py-2.5 backdrop-blur-sm dark:bg-zinc-950/95">
+        {sourcesStatus ? (
+          <div className="rounded border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 p-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2 justify-between gap-y-2">
+              <div className="flex flex-col gap-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-zinc-800 dark:text-zinc-100 shrink-0">
+                    Sources
+                  </span>
+                  {sourcesStatus.map((s) => {
+                    const ok = s.enabled && s.exists;
+                    const busy = sourceToggleId === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        disabled={busy}
+                        aria-busy={busy}
+                        aria-pressed={s.enabled}
+                        title={`${sourceVersionLabel(s.ttlPath)} — ${s.enabled ? "On" : "Off"}${s.exists ? "" : " (TTL missing)"}. Click to toggle.`}
+                        onClick={() => toggleSourceEnabled(s)}
+                        className={
+                          ok
+                            ? "rounded border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 px-2 py-1 cursor-pointer hover:opacity-90 disabled:opacity-60"
+                            : s.enabled
+                              ? "rounded border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 px-2 py-1 cursor-pointer hover:opacity-90 disabled:opacity-60"
+                              : "rounded border border-zinc-300 dark:border-zinc-600 bg-zinc-100/90 dark:bg-zinc-900/80 text-zinc-500 dark:text-zinc-400 px-2 py-1 line-through decoration-zinc-400 cursor-pointer hover:opacity-90 disabled:opacity-60"
+                        }
+                      >
+                        {s.id}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 max-w-prose">
+                  Same toggles as{" "}
+                  <Link
+                    href={`/sources?from=kb&projectId=${encodeURIComponent(projectId)}`}
+                    className="font-medium underline"
+                  >
+                    Sources
+                  </Link>
+                  : saved in <code className="font-mono">config.json</code>. Re-run{" "}
+                  <span className="font-medium">Link materials to EPD</span> so matching uses the new
+                  set.
+                </p>
+              </div>
+              <Link
+                href={`/sources?from=kb&projectId=${encodeURIComponent(projectId)}`}
+                className="inline-flex items-center gap-1.5 shrink-0 rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-[11px] font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                title="Open full Sources page: import snapshots, enable/disable, reorder"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="h-4 w-4 text-zinc-600 dark:text-zinc-300"
+                  aria-hidden
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M4.25 5.5a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 .75.75v8.5a.75.75 0 0 1-1.5 0V7.56l-6.22 6.22a.75.75 0 1 1-1.06-1.06L11.94 6.5H5a.75.75 0 0 1-.75-.75Z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Open sources
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <p className="px-1 py-2 text-xs text-zinc-500 dark:text-zinc-400">Loading sources…</p>
+        )}
+      </div>
+
       {detailsReady ? (
         <details className="text-sm text-zinc-700 dark:text-zinc-200">
           <summary className="cursor-pointer inline-flex items-center gap-1 text-xs font-medium underline">
@@ -523,54 +639,6 @@ export default function KnowledgeBasePage() {
           suppressHydrationWarning
         />
       )}
-
-      {sourcesStatus ? (
-        <div className="rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-950/50 p-3 text-xs">
-          <div className="flex flex-wrap items-center gap-2 justify-between gap-y-2">
-            <div className="flex flex-wrap items-center gap-2 min-w-0">
-              <span className="font-medium text-zinc-800 dark:text-zinc-100 shrink-0">
-                Sources
-              </span>
-              {sourcesStatus.map((s) => {
-                const ok = s.enabled && s.exists;
-                return (
-                  <span
-                    key={s.id}
-                    title={sourceVersionLabel(s.ttlPath)}
-                    className={
-                      ok
-                        ? "rounded border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 px-2 py-1"
-                        : "rounded border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 px-2 py-1"
-                    }
-                  >
-                    {s.id}
-                  </span>
-                );
-              })}
-            </div>
-            <Link
-              href={`/sources?from=kb&projectId=${encodeURIComponent(projectId)}`}
-              className="inline-flex items-center gap-1.5 shrink-0 rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-[11px] font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              title="Open full Sources page: import snapshots, enable/disable, reorder"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                className="h-4 w-4 text-zinc-600 dark:text-zinc-300"
-                aria-hidden
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M4.25 5.5a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 .75.75v8.5a.75.75 0 0 1-1.5 0V7.56l-6.22 6.22a.75.75 0 1 1-1.06-1.06L11.94 6.5H5a.75.75 0 0 1-.75-.75Z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Open sources
-            </Link>
-          </div>
-        </div>
-      ) : null}
 
       <div className="p-4 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
         <div className="flex flex-wrap items-center gap-2">
@@ -666,14 +734,28 @@ export default function KnowledgeBasePage() {
                     <code className="font-mono">{kbResult.epdCoverage.materialsTotal}</code>
                   </div>
                   {kbResult.epdCoverage.sourceBreakdown ? (
-                    <div className="truncate">
-                      Matched by source:{" "}
-                      <code className="font-mono">
-                        {Object.entries(kbResult.epdCoverage.sourceBreakdown)
-                          .sort((a, b) => b[1] - a[1])
-                          .map(([k, v]) => `${k} ${v}`)
-                          .join(" · ") || "—"}
-                      </code>
+                    <div className="space-y-1">
+                      <div className="truncate">
+                        Matched by source:{" "}
+                        <code className="font-mono">
+                          {Object.entries(kbResult.epdCoverage.sourceBreakdown)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([k, v]) => `${k} ${v}`)
+                            .join(" · ") || "—"}
+                        </code>
+                      </div>
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-snug">
+                        <code className="font-mono">dictionary-no-lca</code>: IFC → material dictionary
+                        matched a slug, but no enabled TTL source scored high enough to hydrate LCA on that
+                        EPD.{" "}
+                        <Link
+                          href={`/sources?from=kb&projectId=${encodeURIComponent(projectId)}`}
+                          className="underline"
+                        >
+                          Sources
+                        </Link>{" "}
+                        lists buckets + per-material rows.
+                      </p>
                     </div>
                   ) : null}
                 </div>
@@ -977,15 +1059,14 @@ export default function KnowledgeBasePage() {
                     <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
                       <div className="min-w-0 flex-1 sm:max-w-xl">
                         <span className="mb-1 block text-sm text-zinc-600 dark:text-zinc-300">
-                          Default EPD (slug in menu; full name below)
+                          Default EPD for bulk fill — same list as each row (routing / “route via
+                          source” slugs such as <code className="font-mono">aac</code> included).
                         </span>
                         <EpdCatalogSelect
-                          catalog={(kbResult.epdCatalog ?? []).filter(
-                            (epd) => epd.epdName !== "AAC (route via source)"
-                          )}
+                          catalog={kbResult.epdCatalog ?? []}
                           value={bulkDefaultEpd || defaultEpdSlug}
                           size="comfortable"
-                          showCaption={false}
+                          showCaption
                           showPlaceholderOption={false}
                           aria-label="Default EPD for bulk fill"
                           onChange={(v) => setBulkDefaultEpd(v)}
@@ -1040,7 +1121,10 @@ export default function KnowledgeBasePage() {
                 </div>
               ) : (
                 <div className="mt-2">
-                  <KbGraphVisualization kbGraph={kbGraph} />
+                  <KbGraphVisualization
+                    kbGraph={kbGraph}
+                    focusExpressId={focusExpressId}
+                  />
                 </div>
               )}
             </div>

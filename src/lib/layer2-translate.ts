@@ -114,6 +114,22 @@ function isTooGenericForSourceOnlyMatch(combinedNorm: string): boolean {
   return false;
 }
 
+/**
+ * Phase 1 joins IfcMaterialList names with ` | `. A single dictionary row for
+ * "reinforced concrete" must not win over timber when the label mixes wood + concrete layers.
+ */
+function isAmbiguousCompositeMaterialList(
+  args: { schemaName?: string; layerSetName?: string },
+  combinedNorm: string
+): boolean {
+  const raw = `${args.schemaName ?? ""} ${args.layerSetName ?? ""}`;
+  if (!raw.includes("|")) return false;
+  const hasTimber = /\btimber\b/.test(combinedNorm);
+  const hasReinforcedConcrete =
+    /\breinforced\b/.test(combinedNorm) && /\bconcrete\b/.test(combinedNorm);
+  return hasTimber && hasReinforcedConcrete;
+}
+
 function matchMaterialToDictionary(
   entries: MatchEntry[],
   args: {
@@ -122,7 +138,15 @@ function matchMaterialToDictionary(
   }
 ): { entry: MatchEntry; matchedBy: string } | null {
   const combined = combinedNormalizedMaterialLabel(args);
+  const ambiguousComposite = isAmbiguousCompositeMaterialList(args, combined);
   for (const e of entries) {
+    if (
+      ambiguousComposite &&
+      (e.epdSlug === "concrete_reinforced_in_situ" ||
+        e.epdSlug === "concrete_general")
+    ) {
+      continue;
+    }
     for (const p of e.matchPatterns) {
       const pp = normMaterialLabelForMatch(p);
       if (!pp) continue;

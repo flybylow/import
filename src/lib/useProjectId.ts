@@ -1,65 +1,47 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 const STORAGE_KEY = "bimimport.projectId";
 const FALLBACK_PROJECT_ID = "example";
 
-function readProjectIdFromUrl(): string | null {
-  try {
-    const params = new URLSearchParams(window.location.search);
-    const fromUrl = params.get("projectId")?.trim();
-    return fromUrl || null;
-  } catch {
-    return null;
-  }
-}
-
+/**
+ * Project id for API calls and UI.
+ *
+ * - **`?projectId=` in the URL** (e.g. `/kb?projectId=example`) is applied on every navigation
+ *   so deep links and Phase 3/4 handoffs stay in sync (fixes client-side transitions that only
+ *   read the query on first mount).
+ * - If the URL has no `projectId`, we fall back to **localStorage** and **`setProjectId`**.
+ */
 export function useProjectId() {
-  const [projectId, setProjectIdState] = useState<string>(FALLBACK_PROJECT_ID);
+  const searchParams = useSearchParams();
+  const q = searchParams.get("projectId")?.trim() ?? "";
 
-  useEffect(() => {
-    let cancelled = false;
+  const [internal, setInternal] = useState<string>(() => {
+    if (typeof window === "undefined") return FALLBACK_PROJECT_ID;
     try {
-      // Priority: explicit query param > last saved local value.
-      const fromUrl = readProjectIdFromUrl();
-      const saved = window.localStorage.getItem(STORAGE_KEY)?.trim();
-      const initial = fromUrl || saved;
-      if (initial) {
-        queueMicrotask(() => {
-          if (!cancelled) setProjectIdState(initial);
-        });
-      }
+      return window.localStorage.getItem(STORAGE_KEY)?.trim() || FALLBACK_PROJECT_ID;
     } catch {
-      // ignore localStorage access errors
+      return FALLBACK_PROJECT_ID;
     }
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  });
 
   useEffect(() => {
-    const onPopState = () => {
-      const fromUrl = readProjectIdFromUrl();
-      if (fromUrl) setProjectIdState(fromUrl);
-    };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
+    if (q) setInternal(q);
+  }, [q]);
 
-  useEffect(() => {
+  const projectId = q || internal;
+
+  const setProjectId = useCallback((value: string) => {
+    const next = value.trim() || FALLBACK_PROJECT_ID;
+    setInternal(next);
     try {
-      window.localStorage.setItem(STORAGE_KEY, projectId);
+      window.localStorage.setItem(STORAGE_KEY, next);
     } catch {
-      // ignore localStorage access errors
+      // ignore
     }
-  }, [projectId]);
-
-  const setProjectId = (value: string) => {
-    const next = value.trim();
-    setProjectIdState(next || FALLBACK_PROJECT_ID);
-  };
+  }, []);
 
   return { projectId, setProjectId };
 }
-

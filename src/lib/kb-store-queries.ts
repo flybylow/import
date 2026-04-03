@@ -120,6 +120,14 @@ export type KBGraph = {
     materialId: number;
     epdSlug: string;
   }>;
+  /** IFC elements (bim:element-*) that have `ont:madeOf` in the KB. */
+  elements?: Array<{
+    expressId: number;
+    elementName?: string;
+    ifcType?: string;
+  }>;
+  /** Per-element material links: IFC element express id → material id (`mat-{id}` in the graph). */
+  elementMaterialLinks?: Array<{ expressId: number; materialId: number }>;
 };
 
 export function buildFullKBGraph(
@@ -209,7 +217,44 @@ export function buildFullKBGraph(
     a.epdSlug.localeCompare(b.epdSlug)
   );
 
-  return { materials, epds, links };
+  const elementMap = new Map<
+    number,
+    { expressId: number; elementName?: string; ifcType?: string }
+  >();
+  const elementMaterialLinks: KBGraph["elementMaterialLinks"] = [];
+  const seenElementMaterial = new Set<string>();
+
+  const madeOfStmts = store.statementsMatching(
+    null as any,
+    ONT("madeOf"),
+    null as any
+  );
+  for (const st of madeOfStmts) {
+    const em = /element-(\d+)$/.exec(st.subject.value);
+    const mm = /material-(\d+)$/.exec(st.object.value);
+    if (!em || !mm) continue;
+    const expressId = Number(em[1]);
+    const materialId = Number(mm[1]);
+    if (!Number.isFinite(expressId) || !Number.isFinite(materialId)) continue;
+    const pairKey = `${expressId}\0${materialId}`;
+    if (seenElementMaterial.has(pairKey)) continue;
+    seenElementMaterial.add(pairKey);
+    elementMaterialLinks.push({ expressId, materialId });
+
+    if (!elementMap.has(expressId)) {
+      const elementName =
+        getLitValue(store, st.subject, SCHEMA("name")) || undefined;
+      const ifcType =
+        getLitValue(store, st.subject, ONT("ifcType")) || undefined;
+      elementMap.set(expressId, { expressId, elementName, ifcType });
+    }
+  }
+
+  const elements = Array.from(elementMap.values()).sort(
+    (a, b) => a.expressId - b.expressId
+  );
+
+  return { materials, epds, links, elements, elementMaterialLinks };
 }
 
 export function buildMatchingPreview(

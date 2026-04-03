@@ -44,9 +44,15 @@ The production IFC path is **`BuildingIfcViewer`**:
 - Loader uses **`autoSetWasm: false`**, **`wasm.path`** = `${origin}/wasm/`, **`absolute: true`**, plus **`customLocateFileHandler`** so `mt` vs non-`mt` resolve correctly.
 - **Explicit `webIfc.Init()`** after `ifcLoader.setup()` — we do **not** rely on lazy init inside `load()` (see pitfalls).
 
-### 2.2 “Abstract” 3D on Calculate (not full IFC mesh)
+### 2.2 “Abstract” 3D on `/bim` Passports (not full IFC mesh)
 
-**`BimViewer3D`** + **`PassportModelView`** use **plain Three.js** (`OrbitControls`, **boxes** per element) driven by **Phase 3 passport data** (`expressId`, label, optional height). This is an **MVP abstraction** for linking UI to elements — **not** the IFC mesh. For VR with the **real building**, use the **BuildingIfcViewer** path (or replicate its scene setup).
+**`/bim`** has three modes: **Building** (That Open IFC), **Passports** (list + abstract 3D + passport panel), **Inspect** (same **`GET /api/kb/status`** passport slice as JSON preview for frequent API checks).
+
+**`BimPassportWorkspace`** loads **`kbStatusPassportsUrl(projectId)`** once per mount / refresh, shows the **exact request URL** (copy / open / refresh), and only mounts **`PassportModelView`** (list + **`BimViewer3D`** + **`ElementPassportPanel`**) after the first response completes — avoiding default “empty data + WebGL init” races.
+
+**`BimViewer3D`** + **`PassportModelView`** use **plain Three.js** (`OrbitControls`, **boxes** per element) driven by passport rows (`expressId`, label, optional height). **`PassportElementList`** is a **scrollable list** of the same batch. The viewer draws at most **600** boxes. This is an **MVP abstraction** — **not** the IFC mesh. For the real building, use **BuildingIfcViewer**.
+
+**Responsive canvas (Three.js manual — [Responsive design](https://threejs.org/manual/en/responsive.html)):** the WebGL canvas uses **`display:block; width:100%; height:100%`**; **`renderer.setSize(w, h, false)`** sets the **drawing buffer** only (DPR multiplied into `w`/`h`), not canvas CSS pixels — default `setSize(w,h)` was fighting flex parents. The actual mount is an **inner** `div` with **`style={{ minHeight: 'min(45dvh, 22rem)' }}`** so a parent **`min-h-0`** cannot collapse the viewport to **0×0**. **`ResizeObserver`** + **`requestAnimationFrame`** still run after mount. **Smoke route:** **`/bim/abstract-smoke`** (five boxes, no API).
 
 ### 2.3 Next.js configuration that affects 3D
 
@@ -192,6 +198,8 @@ This repo **does not** enable **`renderer.xr`** or immersive sessions. To **test
 |------|---------|
 | `src/features/bim-viewer/components/BuildingIfcViewer.tsx` | Full IFC + That Open + fragments + framing |
 | `src/components/BimViewer3D.tsx` | Abstract boxes (passport UI), pure Three |
+| `src/features/bim-viewer/components/PassportModelView.tsx` | Passports layout: list + 3D + **`ElementPassportPanel`** |
+| `src/components/PassportElementList.tsx` | Clickable element list (same **`expressId`** selection as boxes) |
 | `src/app/api/fragments-worker/route.ts` | Serves Fragments `worker.mjs` |
 | `src/app/api/file/route.ts` | Serves `data/*` IFC for the viewer |
 | `next.config.mjs` | `reactStrictMode: false` for WebGL |
@@ -199,4 +207,4 @@ This repo **does not** enable **`renderer.xr`** or immersive sessions. To **test
 
 ---
 
-*Last updated: 2026-03-24 — aligned with `bimimport` main branch behavior; VR section is advisory for external projects.*
+*Last updated: 2026-04-03 — abstract passport UI documents list ↔ 3D ↔ panel selection; VR section is advisory for external projects.*

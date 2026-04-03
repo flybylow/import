@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
 
-import { loadSourcesConfig, saveSourcesConfig } from "@/lib/sources-config";
+import { loadSourcesConfig, resolveSourceTtlPath, saveSourcesConfig } from "@/lib/sources-config";
 
 export const runtime = "nodejs";
 
@@ -24,27 +24,22 @@ function uniqueDestPath(destDir: string, baseName: string): string {
   return path.join(destDir, `${stem}-${ts}${ext || ""}`);
 }
 
+function redirectBackToSources(
+  request: Request,
+  params: Record<string, string | undefined>
+) {
+  const url = new URL("/sources", request.url);
+  for (const [k, v] of Object.entries(params)) {
+    if (!v) continue;
+    url.searchParams.set(k, v);
+  }
+  return NextResponse.redirect(url, 303);
+}
+
 export async function POST(request: Request) {
   const form = await request.formData();
-  const ttlAbsPath = String(form.get("ttlAbsPath") ?? "").trim();
+  let ttlAbsPath = String(form.get("ttlAbsPath") ?? "").trim();
   const sourceId = String(form.get("sourceId") ?? "b-epd-be").trim() || "b-epd-be";
-
-  if (!ttlAbsPath) {
-    return NextResponse.json({ error: "Missing ttlAbsPath" }, { status: 400 });
-  }
-  if (!isSafeAbsPath(ttlAbsPath) || !ttlAbsPath.toLowerCase().endsWith(".ttl")) {
-    return NextResponse.json({ error: "Invalid ttlAbsPath (must be absolute .ttl path)" }, { status: 400 });
-  }
-  if (!fs.existsSync(ttlAbsPath)) {
-    return NextResponse.json({ error: `TTL not found: ${ttlAbsPath}` }, { status: 404 });
-  }
-  const stat = fs.statSync(ttlAbsPath);
-  if (!stat.isFile()) {
-    return NextResponse.json({ error: "TTL path is not a file" }, { status: 400 });
-  }
-  if (stat.size > 50 * 1024 * 1024) {
-    return NextResponse.json({ error: "TTL file too large (>50MB)" }, { status: 400 });
-  }
 
   const cwd = process.cwd();
   const cfg = loadSourcesConfig(cwd);
@@ -54,12 +49,74 @@ export async function POST(request: Request) {
   }
 
   const destDir = path.join(cwd, "data", "sources", "B-EPD");
+
+  // Default behavior: if the form is empty, re-import from the currently configured TTL
+  // for that source (absolute path resolved from config.json).
+  if (!ttlAbsPath) {
+    const configuredAbs = resolveSourceTtlPath(cfg.sources[idx], cwd);
+    if (configuredAbs && configuredAbs.toLowerCase().endsWith(".ttl") && fs.existsSync(configuredAbs)) {
+      ttlAbsPath = configuredAbs;
+    }
+  }
+
+  if (!ttlAbsPath) {
+    const configuredAbs = resolveSourceTtlPath(cfg.sources[idx], cwd);
+    return redirectBackToSources(request, {
+      importError: "Missing TTL path (and no configured TTL found for this source).",
+      sourceId,
+      ttlAbsPath: configuredAbs,
+    });
+  }
+  if (!isSafeAbsPath(ttlAbsPath) || !ttlAbsPath.toLowerCase().endsWith(".ttl")) {
+    return redirectBackToSources(request, {
+      importError: "Invalid TTL path (must be an absolute .ttl path).",
+      ttlAbsPath,
+      sourceId,
+    });
+  }
+  if (!fs.existsSync(ttlAbsPath)) {
+    return redirectBackToSources(request, {
+      importError: `TTL not found: ${ttlAbsPath}`,
+      ttlAbsPath,
+      sourceId,
+    });
+  }
+  const stat = fs.statSync(ttlAbsPath);
+  if (!stat.isFile()) {
+    return redirectBackToSources(request, {
+      importError: "TTL path is not a file.",
+      ttlAbsPath,
+      sourceId,
+    });
+  }
+  if (stat.size > 50 * 1024 * 1024) {
+    return redirectBackToSources(request, {
+      importError: "TTL file too large (>50MB).",
+      ttlAbsPath,
+      sourceId,
+    });
+  }
+
   fs.mkdirSync(destDir, { recursive: true });
-  const destTtl = uniqueDestPath(destDir, path.basename(ttlAbsPath));
-  fs.copyFileSync(ttlAbsPath, destTtl);
+
+  // If the user already selected a TTL that lives inside our snapshots folder,
+  // don't create another timestamped copy. Just activate it.
+  const normalizedDestDir = path.resolve(destDir) + path.sep;
+  const normalizedRequested = path.resolve(ttlAbsPath);
+  const requestedIsInDestDir =
+    normalizedRequested === path.resolve(destDir) ||
+    normalizedRequested.startsWith(normalizedDestDir);
+
+  const destTtl = requestedIsInDestDir
+    ? normalizedRequested
+    : uniqueDestPath(destDir, path.basename(ttlAbsPath));
+
+  if (!requestedIsInDestDir) {
+    fs.copyFileSync(ttlAbsPath, destTtl);
+  }
 
   const reportSrc = ttlAbsPath.replace(/\.ttl$/i, ".report.json");
-  if (fs.existsSync(reportSrc)) {
+  if (fs.existsSync(reportSrc) && !requestedIsInDestDir) {
     fs.copyFileSync(reportSrc, destTtl.replace(/\.ttl$/i, ".report.json"));
   }
 
@@ -67,6 +124,13 @@ export async function POST(request: Request) {
   cfg.sources[idx].enabled = true;
   saveSourcesConfig(cfg, cwd);
 
-  return NextResponse.redirect(new URL("/sources?imported=1", request.url), 303);
+  return redirectBackToSources(request, {
+    imported: "1",
+    ttlAbsPath: destTtl,
+    sourceId,
+    importNote: requestedIsInDestDir
+      ? "Using existing snapshot (no copy)."
+      : "Copied TTL into data/sources/B-EPD/.",
+  });
 }
 

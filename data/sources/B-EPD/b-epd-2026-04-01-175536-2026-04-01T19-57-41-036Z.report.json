@@ -1,0 +1,148 @@
+{
+  "generatedAt": "2026-04-01T16:01:36.000Z",
+  "inputFile": "/Users/warddem/dev/EPDextractor/output_final/epd_index_2026-04-01_175536.json",
+  "outputTtl": "/Users/warddem/dev/EPDextractor/output_final/b-epd-2026-04-01-175536.ttl",
+  "rowCount": 127,
+  "source": "b-epd-be",
+  "sourceVersion": "2026-04-01",
+  "totalInputEpds": 168,
+  "skippedRows": 41,
+  "skipSamples": [
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD - SAPP Ceiling - Interalu - 025.0041.004 - EN - signed.pdf",
+      "epdNumber": null
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD - SAPP ceiling Unalloyed steel - Interalu - 025.0041.006 - EN -  signed.pdf",
+      "epdNumber": null
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD - SAPP ceiling XCarb - Interalu - 025.0041.007 - EN - signed.pdf",
+      "epdNumber": null
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 024.0013.002-01.00.00 DuraGyp Std 12.5-EN_ signed.pdf",
+      "epdNumber": "24-0013-002-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 024.0013.003-01.00.00 FireBloc 12.5 SaintGobain- EN- signed.pdf",
+      "epdNumber": "24-0013-003-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 024.0013.004-01.00.00 FireBloc 15 Saint-Gobain- EN- signed.pdf",
+      "epdNumber": "24-0013-004-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 024.0013.006-01.00.00 Gyproc A 12.5 Saint-Gobain- EN-signed.pdf",
+      "epdNumber": "24-0013-006-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 024.0013.007-01.00.00 Gyproc Regips A 12.5 Saint-Gobain- EN_ signed.pdf",
+      "epdNumber": "24-0013-007-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 024.0013.008-01.00.00 Gyproc Rf 12.5 Saint-Gobain- EN_signed.pdf",
+      "epdNumber": "24-0013-008-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 024.0013.009-01.00.00 Gyproc Rf 15 Saint-Gobain-EN_ signed.pdf",
+      "epdNumber": "24-0013-009-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 024.0013.010-01.00.00 Gyproc WR 12.5 Saint-Gobain-EN_ signed.pdf",
+      "epdNumber": "24-0013-010-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 024.0013.011-01.00.00 SoundBloc 12.5 Saint-Gobain- EN_ signed.pdf",
+      "epdNumber": "24-0013-011-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 024.0091.001-01.00.00 Concrete sandwich panels FEBE_ EN_signed.pdf",
+      "epdNumber": "24-0091-001-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 024.0091.002-01.00.00 Hollow concrete masonry block FEBE_EN- signed.pdf",
+      "epdNumber": "24-0091-002-01-00-00"
+    },
+    {
+      "reason": "unsupported_declared_unit",
+      "sourceFileName": "B-EPD 024.0155.001-01.00.01 Socket-outlet Niko EN - signed.pdf",
+      "epdNumber": "24-0155-001-01-00-01"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 025.0145.005-01.00.00 Dalle extérieure FR - signed.pdf",
+      "epdNumber": "25-0145-005-01-00-00"
+    },
+    {
+      "reason": "unsupported_declared_unit",
+      "sourceFileName": "B-EPD 025.0155.002-01.00.00 Niko Switch EN- signed.pdf",
+      "epdNumber": "25-0155-002-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 025.0212.001 Hout Info Bois - Bois de structure - FR - signed.pdf",
+      "epdNumber": null
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 025.0262.001-01.00.00 Beton Agglo Carbstone full EN - signed.pdf",
+      "epdNumber": "25-0262-001-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 025.0262.002-01.00.00 Beton Agglo Carbstone full 290909 EN -signed.pdf",
+      "epdNumber": "25-0262-002-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 025.0262.003-01.00.00 Beton Agglo Carbstone ClimaSono hollow EN - signed.pdf",
+      "epdNumber": "25-0262-003-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 025.0262.004-01.00.00 Beton Agglo Carbstones Kimblok EN - signed.pdf",
+      "epdNumber": "25-0262-004-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 025.0262.006-01.00.00 Beton Agglo Carbstones Vulsteen EN - signed.pdf",
+      "epdNumber": "25-0262-006-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 025.0262.007-01.00.00 Beton Agglo Carbstones Edgreen EN - signed.pdf",
+      "epdNumber": "25-0262-007-01-00-00"
+    },
+    {
+      "reason": "missing_gwp_a1a3",
+      "sourceFileName": "B-EPD 025.0262.008-01.00.00 Carbstone hollow EN - signed.pdf",
+      "epdNumber": "25-0262-008-01-00-00"
+    }
+  ],
+  "skipReasons": [
+    {
+      "reason": "missing_gwp_a1a3",
+      "count": 35
+    },
+    {
+      "reason": "unsupported_declared_unit",
+      "count": 6
+    }
+  ],
+  "gwpPolicy": "GWP_total A1-A3 (prefer A1-A3 else A1+A2+A3), per declared unit; tonne normalized to kg"
+}

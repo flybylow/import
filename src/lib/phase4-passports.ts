@@ -21,6 +21,9 @@ export type Phase4ElementPassport = {
   ifcType?: string;
   globalId?: string;
   expressId?: number;
+  ifcFireRating?: string;
+  /** Set when API dedupes by name — how many IFC elements share this `schema:name`. */
+  sameNameElementCount?: number;
   materials: Phase4PassportMaterial[];
   ifcQuantities: Array<{
     quantityName: string;
@@ -31,6 +34,11 @@ export type Phase4ElementPassport = {
 
 type KbStatusResponse = {
   error?: string;
+  projectId?: string;
+  /** e.g. `data/<projectId>-kb.ttl` */
+  kbPath?: string;
+  /** IFC element nodes in the KB graph (not the passport batch size). */
+  elementCount?: number;
   elementPassports?: Phase4ElementPassport[];
   elementPassportTotal?: number;
 };
@@ -49,15 +57,131 @@ export type Phase4PassportData = {
   byExpressId: Record<number, Phase4ElementPassport>;
   ordered: Phase4ElementPassport[];
   total: number;
+  /** Mirrors `GET /api/kb/status` — which project / KB file this batch came from. */
+  projectId: string;
+  kbPath?: string;
+  elementCountInKb?: number;
 };
+
+/** Same query the Passports UI uses (`elementPassports` batch). Server caps at 50k. */
+export const DEFAULT_ELEMENT_PASSPORTS_LIMIT = 50_000;
+
+/** One row per IFC element (for /bim type-group visualizer). */
+export const ALL_INSTANCES_PASSPORT_LIMIT = 25_000;
+
+export async function loadPhase4PassportsAllInstances(projectId: string): Promise<Phase4PassportData> {
+  return loadPhase4Passports(projectId, undefined, {
+    elementPassportsLimit: ALL_INSTANCES_PASSPORT_LIMIT,
+    elementPassportsUniqueName: false,
+  });
+}
+
+/** Deduped express ids for KB rows whose `ifcType` matches (after trim, or `Unknown`). */
+export function expressIdsByIfcTypeKey(
+  ordered: Phase4ElementPassport[],
+  ifcTypeKey: string
+): number[] {
+  const key = ifcTypeKey.trim() || "Unknown";
+  const set = new Set<number>();
+  for (const p of ordered) {
+    const t = p.ifcType?.trim() || "Unknown";
+    if (t !== key) continue;
+    const ex = p.expressId ?? p.elementId;
+    if (Number.isFinite(ex)) set.add(Number(ex));
+  }
+  return [...set];
+}
+
+export function expressIdsFireRatedDoors(ordered: Phase4ElementPassport[]): number[] {
+  const set = new Set<number>();
+  for (const p of ordered) {
+    if (!/\bdoor\b/i.test(p.ifcType ?? "") || !p.ifcFireRating?.trim()) continue;
+    const ex = p.expressId ?? p.elementId;
+    if (Number.isFinite(ex)) set.add(Number(ex));
+  }
+  return [...set];
+}
+
+/** One row per expressId for UI cards (deduped, sorted by expressId). */
+export type GroupElementSummary = {
+  expressId: number;
+  elementId: number;
+  elementName?: string;
+  ifcType?: string;
+  ifcFireRating?: string;
+};
+
+function mergeSummary(
+  map: Map<number, GroupElementSummary>,
+  p: Phase4ElementPassport
+): void {
+  const ex = p.expressId ?? p.elementId;
+  if (!Number.isFinite(ex)) return;
+  const id = Number(ex);
+  if (map.has(id)) return;
+  map.set(id, {
+    expressId: id,
+    elementId: p.elementId,
+    elementName: p.elementName,
+    ifcType: p.ifcType,
+    ifcFireRating: p.ifcFireRating,
+  });
+}
+
+export function elementSummariesByIfcTypeKey(
+  ordered: Phase4ElementPassport[],
+  ifcTypeKey: string
+): GroupElementSummary[] {
+  const key = ifcTypeKey.trim() || "Unknown";
+  const map = new Map<number, GroupElementSummary>();
+  for (const p of ordered) {
+    const t = p.ifcType?.trim() || "Unknown";
+    if (t !== key) continue;
+    mergeSummary(map, p);
+  }
+  return [...map.values()].sort((a, b) => a.expressId - b.expressId);
+}
+
+export function elementSummariesFireRatedDoors(
+  ordered: Phase4ElementPassport[]
+): GroupElementSummary[] {
+  const map = new Map<number, GroupElementSummary>();
+  for (const p of ordered) {
+    if (!/\bdoor\b/i.test(p.ifcType ?? "") || !p.ifcFireRating?.trim()) continue;
+    mergeSummary(map, p);
+  }
+  return [...map.values()].sort((a, b) => a.expressId - b.expressId);
+}
+
+/** Relative path + query for `GET /api/kb/status` (passport slice). */
+export function kbStatusPassportsUrl(
+  projectId: string,
+  options?: {
+    elementPassportsLimit?: number;
+    elementPassportsUniqueName?: boolean;
+  }
+): string {
+  const limit = options?.elementPassportsLimit ?? DEFAULT_ELEMENT_PASSPORTS_LIMIT;
+  const uniqueName = options?.elementPassportsUniqueName ?? false;
+  return (
+    `/api/kb/status?projectId=${encodeURIComponent(projectId)}` +
+    `&elementPassportsLimit=${encodeURIComponent(String(limit))}` +
+    `&elementPassportsUniqueName=${uniqueName ? "true" : "false"}`
+  );
+}
 
 export async function loadPhase4Passports(
   projectId: string,
-  onPhase?: (label: string) => void
+  onPhase?: (label: string) => void,
+  options?: {
+    elementPassportsLimit?: number;
+    elementPassportsUniqueName?: boolean;
+  }
 ): Promise<Phase4PassportData> {
-  const url =
-    `/api/kb/status?projectId=${encodeURIComponent(projectId)}` +
-    `&elementPassportsLimit=300&elementPassportsUniqueName=false`;
+  const url = kbStatusPassportsUrl(projectId, {
+    elementPassportsLimit: options?.elementPassportsLimit,
+    elementPassportsUniqueName: options?.elementPassportsUniqueName,
+  });
   onPhase?.("Requesting KB status…");
   const res = await fetch(url);
   if (!res.ok) {
@@ -95,5 +219,9 @@ export async function loadPhase4Passports(
     byExpressId,
     ordered,
     total: json.elementPassportTotal ?? ordered.length,
+    projectId: json.projectId ?? projectId,
+    kbPath: json.kbPath,
+    elementCountInKb:
+      typeof json.elementCount === "number" ? json.elementCount : undefined,
   };
 }

@@ -1,34 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import KbGraphGroupedByEpd from "@/components/KbGraphGroupedByEpd";
 import KbGraphOutlineSvg from "@/components/KbGraphOutlineSvg";
 import KbGraphWithInspector from "@/components/KbGraphWithInspector";
-
-type KBGraph = {
-  materials: Array<{
-    materialId: number;
-    materialName: string;
-    hasEPD: boolean;
-    epdSlug?: string;
-    matchType?: string;
-    matchConfidence?: number;
-  }>;
-  epds: Array<{
-    epdSlug: string;
-    epdName: string;
-  }>;
-  links: Array<{
-    materialId: number;
-    epdSlug: string;
-  }>;
-};
+import type { KBGraph } from "@/lib/kb-store-queries";
 
 export type KbVizMode = "force" | "grouped" | "outline";
 
-export default function KbGraphVisualization(props: { kbGraph: KBGraph }) {
-  const { kbGraph } = props;
+export default function KbGraphVisualization(props: {
+  kbGraph: KBGraph;
+  /** From `/kb?expressId=` — opens force view and zooms the matching element node. */
+  focusExpressId?: number;
+}) {
+  const { kbGraph, focusExpressId } = props;
   const [mode, setMode] = useState<KbVizMode>("grouped");
+
+  useEffect(() => {
+    if (focusExpressId != null && Number.isFinite(focusExpressId)) {
+      setMode("force");
+    }
+  }, [focusExpressId]);
 
   return (
     <div className="space-y-3">
@@ -62,7 +54,10 @@ export default function KbGraphVisualization(props: { kbGraph: KBGraph }) {
       </div>
 
       {mode === "force" ? (
-        <KbGraphWithInspector kbGraph={kbGraph} />
+        <KbGraphWithInspector
+          kbGraph={kbGraph}
+          focusExpressId={focusExpressId}
+        />
       ) : null}
       {mode === "grouped" ? (
         <KbGraphGroupedByEpd kbGraph={kbGraph} />

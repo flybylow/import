@@ -2,7 +2,9 @@ import fs from "fs";
 import Link from "next/link";
 import path from "path";
 
+import SourcesMatchingPanel from "@/components/SourcesMatchingPanel";
 import { loadSourcesConfig, resolveSourceTtlPath } from "@/lib/sources-config";
+import SourcesImportToast from "./SourcesImportToast";
 
 export const runtime = "nodejs";
 
@@ -25,9 +27,88 @@ function versionHint(ttlPath: string): string {
   return base.replace(/\.ttl$/i, "");
 }
 
-export default async function SourcesPage() {
+export default async function SourcesPage({
+  searchParams,
+}: {
+  searchParams?:
+    | Record<string, string | string[] | undefined>
+    | Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await Promise.resolve(searchParams ?? {});
   const cwd = process.cwd();
   const cfg = loadSourcesConfig(cwd);
+
+  const qProjectIdRaw = sp?.projectId;
+  const qFromRaw = sp?.from;
+  const qProjectId =
+    typeof qProjectIdRaw === "string"
+      ? qProjectIdRaw
+      : Array.isArray(qProjectIdRaw)
+        ? qProjectIdRaw[0]
+        : undefined;
+  const qFrom =
+    typeof qFromRaw === "string"
+      ? qFromRaw
+      : Array.isArray(qFromRaw)
+        ? qFromRaw[0]
+        : undefined;
+
+  const qImportedRaw = sp?.imported;
+  const qImported =
+    typeof qImportedRaw === "string"
+      ? qImportedRaw
+      : Array.isArray(qImportedRaw)
+        ? qImportedRaw[0]
+        : undefined;
+  const qImportErrorRaw = sp?.importError;
+  const qImportError =
+    typeof qImportErrorRaw === "string"
+      ? qImportErrorRaw
+      : Array.isArray(qImportErrorRaw)
+        ? qImportErrorRaw[0]
+        : undefined;
+  const qImportNoteRaw = sp?.importNote;
+  const qImportNote =
+    typeof qImportNoteRaw === "string"
+      ? qImportNoteRaw
+      : Array.isArray(qImportNoteRaw)
+        ? qImportNoteRaw[0]
+        : undefined;
+  const qTtlAbsRaw = sp?.ttlAbsPath;
+  const qTtlAbsPath =
+    typeof qTtlAbsRaw === "string"
+      ? qTtlAbsRaw
+      : Array.isArray(qTtlAbsRaw)
+        ? qTtlAbsRaw[0]
+        : undefined;
+  const qTtlAbsPathTrimmed = qTtlAbsPath?.trim() || undefined;
+
+  const defaultProjectId = "example";
+  const defaultFrom = "kb";
+
+  const kbHelperHref = `/sources?from=${encodeURIComponent(
+    qFrom ?? defaultFrom
+  )}&projectId=${encodeURIComponent(qProjectId ?? defaultProjectId)}`;
+  const kbPageHref = `/kb?projectId=${encodeURIComponent(
+    qProjectId ?? defaultProjectId
+  )}`;
+
+  const bEpdSource = cfg.sources?.find((s) => s.id === "b-epd-be");
+  const configuredBEpdAbsPath = bEpdSource
+    ? resolveSourceTtlPath(bEpdSource, cwd)
+    : "";
+  const configuredBEpdExists =
+    configuredBEpdAbsPath ? fs.existsSync(configuredBEpdAbsPath) : false;
+  const exampleImportAbsPath = configuredBEpdAbsPath;
+
+  let dictionaryVersion = "—";
+  try {
+    const dictPath = path.join(cwd, "src/data/material-dictionary.json");
+    const dict = JSON.parse(fs.readFileSync(dictPath, "utf-8")) as { version?: string };
+    if (typeof dict.version === "string") dictionaryVersion = dict.version;
+  } catch {
+    // keep —
+  }
 
   const sources: SourceRow[] = (cfg.sources ?? []).map((s) => {
     const ttlAbs = resolveSourceTtlPath(s, cwd);
@@ -53,15 +134,84 @@ export default async function SourcesPage() {
 
   return (
     <div className="w-full max-w-[1400px] mx-auto p-6 flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">Sources</h1>
+      <SourcesImportToast
+        imported={qImported === "1"}
+        importError={qImportError}
+        importNote={qImportNote}
+        ttlAbsPath={qTtlAbsPathTrimmed}
+      />
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-semibold">Sources</h1>
+          <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
+            Handy defaults so you don&apos;t need to remember URLs.
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+            href={kbHelperHref}
+            title="Open Sources with default KB helper params"
+          >
+            Open Sources (KB helper)
+          </Link>
+          <Link
+            className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+            href={kbPageHref}
+            title="Go rebuild the KB for this projectId"
+          >
+            Rebuild KB (/kb)
+          </Link>
+        </div>
+      </div>
+
+      <div className="rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-950/50 p-3 text-xs text-zinc-700 dark:text-zinc-200">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium">Default bookmark</span>
+          <code className="font-mono">{`/sources?from=${qFrom ?? defaultFrom}&projectId=${qProjectId ?? defaultProjectId}`}</code>
+        </div>
+        <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+          Current:{" "}
+          <code className="font-mono">
+            from={qFrom ?? defaultFrom}, projectId={qProjectId ?? defaultProjectId}
+          </code>
+        </div>
+      </div>
+
+      <SourcesMatchingPanel
+        projectId={qProjectId ?? defaultProjectId}
+        dictionaryVersion={dictionaryVersion}
+        dictionaryPath="src/data/material-dictionary.json"
+      />
+
+      {configuredBEpdAbsPath ? (
+        <div className="rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 text-xs text-zinc-700 dark:text-zinc-200">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="font-medium">Configured `b-epd-be` TTL</div>
+            <div
+              className={
+                configuredBEpdExists
+                  ? "text-[11px] text-emerald-700 dark:text-emerald-300"
+                  : "text-[11px] text-amber-700 dark:text-amber-300"
+              }
+            >
+              {configuredBEpdExists ? "file present" : "file missing"}
+            </div>
+          </div>
+          <div className="mt-1 font-mono break-all">{configuredBEpdAbsPath}</div>
+          <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+            Leaving the import field empty will re-import this file (confirmation-only flow).
+          </div>
+        </div>
+      ) : null}
 
       <div className="rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-2">
         <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-          Import from EPDextractor (TTL)
+          Import TTL
         </div>
         <div className="text-xs text-zinc-600 dark:text-zinc-300">
-          Paste an absolute path to an EPDextractor <code className="font-mono">.ttl</code> export.
-          This copies it into <code className="font-mono">data/sources/B-EPD/</code> and activates{" "}
+          Paste an absolute <code className="font-mono">.ttl</code> path. This copies it into{" "}
+          <code className="font-mono">data/sources/B-EPD/</code> and activates{" "}
           <code className="font-mono">b-epd-be</code> in <code className="font-mono">config.json</code>.
         </div>
 
@@ -74,6 +224,7 @@ export default async function SourcesPage() {
           <input
             className="flex-1 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-2 text-sm font-mono"
             name="ttlAbsPath"
+            defaultValue={qTtlAbsPathTrimmed ?? exampleImportAbsPath}
             placeholder="/Users/warddem/dev/EPDextractor/output_final/b-epd-2026-04-01-175536.ttl"
           />
           <button
@@ -86,7 +237,7 @@ export default async function SourcesPage() {
 
         <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
           Next step after import: rebuild the KB on{" "}
-          <Link className="underline" href="/kb">
+          <Link className="underline" href={kbPageHref}>
             /kb
           </Link>
           .
@@ -157,9 +308,10 @@ export default async function SourcesPage() {
         matches still win first).
       </p>
       <p className="text-xs text-zinc-500 dark:text-zinc-500">
-        Tip: open this page as{" "}
-        <code className="font-mono">/sources?from=kb&amp;projectId=yourProjectId</code> once we
-        reintroduce the interactive KB-gap helper.
+        Tip: open{" "}
+        <code className="font-mono">/sources?from=kb&amp;projectId=yourProjectId</code> to align the
+        project selector with KB; the matching panel above lists per-bucket materials (including{" "}
+        <code className="font-mono">dictionary-no-lca</code>).
       </p>
     </div>
   );

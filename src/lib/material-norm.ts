@@ -18,6 +18,8 @@ export function normMaterialLabelForMatch(s: unknown): string {
     .replace(/\bgewapend(e)?\b/g, " reinforced ")
     .replace(/\bbeton\b/g, " concrete ")
     .replace(/\bstaal\b/g, " steel ")
+    // NL laminated / structural wood (Revit lists); not matched by bare `hout`
+    .replace(/\bloofhout\b/g, " timber ")
     .replace(/\bhout\b/g, " timber ")
     // Dutch / French insulation → ICE uses "Insulation" in matchText
     .replace(/\bspouwisolatie\b/g, " insulation ")
@@ -66,6 +68,9 @@ export function normMaterialLabelForMatch(s: unknown): string {
     .replace(/\bnatuursteen\b/g, " natural stone ")
     .replace(/\bgipsplafond\b/g, " gypsum plasterboard ceiling ")
     .replace(/\bgipsblokken\b/g, " gypsum blocks ")
+    // "Gipsplaat" / IFC gypsum board — must run before bare `gips` (substring of gipsplaat)
+    .replace(/\bgipsplaat\b/g, " gypsum plasterboard ")
+    .replace(/\bgipsvezelplaat\b/g, " gypsum fiberboard ")
     .replace(/\bgips\b/g, " gypsum plaster ")
     .replace(/\bglas hekwerk\b/g, " glass railing ")
     .replace(/\bmetaal aluminium\b/g, " aluminium metal ")

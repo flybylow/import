@@ -1,0 +1,1633 @@
+@prefix bsrc: <https://tabulas.eu/sources/b-epd-be#> .
+@prefix ont: <https://tabulas.eu/ontology/> .
+@prefix schema: <http://schema.org/> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+bsrc:entry-23-0168-001-01-00-00__70d552646a4b a ont:EPD ;
+  schema:name "23.0168.001-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "0.12988"^^xsd:decimal ;
+  ont:matchText "23.0168.001- | of the EPD. | 23-0168-001-01-00-00 | 1.B-EPD-23.0168.001-01.00.00 Solidor EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "1.B-EPD-23.0168.001-01.00.00 Solidor EN - signed.pdf" ;
+  dct:identifier "23-0168-001-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-05-04" .
+
+bsrc:entry-23-0173-001-01-00-01__d85cd0290dcc a ont:EPD ;
+  schema:name "23.0173.001-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "3.5045"^^xsd:decimal ;
+  ont:matchText "23.0173.001- | PUBLIÉ LE 29/06/2023 MODULES DÉCLARÉS : | 23-0173-001-01-00-01 | 202306 B-EPD 023.0173.001_01.00.01 Belgolan - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "202306 B-EPD 023.0173.001_01.00.01 Belgolan - signed.pdf" ;
+  dct:identifier "23-0173-001-01-00-01" ;
+  ont:producer "PUBLIÉ LE 29/06/2023 MODULES DÉCLARÉS :" ;
+  ont:issueDate "2023-06-29" ;
+  ont:validUntil "2028-06-29" .
+
+bsrc:entry-B-EPD_-_025-0078-002_-_IsoHemp_PAL36EX_-_VF_-_signed.pdf__d40a4c37c477 a ont:EPD ;
+  schema:name "025-0078-002" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "-17.35"^^xsd:decimal ;
+  ont:matchText "025-0078-002 | Bloc de béton chanvre | B-EPD - 025-0078-002 - IsoHemp PAL36EX - VF - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD - 025-0078-002 - IsoHemp PAL36EX - VF - signed.pdf" ;
+  ont:producer "Bloc de béton chanvre" ;
+  ont:issueDate "2025-10-06" ;
+  ont:validUntil "2030-10-06" .
+
+bsrc:entry-B-EPD_-_EKP_Ceiling_-_Interalu_-_025.0041.005_-_EN_-_signed.pdf__7c20d7f5dd7f a ont:EPD ;
+  schema:name "025.0041.005" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "16.535"^^xsd:decimal ;
+  ont:matchText "025.0041.005 | of the EPD. | B-EPD - EKP Ceiling - Interalu - 025.0041.005 - EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD - EKP Ceiling - Interalu - 025.0041.005 - EN - signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-12-18" .
+
+bsrc:entry-B-EPD_-_Mariene_zanden_-_Van_Ouwerkerk_-_025.0316.001_-_NL_-_signed.pdf__0db90a95db42 a ont:EPD ;
+  schema:name "025.0316.001" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "2.8649999999999998"^^xsd:decimal ;
+  ont:matchText "025.0316.001 | 0/1, 0/2 en 0/4 | B-EPD - Mariene zanden - Van Ouwerkerk - 025.0316.001 - NL - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD - Mariene zanden - Van Ouwerkerk - 025.0316.001 - NL - signed.pdf" ;
+  ont:producer "0/1, 0/2 en 0/4" .
+
+bsrc:entry-B-EPD_-_Screed_U400_-_Diamur_-_025.0308.004_-_signed.pdf__d0ffa8c2f3fe a ont:EPD ;
+  schema:name "025.0308.004" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "0.30827999999999994"^^xsd:decimal ;
+  ont:matchText "025.0308.004 | of the EPD. | B-EPD - Screed U400 - Diamur - 025.0308.004 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD - Screed U400 - Diamur - 025.0308.004 - signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-10-28" .
+
+bsrc:entry-B-EPD_-_Tile_Adhesives_-_Diamur_-_025.0308.003_-_signed.pdf__83313579d561 a ont:EPD ;
+  schema:name "025.0308.003" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "0.4059"^^xsd:decimal ;
+  ont:matchText "025.0308.003 | of the EPD. | B-EPD - Tile Adhesives - Diamur - 025.0308.003 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD - Tile Adhesives - Diamur - 025.0308.003 - signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-10-28" .
+
+bsrc:entry-23-0011-001-02-00-00__e8187e4f1b4c a ont:EPD ;
+  schema:name "23.0011.01-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.904"^^xsd:decimal ;
+  ont:matchText "23.0011.01- | of the EPD. | 23-0011-001-02-00-00 | B-EPD 023.0011.001-02.00.00 Rockwool RockRoof Delta EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 023.0011.001-02.00.00 Rockwool RockRoof Delta EN - signed.pdf" ;
+  dct:identifier "23-0011-001-02-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2029-01-29" .
+
+bsrc:entry-23-0011-004-02-00-00__eefb00e36494 a ont:EPD ;
+  schema:name "23.0011.04-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.254"^^xsd:decimal ;
+  ont:matchText "23.0011.04- | of the EPD. | 23-0011-004-02-00-00 | B-EPD 023.0011.004-02.00.00 Rockwool RockSono base Vario EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 023.0011.004-02.00.00 Rockwool RockSono base Vario EN - signed.pdf" ;
+  dct:identifier "23-0011-004-02-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2029-01-29" .
+
+bsrc:entry-23-0011-005-02-00-00__e05cebb5b895 a ont:EPD ;
+  schema:name "23.0011.05-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "6.838000000000001"^^xsd:decimal ;
+  ont:matchText "23.0011.05- | of the EPD. | 23-0011-005-02-00-00 | B-EPD 023.0011.005-02.00.00 Rockwool RockVent Solid EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 023.0011.005-02.00.00 Rockwool RockVent Solid EN - signed.pdf" ;
+  dct:identifier "23-0011-005-02-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2029-01-29" .
+
+bsrc:entry-23-0011-006-02-00-00__f646fbf59727 a ont:EPD ;
+  schema:name "23.0011.06-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.379"^^xsd:decimal ;
+  ont:matchText "23.0011.06- | of the EPD. | 23-0011-006-02-00-00 | B-EPD 023.0011.006-02.00.00 Rockwool RockSono Base EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 023.0011.006-02.00.00 Rockwool RockSono Base EN - signed.pdf" ;
+  dct:identifier "23-0011-006-02-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2029-01-29" .
+
+bsrc:entry-B-EPD_023.0041.003_Interalu_WEC_Ceiling_EN_signed.pdf__f6017d5da263 a ont:EPD ;
+  schema:name "23.0041.003-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "18.104999999999997"^^xsd:decimal ;
+  ont:matchText "23.0041.003- | of the EPD. | B-EPD 023.0041.003 Interalu WEC Ceiling EN_signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 023.0041.003 Interalu WEC Ceiling EN_signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2029-02-26" .
+
+bsrc:entry-23-0221-003-01-00-00__55bf1c888546 a ont:EPD ;
+  schema:name "23.0221.003-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "0.273"^^xsd:decimal ;
+  ont:matchText "23.0221.003- | of the EPD. | 23-0221-003-01-00-00 | B-EPD 023.0221.003-01.00.00 CEM IIIB 42,5 N-LHSR bulk “ECOPlanet” EN_ signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 023.0221.003-01.00.00 CEM IIIB 42,5 N-LHSR bulk “ECOPlanet” EN_ signed.pdf" ;
+  dct:identifier "23-0221-003-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-12-08" .
+
+bsrc:entry-23-0221-004-01-00-00__c49ea64d7f7c a ont:EPD ;
+  schema:name "23.0221.04-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "0.402"^^xsd:decimal ;
+  ont:matchText "23.0221.04- | of the EPD. | 23-0221-004-01-00-00 | B-EPD 023.0221.004-01.00.00 Holcim CEM VA (S-V) 425 N-LH HSR bulk “ECOPlanet” EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 023.0221.004-01.00.00 Holcim CEM VA (S-V) 425 N-LH HSR bulk “ECOPlanet” EN - signed.pdf" ;
+  dct:identifier "23-0221-004-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-12-08" .
+
+bsrc:entry-B-EPD_023.0221.005_-01.00.00_Holcim_CEM_I_bulk__all_types__EN_-_signed.pdf__d6915cd5b174 a ont:EPD ;
+  schema:name "23.0221.005-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "0.675"^^xsd:decimal ;
+  ont:matchText "23.0221.005- | of the EPD. | B-EPD 023.0221.005 -01.00.00 Holcim CEM I bulk (all types) EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 023.0221.005 -01.00.00 Holcim CEM I bulk (all types) EN - signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-12-08" .
+
+bsrc:entry-B-EPD_023.0221.006-_01.00.00_Holcim_CEM_IIALL_525_N_bulk_OB_EN-_signed.pdf__b66d4897ff38 a ont:EPD ;
+  schema:name "23.0221.006-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "0.604"^^xsd:decimal ;
+  ont:matchText "23.0221.006- | of the EPD. | B-EPD 023.0221.006- 01.00.00 Holcim CEM IIALL 525 N bulk OB EN- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 023.0221.006- 01.00.00 Holcim CEM IIALL 525 N bulk OB EN- signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-12-08" .
+
+bsrc:entry-24-0005-001-01-00-00__96966ce29c85 a ont:EPD ;
+  schema:name "24.0005.001-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "0.19332"^^xsd:decimal ;
+  ont:matchText "24.0005.001- | Plâtre MP 75 Diamond | 24-0005-001-01-00-00 | B-EPD 024.0005.001-01.00.00 Knauf Plâtre MP 75 Diamond FR- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 024.0005.001-01.00.00 Knauf Plâtre MP 75 Diamond FR- signed.pdf" ;
+  dct:identifier "24-0005-001-01-00-00" ;
+  ont:producer "Plâtre MP 75 Diamond" ;
+  ont:issueDate "2025-03-21" ;
+  ont:validUntil "2030-03-21" .
+
+bsrc:entry-24-0005-002-01-00-00__6913472f03d6 a ont:EPD ;
+  schema:name "24.0005.002-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "0.1953"^^xsd:decimal ;
+  ont:matchText "24.0005.002- | PUBLIÉ LE 21.03.2025 MODULES DÉCLARÉS | 24-0005-002-01-00-00 | B-EPD 024.0005.002-01.00.00 Knauf MP 75 E FR- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 024.0005.002-01.00.00 Knauf MP 75 E FR- signed.pdf" ;
+  dct:identifier "24-0005-002-01-00-00" ;
+  ont:producer "PUBLIÉ LE 21.03.2025 MODULES DÉCLARÉS" ;
+  ont:issueDate "2025-03-21" .
+
+bsrc:entry-24-0005-003-01-00-00__7212f02bb9fe a ont:EPD ;
+  schema:name "24.0005.003-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "0.2021"^^xsd:decimal ;
+  ont:matchText "24.0005.003- | PUBLIÉ LE 21.03.2025 UNITÉ DÉCLARÉE ET MODULES DÉCLARÉS | 24-0005-003-01-00-00 | B-EPD 024.0005.003-01.00.00 Knauf ECOfin 2.0 FR- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 024.0005.003-01.00.00 Knauf ECOfin 2.0 FR- signed.pdf" ;
+  dct:identifier "24-0005-003-01-00-00" ;
+  ont:producer "PUBLIÉ LE 21.03.2025 UNITÉ DÉCLARÉE ET MODULES DÉCLARÉS" ;
+  ont:issueDate "2025-03-21" ;
+  ont:validUntil "2030-03-21" .
+
+bsrc:entry-24-0005-004-01-00-00__fc8313351203 a ont:EPD ;
+  schema:name "24.0005.004-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "0.2021"^^xsd:decimal ;
+  ont:matchText "24.0005.004- | PUBLIÉ LE 21.03.2025 UNITÉ DÉCLARÉE ET MODULES DÉCLARÉS | 24-0005-004-01-00-00 | B-EPD 024.0005.004-01.00.00 Knauf Rebolux Pro FR- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 024.0005.004-01.00.00 Knauf Rebolux Pro FR- signed.pdf" ;
+  dct:identifier "24-0005-004-01-00-00" ;
+  ont:producer "PUBLIÉ LE 21.03.2025 UNITÉ DÉCLARÉE ET MODULES DÉCLARÉS" ;
+  ont:issueDate "2025-03-21" ;
+  ont:validUntil "2030-03-21" .
+
+bsrc:entry-24-0013-005-01-00-00__cea8bd5442e6 a ont:EPD ;
+  schema:name "24.0013.005-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "3.4189999999999996"^^xsd:decimal ;
+  ont:matchText "24.0013.005- | of the EPD. | 24-0013-005-01-00-00 | B-EPD 024.0013.005-01.00.00 Gyplat 9.5 Saint-Gobain-EN_signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 024.0013.005-01.00.00 Gyplat 9.5 Saint-Gobain-EN_signed.pdf" ;
+  dct:identifier "24-0013-005-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2029-10-25" .
+
+bsrc:entry-24-0263-001-01-00-00__3870a1cd5451 a ont:EPD ;
+  schema:name "24.0263.001-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "16.730000000000004"^^xsd:decimal ;
+  ont:matchText "24.0263.001- | of the EPD. | 24-0263-001-01-00-00 | B-EPD 024.0263.001-01.00.00 Fire damper RF-Technologies-EN_signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 024.0263.001-01.00.00 Fire damper RF-Technologies-EN_signed.pdf" ;
+  dct:identifier "24-0263-001-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2029-10-11" .
+
+bsrc:entry-B-EPD_025.0005.005_Knauf_Plaque_standard_12.5mm_EN_-_SIGNED.pdf__b5b3f854e005 a ont:EPD ;
+  schema:name "025.0005.005-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.307"^^xsd:decimal ;
+  ont:matchText "025.0005.005- | of the EPD | B-EPD 025.0005.005 Knauf Plaque standard 12.5mm EN - SIGNED.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0005.005 Knauf Plaque standard 12.5mm EN - SIGNED.pdf" ;
+  ont:producer "of the EPD" ;
+  ont:validUntil "2030-11-19" .
+
+bsrc:entry-25-0013-011-01-00-00__ea0932b4c95d a ont:EPD ;
+  schema:name "025.0013.011-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "1.1152"^^xsd:decimal ;
+  ont:matchText "025.0013.011- | of the EPD. | 25-0013-011-01-00-00 | B-EPD 025.0013.011-01.00.00 Weber Webercoll XXL EN signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0013.011-01.00.00 Weber Webercoll XXL EN signed.pdf" ;
+  dct:identifier "25-0013-011-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-04-25" .
+
+bsrc:entry-25-0145-004-01-00-00__a5db9b77ad3d a ont:EPD ;
+  schema:name "025.0145.004-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "93"^^xsd:decimal ;
+  ont:matchText "025.0145.004- | PIERRES ET MARBRES DE WALLONIE | 25-0145-004-01-00-00 | B-EPD 025.0145.004-01.00.00 Bordures extérieures FR- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0145.004-01.00.00 Bordures extérieures FR- signed.pdf" ;
+  dct:identifier "25-0145-004-01-00-00" ;
+  ont:producer "PIERRES ET MARBRES DE WALLONIE" ;
+  ont:issueDate "2025-04-30" ;
+  ont:validUntil "2030-04-30" .
+
+bsrc:entry-25-0145-006-01-00-00__971421665a31 a ont:EPD ;
+  schema:name "025.0145.006-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "38.87"^^xsd:decimal ;
+  ont:matchText "025.0145.006- | PIERRES ET MARBRES DE WALLONIE | 25-0145-006-01-00-00 | B-EPD 025.0145.006-01.00.00 PMW Moellon clivé FR - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0145.006-01.00.00 PMW Moellon clivé FR - signed.pdf" ;
+  dct:identifier "25-0145-006-01-00-00" ;
+  ont:producer "PIERRES ET MARBRES DE WALLONIE" ;
+  ont:issueDate "2025-04-30" ;
+  ont:validUntil "2030-04-30" .
+
+bsrc:entry-25-0262-005-01-00-00__e049ed86b2a1 a ont:EPD ;
+  schema:name "025.0262.005-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "-7.496"^^xsd:decimal ;
+  ont:matchText "025.0262.005- | of the EPD. | 25-0262-005-01-00-00 | B-EPD 025.0262.005-01.00.00 Beton Agglo Carbstone Soundblox EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0262.005-01.00.00 Beton Agglo Carbstone Soundblox EN - signed.pdf" ;
+  dct:identifier "25-0262-005-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-10-30" .
+
+bsrc:entry-25-0262-009-01-00-00__c20ba4b3b4d2 a ont:EPD ;
+  schema:name "025.0262.009-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "-0.5599999999999998"^^xsd:decimal ;
+  ont:matchText "025.0262.009- | of the EPD. | 25-0262-009-01-00-00 | B-EPD 025.0262.009-01.00.00 Beton Agglo Carbstone ClimaSono full EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0262.009-01.00.00 Beton Agglo Carbstone ClimaSono full EN - signed.pdf" ;
+  dct:identifier "25-0262-009-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-10-30" .
+
+bsrc:entry-25-0271-002-01-00-00__5e55e98fa0d5 a ont:EPD ;
+  schema:name "025.0271.002-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "0.5142"^^xsd:decimal ;
+  ont:matchText "025.0271.002- | of the EPD. | 25-0271-002-01-00-00 | B-EPD 025.0271.002-01.00.00 BC Materials ClayPlaster EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0271.002-01.00.00 BC Materials ClayPlaster EN - signed.pdf" ;
+  dct:identifier "25-0271-002-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-09-12" .
+
+bsrc:entry-25-0271-003-01-00-00__524c327c890d a ont:EPD ;
+  schema:name "025.0271.003-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "11.39"^^xsd:decimal ;
+  ont:matchText "025.0271.003- | of the EPD. | 25-0271-003-01-00-00 | B-EPD 025.0271.003-01.00.00 BC Materials Earth Block + Bastard - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0271.003-01.00.00 BC Materials Earth Block + Bastard - signed.pdf" ;
+  dct:identifier "25-0271-003-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-09-23" .
+
+bsrc:entry-25-0276-001-01-00-00__b4ce3c28d78e a ont:EPD ;
+  schema:name "025.0276.001-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "0.042350000000000006"^^xsd:decimal ;
+  ont:matchText "025.0276.001- | of the EPD. | 25-0276-001-01-00-00 | B-EPD 025.0276.001-01.00.00 Acterra NV ReViva EN- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0276.001-01.00.00 Acterra NV ReViva EN- signed.pdf" ;
+  dct:identifier "25-0276-001-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-03-21" .
+
+bsrc:entry-25-0277-001-01-00-00__e3a047bf142b a ont:EPD ;
+  schema:name "025.0277.001-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "0.50658"^^xsd:decimal ;
+  ont:matchText "025.0277.001- | of the EPD. | 25-0277-001-01-00-00 | B-EPD 025.0277.001-01.00.00 Boss Single component lacquers EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0277.001-01.00.00 Boss Single component lacquers EN - signed.pdf" ;
+  dct:identifier "25-0277-001-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-08-25" .
+
+bsrc:entry-25-0297-001-01-00-00__91124f756a63 a ont:EPD ;
+  schema:name "025.0297.001-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "79.94420000000001"^^xsd:decimal ;
+  ont:matchText "025.0297.001- | of the EPD. | 25-0297-001-01-00-00 | B-EPD 025.0297.001-01.00.00 Aliplast STAR75 LC Dubbel EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0297.001-01.00.00 Aliplast STAR75 LC Dubbel EN - signed.pdf" ;
+  dct:identifier "25-0297-001-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-07-04" .
+
+bsrc:entry-25-0297-002-01-00-00__4f62158c52c5 a ont:EPD ;
+  schema:name "025.0297.002-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "53.7748"^^xsd:decimal ;
+  ont:matchText "025.0297.002- | of the EPD. | 25-0297-002-01-00-00 | B-EPD 025.0297.002-01.00.00 Aliplast STAR75 LC Kip EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0297.002-01.00.00 Aliplast STAR75 LC Kip EN - signed.pdf" ;
+  dct:identifier "25-0297-002-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-07-04" .
+
+bsrc:entry-25-0297-003-01-00-00__476bb3d00f00 a ont:EPD ;
+  schema:name "025.0297.003-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "23.9512"^^xsd:decimal ;
+  ont:matchText "025.0297.003- | of the EPD. | 25-0297-003-01-00-00 | B-EPD 025.0297.003-01.00.00 Aliplast STAR75 LC Vast EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0297.003-01.00.00 Aliplast STAR75 LC Vast EN - signed.pdf" ;
+  dct:identifier "25-0297-003-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-07-04" .
+
+bsrc:entry-25-0297-004-01-00-00__4c73c7353160 a ont:EPD ;
+  schema:name "025.0297.004-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "162.3345"^^xsd:decimal ;
+  ont:matchText "025.0297.004- | of the EPD. | 25-0297-004-01-00-00 | B-EPD 025.0297.004-01.00.00 Aliplast STAR75 Dubbel EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0297.004-01.00.00 Aliplast STAR75 Dubbel EN - signed.pdf" ;
+  dct:identifier "25-0297-004-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-07-04" .
+
+bsrc:entry-25-0297-005-01-00-00__0fe4c6464d1c a ont:EPD ;
+  schema:name "025.0297.005-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "112.464"^^xsd:decimal ;
+  ont:matchText "025.0297.005- | of the EPD. | 25-0297-005-01-00-00 | B-EPD 025.0297.005-01.00.00 Aliplast STAR75 Kip EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0297.005-01.00.00 Aliplast STAR75 Kip EN - signed.pdf" ;
+  dct:identifier "25-0297-005-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-07-04" .
+
+bsrc:entry-25-0297-006-01-00-00__d02e4405bbc8 a ont:EPD ;
+  schema:name "025.0297.006-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "55.1469"^^xsd:decimal ;
+  ont:matchText "025.0297.006- | of the EPD. | 25-0297-006-01-00-00 | B-EPD 025.0297.006-01.00.00 Aliplast STAR75 Vast EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0297.006-01.00.00 Aliplast STAR75 Vast EN - signed.pdf" ;
+  dct:identifier "25-0297-006-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-07-04" .
+
+bsrc:entry-B-EPD_025.0320.001_NUPI_INDUSTRIALE_NIRON_EN_-_signed.pdf__55cc322571e8 a ont:EPD ;
+  schema:name "025.0320.001-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "4.1981"^^xsd:decimal ;
+  ont:matchText "025.0320.001- | of the EPD. | B-EPD 025.0320.001 NUPI INDUSTRIALE NIRON EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.0320.001 NUPI INDUSTRIALE NIRON EN - signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-12-20" .
+
+bsrc:entry-B-EPD_025.271.001-01.00.00_BC_Materials_Earth_Block__EAM_-_signed.pdf__423c951eac4a a ont:EPD ;
+  schema:name "025.0271.001-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "12.29"^^xsd:decimal ;
+  ont:matchText "025.0271.001- | of the EPD. | B-EPD 025.271.001-01.00.00 BC Materials Earth Block +EAM - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 025.271.001-01.00.00 BC Materials Earth Block +EAM - signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-09-12" .
+
+bsrc:entry-B-EPD_026.0263.002_Rf-Tech_Fire_Damper_CR60-100_EN_-_signed.pdf__1e085ffccc85 a ont:EPD ;
+  schema:name "026.0263.002-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "10.454"^^xsd:decimal ;
+  ont:matchText "026.0263.002- | of the EPD. | B-EPD 026.0263.002 Rf-Tech Fire Damper CR60-100 EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 026.0263.002 Rf-Tech Fire Damper CR60-100 EN - signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2031-01-09" .
+
+bsrc:entry-21-0036-004-00-00__6e8858da88db a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "7.8759999999999994"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0036-004-00-00 | B-EPD 21-0036-004_00_00-EN Recticel – alu facer–signed .pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0036-004_00_00-EN Recticel – alu facer–signed .pdf" ;
+  dct:identifier "21-0036-004-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-04-22" .
+
+bsrc:entry-21-0036-004-00-00__6e8858da88db a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "7.8759999999999994"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0036-004-00-00 | B-EPD 21-0036-004_00_00-EN Recticel – alu facer–signed .pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0036-004_00_00-EN Recticel – alu facer–signed .pdf" ;
+  dct:identifier "21-0036-004-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-04-22" .
+
+bsrc:entry-21-0036-004-00-00__6e8858da88db a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "7.8759999999999994"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0036-004-00-00 | B-EPD 21-0036-004_00_00-EN Recticel – alu facer–signed .pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0036-004_00_00-EN Recticel – alu facer–signed .pdf" ;
+  dct:identifier "21-0036-004-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-04-22" .
+
+bsrc:entry-21-0036-005-00-00__7ebd6d5a0beb a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "7.8759999999999994"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0036-005-00-00 | B-EPD 21-0036-005_00_00-EN Recticel – multilayer – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0036-005_00_00-EN Recticel – multilayer – signed.pdf" ;
+  dct:identifier "21-0036-005-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-04-22" .
+
+bsrc:entry-21-0036-005-00-00__7ebd6d5a0beb a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "7.8759999999999994"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0036-005-00-00 | B-EPD 21-0036-005_00_00-EN Recticel – multilayer – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0036-005_00_00-EN Recticel – multilayer – signed.pdf" ;
+  dct:identifier "21-0036-005-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-04-22" .
+
+bsrc:entry-21-0036-006-00-00__239d372abe1d a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "7.8759999999999994"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | in a single production site. | 21-0036-006-00-00 | B-EPD 21-0036-006_00_00-EN Recticel – glass facer– signed .pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0036-006_00_00-EN Recticel – glass facer– signed .pdf" ;
+  dct:identifier "21-0036-006-00-00" ;
+  ont:producer "in a single production site." ;
+  ont:validUntil "2026-04-22" .
+
+bsrc:entry-21-0036-006-00-00__239d372abe1d a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "7.8759999999999994"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | in a single production site. | 21-0036-006-00-00 | B-EPD 21-0036-006_00_00-EN Recticel – glass facer– signed .pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0036-006_00_00-EN Recticel – glass facer– signed .pdf" ;
+  dct:identifier "21-0036-006-00-00" ;
+  ont:producer "in a single production site." ;
+  ont:validUntil "2026-04-22" .
+
+bsrc:entry-21-0036-006-00-00__239d372abe1d a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "7.8759999999999994"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | in a single production site. | 21-0036-006-00-00 | B-EPD 21-0036-006_00_00-EN Recticel – glass facer– signed .pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0036-006_00_00-EN Recticel – glass facer– signed .pdf" ;
+  dct:identifier "21-0036-006-00-00" ;
+  ont:producer "in a single production site." ;
+  ont:validUntil "2026-04-22" .
+
+bsrc:entry-21-0056-001-00-00__ad41d43b7371 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.2026"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0056-001-00-00 | B-EPD 21-0056-001_00_00_EN isola - thermogran25 – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0056-001_00_00_EN isola - thermogran25 – signed.pdf" ;
+  dct:identifier "21-0056-001-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-04-26" .
+
+bsrc:entry-21-0056-001-00-00__ad41d43b7371 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.2026"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0056-001-00-00 | B-EPD 21-0056-001_00_00_EN isola - thermogran25 – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0056-001_00_00_EN isola - thermogran25 – signed.pdf" ;
+  dct:identifier "21-0056-001-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-04-26" .
+
+bsrc:entry-21-0117-001-00-00__d9461991f0ef a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "45.39"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | in a single production | 21-0117-001-00-00 | B-EPD 21-0117-001-00-00-EN menuiserie riche– woodalu window – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0117-001-00-00-EN menuiserie riche– woodalu window – signed.pdf" ;
+  dct:identifier "21-0117-001-00-00" ;
+  ont:producer "in a single production" ;
+  ont:validUntil "2026-09-17" .
+
+bsrc:entry-21-0117-002-00-00__18c05184cb55 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "-21.959999999999997"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0117-002-00-00 | B-EPD 21-0117-002-00-00-EN menuiserie riche– wood window – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0117-002-00-00-EN menuiserie riche– wood window – signed.pdf" ;
+  dct:identifier "21-0117-002-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-09-17" .
+
+bsrc:entry-21-0127-002-00-00__03fbb60511d0 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.4928899999999996"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | (following the DTU | 21-0127-002-00-00 | B-EPD 21-0127-002-00-00-EN Dragopaint – laque matte – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0127-002-00-00-EN Dragopaint – laque matte – signed.pdf" ;
+  dct:identifier "21-0127-002-00-00" ;
+  ont:producer "(following the DTU" ;
+  ont:validUntil "2026-03-30" .
+
+bsrc:entry-21-0127-003-00-00__5a64394adfd0 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.42202"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | (following the DTU | 21-0127-003-00-00 | B-EPD 21-0127-003-00-00-EN Dragopaint – laque satin – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0127-003-00-00-EN Dragopaint – laque satin – signed.pdf" ;
+  dct:identifier "21-0127-003-00-00" ;
+  ont:producer "(following the DTU" ;
+  ont:validUntil "2026-03-30" .
+
+bsrc:entry-21-0127-003-00-00__5a64394adfd0 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.42202"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | (following the DTU | 21-0127-003-00-00 | B-EPD 21-0127-003-00-00-EN Dragopaint – laque satin – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0127-003-00-00-EN Dragopaint – laque satin – signed.pdf" ;
+  dct:identifier "21-0127-003-00-00" ;
+  ont:producer "(following the DTU" ;
+  ont:validUntil "2026-03-30" .
+
+bsrc:entry-21-0127-004-00-00__2adc7a5a0f33 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.22499"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | (following the DTU | 21-0127-004-00-00 | B-EPD 21-0127-004-00-00-EN Dragopaint – mat airless –signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0127-004-00-00-EN Dragopaint – mat airless –signed.pdf" ;
+  dct:identifier "21-0127-004-00-00" ;
+  ont:producer "(following the DTU" ;
+  ont:validUntil "2026-03-30" .
+
+bsrc:entry-21-0127-005-00-00__be088b57f53d a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.31702"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | (following the DTU | 21-0127-005-00-00 | B-EPD 21-0127-005-00-00-EN Dragopaint – mat roll sup – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0127-005-00-00-EN Dragopaint – mat roll sup – signed.pdf" ;
+  dct:identifier "21-0127-005-00-00" ;
+  ont:producer "(following the DTU" ;
+  ont:validUntil "2026-03-30" .
+
+bsrc:entry-21-0127-006-00-00__5524bc54bf28 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.30423"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | (following the DTU | 21-0127-006-00-00 | B-EPD 21-0127-006-00-00-EN Dragopaint – mat roll – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0127-006-00-00-EN Dragopaint – mat roll – signed.pdf" ;
+  dct:identifier "21-0127-006-00-00" ;
+  ont:producer "(following the DTU" ;
+  ont:validUntil "2026-03-30" .
+
+bsrc:entry-21-0127-007-00-00__950eb712ffaf a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.28543"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | (following the DTU | 21-0127-007-00-00 | B-EPD 21-0127-007-00-00-EN Dragopaint – ms soyeux – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0127-007-00-00-EN Dragopaint – ms soyeux – signed.pdf" ;
+  dct:identifier "21-0127-007-00-00" ;
+  ont:producer "(following the DTU" ;
+  ont:validUntil "2026-03-01" .
+
+bsrc:entry-21-0127-008-00-00__66b1f7a2a7bf a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.2846"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | (following the DTU | 21-0127-008-00-00 | B-EPD 21-0127-008-00-00-EN Dragopaint – satin airless – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0127-008-00-00-EN Dragopaint – satin airless – signed.pdf" ;
+  dct:identifier "21-0127-008-00-00" ;
+  ont:producer "(following the DTU" ;
+  ont:validUntil "2026-03-30" .
+
+bsrc:entry-21-0127-009-00-00__10506ea3d36a a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.3343399999999996"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | (following the DTU | 21-0127-009-00-00 | B-EPD 21-0127-009-00-00-EN Dragopaint – satin roleau – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0127-009-00-00-EN Dragopaint – satin roleau – signed.pdf" ;
+  dct:identifier "21-0127-009-00-00" ;
+  ont:producer "(following the DTU" ;
+  ont:validUntil "2026-03-30" .
+
+bsrc:entry-21-0127-010-00-00__2ac231ce186e a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.27027"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | (following the DTU | 21-0127-010-00-00 | B-EPD 21-0127-010-00-00-EN Dragopaint – velouté airless – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0127-010-00-00-EN Dragopaint – velouté airless – signed.pdf" ;
+  dct:identifier "21-0127-010-00-00" ;
+  ont:producer "(following the DTU" ;
+  ont:validUntil "2026-03-30" .
+
+bsrc:entry-21-0127-011-00-00__7977928bfc5d a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.3558899999999996"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | (following the DTU | 21-0127-011-00-00 | B-EPD 21-0127-011-00-00-EN Dragopaint - velouté roleau – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0127-011-00-00-EN Dragopaint - velouté roleau – signed.pdf" ;
+  dct:identifier "21-0127-011-00-00" ;
+  ont:producer "(following the DTU" ;
+  ont:validUntil "2026-03-30" .
+
+bsrc:entry-21-0127-012-00-00__652da07295d0 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.2917"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | (following the DTU | 21-0127-012-00-00 | B-EPD 21-0127-012-00-00-EN Dragopaint - velouté sup airless – signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0127-012-00-00-EN Dragopaint - velouté sup airless – signed.pdf" ;
+  dct:identifier "21-0127-012-00-00" ;
+  ont:producer "(following the DTU" ;
+  ont:validUntil "2026-03-30" .
+
+bsrc:entry-21-0135-01-00-00__0e7eb8a6378c a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "9.725000000000001"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0135-01-00-00 | B-EPD 21-0135-01-00-00-EN ETEX - linea - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0135-01-00-00-EN ETEX - linea - signed.pdf" ;
+  dct:identifier "21-0135-01-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-10-07" .
+
+bsrc:entry-21-0135-01-00-00__0e7eb8a6378c a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "9.725000000000001"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0135-01-00-00 | B-EPD 21-0135-01-00-00-EN ETEX - linea - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0135-01-00-00-EN ETEX - linea - signed.pdf" ;
+  dct:identifier "21-0135-01-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-10-07" .
+
+bsrc:entry-21-0135-02-00-00__64d786fb4145 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "7.344"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0135-02-00-00 | B-EPD 21-0135-02-00-00-EN ETEX - cedral - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0135-02-00-00-EN ETEX - cedral - signed.pdf" ;
+  dct:identifier "21-0135-02-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-10-07" .
+
+bsrc:entry-21-0135-03-00-00__a978cdef7037 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "13.744"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0135-03-00-00 | B-EPD 21-0135-03-00-00-EN ETEX - natura ea - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0135-03-00-00-EN ETEX - natura ea - signed.pdf" ;
+  dct:identifier "21-0135-03-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-10-07" .
+
+bsrc:entry-21-0135-04-00-00__7216fd2ffa24 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "8.147"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0135-04-00-00 | B-EPD 21-0135-04-00-00-EN ETEX - tectiva - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 21-0135-04-00-00-EN ETEX - tectiva - signed.pdf" ;
+  dct:identifier "21-0135-04-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-10-07" .
+
+bsrc:entry-22-0144-001-00-01__e227b416c58c a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "2"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | specific data have been collected for the year 2019. | 22-0144-001-00-01 | B-EPD 22-0144-001-00-01 EN fediex agregates _ signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 22-0144-001-00-01 EN fediex agregates _ signed.pdf" ;
+  dct:identifier "22-0144-001-00-01" ;
+  ont:producer "specific data have been collected for the year 2019." ;
+  ont:validUntil "2027-01-04" .
+
+bsrc:entry-23-0191-001-01-00-01__cba645090bd1 a ont:EPD ;
+  schema:name "23.0191.001-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.017"^^xsd:decimal ;
+  ont:matchText "23.0191.001- | of the EPD. | 23-0191-001-01-00-01 | B-EPD 23.0191.001_01.00.01 EN Kingspan Kooltherm K3 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.001_01.00.01 EN Kingspan Kooltherm K3 - signed.pdf" ;
+  dct:identifier "23-0191-001-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-18" .
+
+bsrc:entry-23-0191-001-01-00-01__cba645090bd1 a ont:EPD ;
+  schema:name "23.0191.001-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.017"^^xsd:decimal ;
+  ont:matchText "23.0191.001- | of the EPD. | 23-0191-001-01-00-01 | B-EPD 23.0191.001_01.00.01 EN Kingspan Kooltherm K3 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.001_01.00.01 EN Kingspan Kooltherm K3 - signed.pdf" ;
+  dct:identifier "23-0191-001-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-18" .
+
+bsrc:entry-23-0191-002-01-00-01__b46301f71bb5 a ont:EPD ;
+  schema:name "23-0191-002-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.787"^^xsd:decimal ;
+  ont:matchText "23-0191-002- | of the EPD. | 23-0191-002-01-00-01 | B-EPD 23.0191.002_01.00.01 EN Kingspan Kooltherm K5 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.002_01.00.01 EN Kingspan Kooltherm K5 - signed.pdf" ;
+  dct:identifier "23-0191-002-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-18" .
+
+bsrc:entry-23-0191-002-01-00-01__b46301f71bb5 a ont:EPD ;
+  schema:name "23-0191-002-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.787"^^xsd:decimal ;
+  ont:matchText "23-0191-002- | of the EPD. | 23-0191-002-01-00-01 | B-EPD 23.0191.002_01.00.01 EN Kingspan Kooltherm K5 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.002_01.00.01 EN Kingspan Kooltherm K5 - signed.pdf" ;
+  dct:identifier "23-0191-002-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-18" .
+
+bsrc:entry-23-0191-003-01-00-01__54126da41d22 a ont:EPD ;
+  schema:name "23-0191-003-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.600999999999999"^^xsd:decimal ;
+  ont:matchText "23-0191-003- | of the EPD. | 23-0191-003-01-00-01 | B-EPD 23.0191.003_01.00.01 EN Kingspan Kooltherm K8 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.003_01.00.01 EN Kingspan Kooltherm K8 - signed.pdf" ;
+  dct:identifier "23-0191-003-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-20" .
+
+bsrc:entry-23-0191-003-01-00-01__54126da41d22 a ont:EPD ;
+  schema:name "23-0191-003-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.600999999999999"^^xsd:decimal ;
+  ont:matchText "23-0191-003- | of the EPD. | 23-0191-003-01-00-01 | B-EPD 23.0191.003_01.00.01 EN Kingspan Kooltherm K8 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.003_01.00.01 EN Kingspan Kooltherm K8 - signed.pdf" ;
+  dct:identifier "23-0191-003-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-20" .
+
+bsrc:entry-23-0191-003-01-00-01__54126da41d22 a ont:EPD ;
+  schema:name "23-0191-003-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.600999999999999"^^xsd:decimal ;
+  ont:matchText "23-0191-003- | of the EPD. | 23-0191-003-01-00-01 | B-EPD 23.0191.003_01.00.01 EN Kingspan Kooltherm K8 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.003_01.00.01 EN Kingspan Kooltherm K8 - signed.pdf" ;
+  dct:identifier "23-0191-003-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-20" .
+
+bsrc:entry-23-0191-004-01-00-01__027c7e7fd46f a ont:EPD ;
+  schema:name "23-0191-004-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.600999999999999"^^xsd:decimal ;
+  ont:matchText "23-0191-004- | of the EPD. | 23-0191-004-01-00-01 | B-EPD 23.0191.004_01.00.01 EN Kingspan Kooltherm K8+ - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.004_01.00.01 EN Kingspan Kooltherm K8+ - signed.pdf" ;
+  dct:identifier "23-0191-004-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-20" .
+
+bsrc:entry-23-0191-005-01-00-01__23d6d0474a4a a ont:EPD ;
+  schema:name "23-0191-005-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.017"^^xsd:decimal ;
+  ont:matchText "23-0191-005- | of the EPD. | 23-0191-005-01-00-01 | B-EPD 23.0191.005_01.00.01 EN Kingspan Kooltherm K10 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.005_01.00.01 EN Kingspan Kooltherm K10 - signed.pdf" ;
+  dct:identifier "23-0191-005-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-20" .
+
+bsrc:entry-23-0191-005-01-00-01__23d6d0474a4a a ont:EPD ;
+  schema:name "23-0191-005-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.017"^^xsd:decimal ;
+  ont:matchText "23-0191-005- | of the EPD. | 23-0191-005-01-00-01 | B-EPD 23.0191.005_01.00.01 EN Kingspan Kooltherm K10 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.005_01.00.01 EN Kingspan Kooltherm K10 - signed.pdf" ;
+  dct:identifier "23-0191-005-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-20" .
+
+bsrc:entry-23-0191-006-01-00-01__dc110f9f93e2 a ont:EPD ;
+  schema:name "23-0191-006-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.600999999999999"^^xsd:decimal ;
+  ont:matchText "23-0191-006- | of the EPD. | 23-0191-006-01-00-01 | B-EPD 23.0191.006_01.00.01 EN Kingspan Kooltherm K12 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.006_01.00.01 EN Kingspan Kooltherm K12 - signed.pdf" ;
+  dct:identifier "23-0191-006-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-20" .
+
+bsrc:entry-23-0191-007-01-00-01__767f44046b2b a ont:EPD ;
+  schema:name "23-0191-007-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.4159999999999995"^^xsd:decimal ;
+  ont:matchText "23-0191-007- | of the EPD. | 23-0191-007-01-00-01 | B-EPD 23.0191.007_01.00.01 EN Kingspan Kooltherm K15 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.007_01.00.01 EN Kingspan Kooltherm K15 - signed.pdf" ;
+  dct:identifier "23-0191-007-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-20" .
+
+bsrc:entry-23-0191-007-01-00-01__767f44046b2b a ont:EPD ;
+  schema:name "23-0191-007-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.4159999999999995"^^xsd:decimal ;
+  ont:matchText "23-0191-007- | of the EPD. | 23-0191-007-01-00-01 | B-EPD 23.0191.007_01.00.01 EN Kingspan Kooltherm K15 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.007_01.00.01 EN Kingspan Kooltherm K15 - signed.pdf" ;
+  dct:identifier "23-0191-007-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-20" .
+
+bsrc:entry-23-0191-008-01-00-01__1588eabf1831 a ont:EPD ;
+  schema:name "23-0191-008-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "4.842"^^xsd:decimal ;
+  ont:matchText "23-0191-008- | of the EPD. | 23-0191-008-01-00-01 | B-EPD 23.0191.008_01.00.01 EN Kingspan Kooltherm K17 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.008_01.00.01 EN Kingspan Kooltherm K17 - signed.pdf" ;
+  dct:identifier "23-0191-008-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-20" .
+
+bsrc:entry-23-0191-009-01-00-01__8edaf9d80e40 a ont:EPD ;
+  schema:name "23-0191-009-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.017"^^xsd:decimal ;
+  ont:matchText "23-0191-009- | of the EPD. | 23-0191-009-01-00-01 | B-EPD 23.0191.009_01.00.01 EN Kingspan Kooltherm K20 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.009_01.00.01 EN Kingspan Kooltherm K20 - signed.pdf" ;
+  dct:identifier "23-0191-009-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-20" .
+
+bsrc:entry-23-0191-009-01-00-01__8edaf9d80e40 a ont:EPD ;
+  schema:name "23-0191-009-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.017"^^xsd:decimal ;
+  ont:matchText "23-0191-009- | of the EPD. | 23-0191-009-01-00-01 | B-EPD 23.0191.009_01.00.01 EN Kingspan Kooltherm K20 - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD 23.0191.009_01.00.01 EN Kingspan Kooltherm K20 - signed.pdf" ;
+  dct:identifier "23-0191-009-01-00-01" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-04-20" .
+
+bsrc:entry-22-012-001__12e19dc065b9 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "-186.4"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | specific data have been collected for the year 2019. | 22-012-001 | B-EPD BBF 22_012_001 001 BBF _ ceramic blocks_signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD BBF 22_012_001 001 BBF _ ceramic blocks_signed.pdf" ;
+  dct:identifier "22-012-001" ;
+  ont:producer "specific data have been collected for the year 2019." ;
+  ont:validUntil "2027-04-21" .
+
+bsrc:entry-22-012-001__12e19dc065b9 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "-186.4"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | specific data have been collected for the year 2019. | 22-012-001 | B-EPD BBF 22_012_001 001 BBF _ ceramic blocks_signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD BBF 22_012_001 001 BBF _ ceramic blocks_signed.pdf" ;
+  dct:identifier "22-012-001" ;
+  ont:producer "specific data have been collected for the year 2019." ;
+  ont:validUntil "2027-04-21" .
+
+bsrc:entry-22-012-002__10b5479bacf5 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "37.6"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 22-012-002 | B-EPD BBF 22_012_002 01 BBF _ facing bricks_signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD BBF 22_012_002 01 BBF _ facing bricks_signed.pdf" ;
+  dct:identifier "22-012-002" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2027-04-21" .
+
+bsrc:entry-B-EPD-LAMBDA_32_Alumium_Ursa-026.0184.007-EN-signed.pdf__a6dbe481aef2 a ont:EPD ;
+  schema:name "026.0184.007-01.00.00" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "4.181"^^xsd:decimal ;
+  ont:matchText "026.0184.007-01.00.00 | of the EPD. | B-EPD-LAMBDA 32 Alumium_Ursa-026.0184.007-EN-signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD-LAMBDA 32 Alumium_Ursa-026.0184.007-EN-signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2031-01-05" .
+
+bsrc:entry-B-EPD-LAMBDA_32_GLASSFLEECE-Ursa-026.0184.005-EN-signed.pdf__3bd9b36b4c11 a ont:EPD ;
+  schema:name "026.0184.005-01.00.00" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "3.982"^^xsd:decimal ;
+  ont:matchText "026.0184.005-01.00.00 | of the EPD. | B-EPD-LAMBDA 32 GLASSFLEECE-Ursa-026.0184.005-EN-signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD-LAMBDA 32 GLASSFLEECE-Ursa-026.0184.005-EN-signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2031-01-05" .
+
+bsrc:entry-B-EPD-LAMBDA_35_GLASSFLEECE-Ursa-026.0184.002-EN-signed.pdf__db9eddf3855e a ont:EPD ;
+  schema:name "026.0184.002-01.00.00" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "3.6364"^^xsd:decimal ;
+  ont:matchText "026.0184.002-01.00.00 | of the EPD. | B-EPD-LAMBDA 35 GLASSFLEECE-Ursa-026.0184.002-EN-signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD-LAMBDA 35 GLASSFLEECE-Ursa-026.0184.002-EN-signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2031-01-05" .
+
+bsrc:entry-B-EPD-LAMBDA_35_NAKED-Ursa-026.0184.001-EN-signed.pdf__c16c8bd610ff a ont:EPD ;
+  schema:name "026.0184.001-01.00.00" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "3.6726"^^xsd:decimal ;
+  ont:matchText "026.0184.001-01.00.00 | of the EPD. | B-EPD-LAMBDA 35 NAKED-Ursa-026.0184.001-EN-signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD-LAMBDA 35 NAKED-Ursa-026.0184.001-EN-signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2031-01-05" .
+
+bsrc:entry-B-EPD-LAMBDA_37_NAKED-Ursa-026.0184.003-EN-signed.pdf__5f794df3bb82 a ont:EPD ;
+  schema:name "026.0184.003-01.00.00" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "2.851"^^xsd:decimal ;
+  ont:matchText "026.0184.003-01.00.00 | of the EPD. | B-EPD-LAMBDA 37 NAKED-Ursa-026.0184.003-EN-signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD-LAMBDA 37 NAKED-Ursa-026.0184.003-EN-signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2031-01-05" .
+
+bsrc:entry-23-0169-001-01-00-00__44177f60c784 a ont:EPD ;
+  schema:name "23.0169.001-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "0.36860000000000004"^^xsd:decimal ;
+  ont:matchText "23.0169.001- | of the EPD. | 23-0169-001-01-00-00 | B-EPD_ 023.0169.001_01.00.00 Arcelor_ Ecosheetpile Plus_EN- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_  023.0169.001_01.00.00 Arcelor_ Ecosheetpile Plus_EN- signed.pdf" ;
+  dct:identifier "23-0169-001-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-11-17" .
+
+bsrc:entry-B-EPD__024.0199.01-01.00.00_QuadCore_AWP_Kingspan_insulated_panels_NL_-_signed.pdf__16aa1f57490c a ont:EPD ;
+  schema:name "24.0199.001-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "46.853"^^xsd:decimal ;
+  ont:matchText "24.0199.001- | GELDIG FUNCTIONELE EENHEID EN GEDECLAREERDE MODULES | B-EPD_ 024.0199.01-01.00.00 QuadCore AWP Kingspan insulated panels NL - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_ 024.0199.01-01.00.00 QuadCore AWP Kingspan insulated panels NL - signed.pdf" ;
+  ont:producer "GELDIG FUNCTIONELE EENHEID EN GEDECLAREERDE MODULES" .
+
+bsrc:entry-23-0011-002-02-00-00__7a25868b7c97 a ont:EPD ;
+  schema:name "23.0011.02-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "6.838000000000001"^^xsd:decimal ;
+  ont:matchText "23.0011.02- | of the EPD. | 23-0011-002-02-00-00 | B-EPD_023.0011.002-02.00.00 Rockwool Rockfit Premium EN- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_023.0011.002-02.00.00 Rockwool Rockfit Premium EN- signed.pdf" ;
+  dct:identifier "23-0011-002-02-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2029-01-29" .
+
+bsrc:entry-23-0011-003-02-00-00__0bd27e5fbd11 a ont:EPD ;
+  schema:name "23.0011.03-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "16.956"^^xsd:decimal ;
+  ont:matchText "23.0011.03- | of the EPD. | 23-0011-003-02-00-00 | B-EPD_023.0011.003-02.00.00 Rockwool Caproxx Energy EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_023.0011.003-02.00.00 Rockwool Caproxx Energy EN -  signed.pdf" ;
+  dct:identifier "23-0011-003-02-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2029-01-29" .
+
+bsrc:entry-23-0011-007-02-00-00__1dcb3791d8f8 a ont:EPD ;
+  schema:name "21.0011.07-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "5.248"^^xsd:decimal ;
+  ont:matchText "21.0011.07- | of the EPD. | 23-0011-007-02-00-00 | B-EPD_023.0011.007-02.00.00 Rockwool Rockfit Mono EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_023.0011.007-02.00.00 Rockwool Rockfit Mono EN - signed.pdf" ;
+  dct:identifier "23-0011-007-02-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-10-26" .
+
+bsrc:entry-23-0011-008-02-00-00__f80455ce8d75 a ont:EPD ;
+  schema:name "23.0011.08-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "6.894"^^xsd:decimal ;
+  ont:matchText "23.0011.08- | of the EPD. | 23-0011-008-02-00-00 | B-EPD_023.0011.008-02.00.00 Rockwool Rockfit Duo EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_023.0011.008-02.00.00 Rockwool Rockfit Duo EN - signed.pdf" ;
+  dct:identifier "23-0011-008-02-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2029-01-29" .
+
+bsrc:entry-24-0146-001-01-00-00__7159d009ca84 a ont:EPD ;
+  schema:name "24.0146.01-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "3.9669999999999996"^^xsd:decimal ;
+  ont:matchText "24.0146.01- | van 2-05-2024 tot 2-05-2029 1 m² sandwich-element met een U-waarde van 0,24 en een | 24-0146-001-01-00-00 | B-EPD_024.0146.001-01.00.00_ Kingspan Unidek_ Aero Comfort_ NL- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_024.0146.001-01.00.00_ Kingspan Unidek_ Aero Comfort_ NL- signed.pdf" ;
+  dct:identifier "24-0146-001-01-00-00" ;
+  ont:producer "van 2-05-2024 tot 2-05-2029 1 m² sandwich-element met een U-waarde van 0,24 en een" .
+
+bsrc:entry-24-0146-002-01-01-00__46dc291e2b9d a ont:EPD ;
+  schema:name "24.0146.02-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "3.9669999999999996"^^xsd:decimal ;
+  ont:matchText "24.0146.02- | van 2-05-2024 tot 2.05.2029 1 m² sandwich-element met een U-waarde van 0,24 en een dikte | 24-0146-002-01-01-00 | B-EPD_024.0146.002-01.01.00 Kingspan Unidek_ Aero Comfort MB - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_024.0146.002-01.01.00 Kingspan Unidek_ Aero Comfort MB - signed.pdf" ;
+  dct:identifier "24-0146-002-01-01-00" ;
+  ont:producer "van 2-05-2024 tot 2.05.2029 1 m² sandwich-element met een U-waarde van 0,24 en een dikte" .
+
+bsrc:entry-24-0146-003-01-00-00__adef383e55fe a ont:EPD ;
+  schema:name "24.0146.03-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "4.9750000000000005"^^xsd:decimal ;
+  ont:matchText "24.0146.03- | van 2-05-2024 tot 2-05-2029 1 m² sandwich-element met een U-waarde van 0,23 en een | 24-0146-003-01-00-00 | B-EPD_024.0146.003-01.00.00_Kingspan Unidek_ Fermacell_NL- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_024.0146.003-01.00.00_Kingspan Unidek_ Fermacell_NL- signed.pdf" ;
+  dct:identifier "24-0146-003-01-00-00" ;
+  ont:producer "van 2-05-2024 tot 2-05-2029 1 m² sandwich-element met een U-waarde van 0,23 en een" .
+
+bsrc:entry-24-0146-004-01-00-00__f6cf7cc2b46b a ont:EPD ;
+  schema:name "24.0146.04-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.113"^^xsd:decimal ;
+  ont:matchText "24.0146.04- | van 2-05-2024 tot 2-05-2029 1 m² sandwich-element met een U-waarde van 0,22 en een | 24-0146-004-01-00-00 | B-EPD_024.0146.004-01.00.00_ Kingspan Unidek_ Light RE_ NL - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_024.0146.004-01.00.00_ Kingspan Unidek_ Light RE_ NL - signed.pdf" ;
+  dct:identifier "24-0146-004-01-00-00" ;
+  ont:producer "van 2-05-2024 tot 2-05-2029 1 m² sandwich-element met een U-waarde van 0,22 en een" .
+
+bsrc:entry-24-0146-005-01-00-00__f0bb5d227df7 a ont:EPD ;
+  schema:name "24.0146.05-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "-0.3599999999999999"^^xsd:decimal ;
+  ont:matchText "24.0146.05- | van 2-05-2024 tot 2-05-2029 1 m² sandwich-element met een U-waarde van 0,21 en een | 24-0146-005-01-00-00 | B-EPD_024.0146.005-01.00.00_ Kingspan Unidek_ Aero Metal_ NL- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_024.0146.005-01.00.00_ Kingspan Unidek_ Aero Metal_ NL- signed.pdf" ;
+  dct:identifier "24-0146-005-01-00-00" ;
+  ont:producer "van 2-05-2024 tot 2-05-2029 1 m² sandwich-element met een U-waarde van 0,21 en een" .
+
+bsrc:entry-24-0146-006-01-00-00__62084f973ba7 a ont:EPD ;
+  schema:name "24.0146.06-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "0.3600000000000003"^^xsd:decimal ;
+  ont:matchText "24.0146.06- | van 2-05-2024 tot 2-05-2029 1 m² sandwich-element met een U-waarde van 0,21 en een | 24-0146-006-01-00-00 | B-EPD_024.0146.006-01.00.00_ Kingspan Unidek_ Aero PD_NL- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_024.0146.006-01.00.00_ Kingspan Unidek_ Aero PD_NL- signed.pdf" ;
+  dct:identifier "24-0146-006-01-00-00" ;
+  ont:producer "van 2-05-2024 tot 2-05-2029 1 m² sandwich-element met een U-waarde van 0,21 en een" .
+
+bsrc:entry-24-0146-007-01-00-00__293443e06b14 a ont:EPD ;
+  schema:name "24.0146.07-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "7.204"^^xsd:decimal ;
+  ont:matchText "24.0146.07- | van 2-05-2024 tot 2-05-2029 1 m² sandwich-element met een U-waarde van 0,16 en een | 24-0146-007-01-00-00 | B-EPD_024.0146.007-01.00.00_ Kingspan Unidek_ REI 30F_NL- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_024.0146.007-01.00.00_ Kingspan Unidek_ REI 30F_NL- signed.pdf" ;
+  dct:identifier "24-0146-007-01-00-00" ;
+  ont:producer "van 2-05-2024 tot 2-05-2029 1 m² sandwich-element met een U-waarde van 0,16 en een" .
+
+bsrc:entry-24-0146-008-01-00-00__0582d4a3ec9f a ont:EPD ;
+  schema:name "24.0146.08-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "12.71585"^^xsd:decimal ;
+  ont:matchText "24.0146.08- | van 2-05-2024 tot 2-05-2029 1 m² sandwich-element met een U-waarde van 0,22 en een | 24-0146-008-01-00-00 | B-EPD_024.0146.008-01.00.00_ Kingspan Unidek_ Sarking XL_NL- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_024.0146.008-01.00.00_ Kingspan Unidek_ Sarking XL_NL- signed.pdf" ;
+  dct:identifier "24-0146-008-01-00-00" ;
+  ont:producer "van 2-05-2024 tot 2-05-2029 1 m² sandwich-element met een U-waarde van 0,22 en een" .
+
+bsrc:entry-B-EPD_024.0156.001_DERBIGUM__Derbicoat_NT_2.5_EN_-_signed.pdf__ef3f01e1e530 a ont:EPD ;
+  schema:name "24.0156.01-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.0100000000000002"^^xsd:decimal ;
+  ont:matchText "24.0156.01- | of the EPD. | B-EPD_024.0156.001_DERBIGUM_ Derbicoat NT 2.5_EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_024.0156.001_DERBIGUM_ Derbicoat NT 2.5_EN - signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2029-05-04" .
+
+bsrc:entry-24-0241-001-01-00-00__f748f6b216c8 a ont:EPD ;
+  schema:name "24.0241.001-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "19.172"^^xsd:decimal ;
+  ont:matchText "24.0241.001- | of the EPD. | 24-0241-001-01-00-00 | B-EPD_024.0241.001-01.00.00 Trespa Meteon EDF 8mm- signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_024.0241.001-01.00.00 Trespa Meteon EDF 8mm- signed.pdf" ;
+  dct:identifier "24-0241-001-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2029-09-10" .
+
+bsrc:entry-24-0250-001-01-00-00__2e6134af5c44 a ont:EPD ;
+  schema:name "024.0250.001-" ;
+  ont:declaredUnit "1 m3" ;
+  ont:gwpPerUnit "660"^^xsd:decimal ;
+  ont:matchText "024.0250.001- | of the EPD. | 24-0250-001-01-00-00 | B-EPD_024.0250.001_01.00.00 Reinforced concrete_Cordeel_EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_024.0250.001_01.00.00 Reinforced concrete_Cordeel_EN - signed.pdf" ;
+  dct:identifier "24-0250-001-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2030-01-07" .
+
+bsrc:entry-21-0009-003-00-00__e7c8ca339128 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "9.078"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0009-003-00-00 | B-EPD_21_0009_003_00_00_EN_unilin_alulayer_signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_21_0009_003_00_00_EN_unilin_alulayer_signed.pdf" ;
+  dct:identifier "21-0009-003-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-04-01" .
+
+bsrc:entry-21-0009-003-00-00__e7c8ca339128 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "9.078"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0009-003-00-00 | B-EPD_21_0009_003_00_00_EN_unilin_alulayer_signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_21_0009_003_00_00_EN_unilin_alulayer_signed.pdf" ;
+  dct:identifier "21-0009-003-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-04-01" .
+
+bsrc:entry-21-0009-003-00-00__e7c8ca339128 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "9.078"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0009-003-00-00 | B-EPD_21_0009_003_00_00_EN_unilin_alulayer_signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_21_0009_003_00_00_EN_unilin_alulayer_signed.pdf" ;
+  dct:identifier "21-0009-003-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-04-01" .
+
+bsrc:entry-21-0009-004-00-00__25717691ba69 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "9.078999999999999"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0009-004-00-00 | B-EPD_21_0009_004_00_00_EN_unilin_multilayer_signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_21_0009_004_00_00_EN_unilin_multilayer_signed.pdf" ;
+  dct:identifier "21-0009-004-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-04-01" .
+
+bsrc:entry-21-0009-004-00-00__25717691ba69 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "9.078999999999999"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0009-004-00-00 | B-EPD_21_0009_004_00_00_EN_unilin_multilayer_signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_21_0009_004_00_00_EN_unilin_multilayer_signed.pdf" ;
+  dct:identifier "21-0009-004-00-00" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-04-01" .
+
+bsrc:entry-23-0221-001-02-00-00__f4e245a392bf a ont:EPD ;
+  schema:name "23.0221.001-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "0.394"^^xsd:decimal ;
+  ont:matchText "23.0221.001- | of the EPD. | 23-0221-001-02-00-00 | B-EPD_23.0221.001-02.00.00 Holcim CEM III A - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_23.0221.001-02.00.00 Holcim CEM III A - signed.pdf" ;
+  dct:identifier "23-0221-001-02-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-10-06" .
+
+bsrc:entry-23-0221-002-02-00-00__e2d623df4565 a ont:EPD ;
+  schema:name "23.0221.002-" ;
+  ont:declaredUnit "kg" ;
+  ont:gwpPerUnit "0.393"^^xsd:decimal ;
+  ont:matchText "23.0221.002- | of the EPD. | 23-0221-002-02-00-00 | B-EPD_23.0221.002-02.00.00 Holcim CEM IIIA 425 N bag - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_23.0221.002-02.00.00 Holcim CEM IIIA 425 N bag - signed.pdf" ;
+  dct:identifier "23-0221-002-02-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2028-12-08" .
+
+bsrc:entry-B-EPD_LAMBDA_32_NAKED-Ursa-026.0184.004-EN-signed.pdf__ec884a3dd298 a ont:EPD ;
+  schema:name "026.0184.004-01.00.00" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "4.232"^^xsd:decimal ;
+  ont:matchText "026.0184.004-01.00.00 | of the EPD. | B-EPD_LAMBDA 32 NAKED-Ursa-026.0184.004-EN-signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B-EPD_LAMBDA 32 NAKED-Ursa-026.0184.004-EN-signed.pdf" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2031-01-05" .
+
+bsrc:entry-24-0156-002-01-00-00__8bd47b60762c a ont:EPD ;
+  schema:name "24.0156.02-" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "3.9170000000000003"^^xsd:decimal ;
+  ont:matchText "24.0156.02- | of the EPD. | 24-0156-002-01-00-00 | BEPD_024.0156.002-01.00.00_Derbigum NT 4- EN - signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "BEPD_024.0156.002-01.00.00_Derbigum NT 4- EN - signed.pdf" ;
+  dct:identifier "24-0156-002-01-00-00" ;
+  ont:producer "of the EPD." ;
+  ont:validUntil "2024-05-04" .
+
+bsrc:entry-21-0083-002-00-01__c574c9d1add1 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.024851"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | OF THIS ENVIRONMENTAL PRODUCT DECLARATION | 21-0083-002-00-01 | BEPD_21_0083_002_00_01_EN_MUYLLEFACON_RMC2C_signed.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "BEPD_21_0083_002_00_01_EN_MUYLLEFACON_RMC2C_signed.pdf" ;
+  dct:identifier "21-0083-002-00-01" ;
+  ont:producer "OF THIS ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:validUntil "2026-04-20" .
+
+bsrc:entry-21-0134-001-00-00__f5549d6a5820 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m3" ;
+  ont:gwpPerUnit "3.483"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | in a single production site | 21-0134-001-00-00 | B_EPD_21_0134_001_00_00_EN_argex_lightweight_expanded_clay_aggregate.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B_EPD_21_0134_001_00_00_EN_argex_lightweight_expanded_clay_aggregate.pdf" ;
+  dct:identifier "21-0134-001-00-00" ;
+  ont:producer "in a single production site" ;
+  ont:validUntil "2026-09-16" .
+
+bsrc:entry-21-0134-001-00-00__f5549d6a5820 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m3" ;
+  ont:gwpPerUnit "3.483"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | in a single production site | 21-0134-001-00-00 | B_EPD_21_0134_001_00_00_EN_argex_lightweight_expanded_clay_aggregate.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B_EPD_21_0134_001_00_00_EN_argex_lightweight_expanded_clay_aggregate.pdf" ;
+  dct:identifier "21-0134-001-00-00" ;
+  ont:producer "in a single production site" ;
+  ont:validUntil "2026-09-16" .
+
+bsrc:entry-21-0134-001-00-00__f5549d6a5820 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m3" ;
+  ont:gwpPerUnit "3.483"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | in a single production site | 21-0134-001-00-00 | B_EPD_21_0134_001_00_00_EN_argex_lightweight_expanded_clay_aggregate.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B_EPD_21_0134_001_00_00_EN_argex_lightweight_expanded_clay_aggregate.pdf" ;
+  dct:identifier "21-0134-001-00-00" ;
+  ont:producer "in a single production site" ;
+  ont:validUntil "2026-09-16" .
+
+bsrc:entry-21-0134-001-00-00__f5549d6a5820 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m3" ;
+  ont:gwpPerUnit "3.483"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | in a single production site | 21-0134-001-00-00 | B_EPD_21_0134_001_00_00_EN_argex_lightweight_expanded_clay_aggregate.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B_EPD_21_0134_001_00_00_EN_argex_lightweight_expanded_clay_aggregate.pdf" ;
+  dct:identifier "21-0134-001-00-00" ;
+  ont:producer "in a single production site" ;
+  ont:validUntil "2026-09-16" .
+
+bsrc:entry-21-0134-002-00-00__68a7e7fe5747 a ont:EPD ;
+  schema:name "B EPD ENVIRONMENTAL PRODUCT DECLARATION" ;
+  ont:declaredUnit "1 m2" ;
+  ont:gwpPerUnit "2.1553"^^xsd:decimal ;
+  ont:matchText "B EPD ENVIRONMENTAL PRODUCT DECLARATION | in a single production site | 21-0134-002-00-00 | B_EPD_21_0134_002_00_00_EN_argex_lightweight_expanded_clay_aggregate_thermal.pdf" ;
+  ont:sourceDataset "b-epd-be" ;
+  ont:sourceVersion "2026-04-01" ;
+  ont:importedAt "2026-04-01T16:01:36.000Z"^^xsd:dateTime ;
+  ont:sourceFileName "B_EPD_21_0134_002_00_00_EN_argex_lightweight_expanded_clay_aggregate_thermal.pdf" ;
+  dct:identifier "21-0134-002-00-00" ;
+  ont:producer "in a single production site" ;
+  ont:validUntil "2026-09-16" .

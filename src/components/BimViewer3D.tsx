@@ -54,10 +54,15 @@ export default function BimViewer3D(props: Props) {
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(mount.clientWidth, mount.clientHeight);
+    renderer.setPixelRatio(1);
     mount.innerHTML = "";
     mount.appendChild(renderer.domElement);
+    const canvas = renderer.domElement;
+    // three.js manual / responsive: CSS controls display size; setSize(..., false) sets drawing buffer only.
+    canvas.style.display = "block";
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+    canvas.style.verticalAlign = "top";
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -95,15 +100,40 @@ export default function BimViewer3D(props: Props) {
       meshByExpressId.set(item.expressId, mesh);
     });
 
-    const onResize = () => {
-      if (!mount) return;
-      const { clientWidth, clientHeight } = mount;
-      camera.aspect = Math.max(clientWidth, 1) / Math.max(clientHeight, 1);
+    const fitCanvasToMount = () => {
+      const displayW = Math.max(1, Math.floor(mount.clientWidth));
+      const displayH = Math.max(1, Math.floor(mount.clientHeight));
+      const pr = Math.min(window.devicePixelRatio || 1, 2);
+      const bufW = Math.floor(displayW * pr);
+      const bufH = Math.floor(displayH * pr);
+      if (canvas.width !== bufW || canvas.height !== bufH) {
+        renderer.setSize(bufW, bufH, false);
+      }
+      camera.aspect = displayW / displayH;
       camera.updateProjectionMatrix();
-      renderer.setSize(Math.max(clientWidth, 1), Math.max(clientHeight, 1));
     };
-    onResize();
-    window.addEventListener("resize", onResize);
+
+    fitCanvasToMount();
+
+    let ro: ResizeObserver | null = null;
+    try {
+      ro = new ResizeObserver(() => {
+        fitCanvasToMount();
+      });
+      ro.observe(mount);
+    } catch {
+      // ResizeObserver unavailable (very old browsers)
+    }
+
+    const onWinResize = () => fitCanvasToMount();
+    window.addEventListener("resize", onWinResize);
+
+    // First paint often runs before flex/grid has assigned height; window "resize" may not fire.
+    let bootRaf2 = 0;
+    const bootRaf1 = requestAnimationFrame(() => {
+      fitCanvasToMount();
+      bootRaf2 = requestAnimationFrame(fitCanvasToMount);
+    });
 
     const onClick = (event: MouseEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
@@ -128,7 +158,10 @@ export default function BimViewer3D(props: Props) {
 
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("resize", onResize);
+      cancelAnimationFrame(bootRaf1);
+      cancelAnimationFrame(bootRaf2);
+      ro?.disconnect();
+      window.removeEventListener("resize", onWinResize);
       renderer.domElement.removeEventListener("click", onClick);
       controls.dispose();
       renderer.dispose();
@@ -168,24 +201,40 @@ export default function BimViewer3D(props: Props) {
         mat.color.set(0x8b5cf6);
         mat.emissive.set(0x2e1065);
 
-        const controls = controlsRef.current;
-        const camera = cameraRef.current;
-        if (controls && camera) {
+        const applyFocus = () => {
+          const controls = controlsRef.current;
+          const camera = cameraRef.current;
+          if (!controls || !camera) return;
           const target = mesh.position.clone();
+          const size = new THREE.Vector3();
+          mesh.geometry.computeBoundingBox();
+          mesh.geometry.boundingBox?.getSize(size);
+          const pad = Math.max(size.x, size.y, size.z, 1.2) * 2.2;
           controls.target.copy(target);
-          camera.position.set(target.x + 6, target.y + 6, target.z + 6);
+          camera.position.set(target.x + pad, target.y + pad * 0.75, target.z + pad);
           controls.update();
-        }
+        };
+
+        // After scene init or resize, OrbitControls/camera may need a frame before target updates stick.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(applyFocus);
+        });
       }
     }
 
     selectedPrevRef.current = next;
-  }, [props.selectedExpressId]);
+  }, [props.selectedExpressId, prepared]);
 
   return (
     <div
-      ref={mountRef}
-      className={`h-full min-h-0 w-full rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 ${classNameProp}`.trim()}
-    />
+      className={`relative flex w-full min-w-0 flex-col overflow-hidden rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 ${classNameProp}`.trim()}
+    >
+      {/* Inline minHeight so parent Tailwind min-h-0 cannot collapse the WebGL mount to 0px. */}
+      <div
+        ref={mountRef}
+        className="relative min-h-0 w-full flex-1"
+        style={{ minHeight: "min(45dvh, 22rem)" }}
+      />
+    </div>
   );
 }

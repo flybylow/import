@@ -13,7 +13,12 @@ const ForceGraph2D: any = dynamic(
   { ssr: false }
 );
 
-type KGNodeKind = "hub" | "materialMatched" | "materialUnmatched" | "epd";
+type KGNodeKind =
+  | "hub"
+  | "element"
+  | "materialMatched"
+  | "materialUnmatched"
+  | "epd";
 
 export type KGNode = {
   id: string;
@@ -70,6 +75,8 @@ function useContainerSize() {
 export default function KgForceGraph(props: {
   nodes: KGNode[];
   links: KGLink[];
+  /** When set, zoom the viewport to this node id after layout (e.g. `el-33028`). */
+  focusNodeId?: string | null;
   onNodeClick?: (node: any) => void;
   onLinkClick?: (link: any) => void;
   onNodeHover?: (node: any | null) => void;
@@ -102,6 +109,24 @@ export default function KgForceGraph(props: {
   useEffect(() => {
     didInitialFitRef.current = false;
   }, [nodes, links]);
+
+  useEffect(() => {
+    const id = props.focusNodeId?.trim();
+    if (!id) return;
+    let raf = 0;
+    const run = () => {
+      raf = requestAnimationFrame(() => {
+        const fg = fgMethodsRef.current;
+        if (!fg?.zoomToFit) return;
+        fg.zoomToFit(500, 72, (n: { id?: string }) => n.id === id);
+      });
+    };
+    const t = window.setTimeout(run, 80);
+    return () => {
+      window.clearTimeout(t);
+      cancelAnimationFrame(raf);
+    };
+  }, [props.focusNodeId, graph]);
 
   return (
     <div
@@ -176,9 +201,9 @@ export default function KgForceGraph(props: {
           ctx.fill();
         }}
         onEngineStop={() => {
-          // Ensure the whole graph is visible once per dataset load.
           if (didInitialFitRef.current) return;
           didInitialFitRef.current = true;
+          if (props.focusNodeId?.trim()) return;
           fgMethodsRef.current?.zoomToFit(0, 20);
         }}
       />

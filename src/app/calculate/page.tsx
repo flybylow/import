@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import ElementPassportView, {
   type ElementPassport,
 } from "@/components/ElementPassportView";
 import ProjectIdField from "@/components/ProjectIdField";
 import StackedTotalBar from "@/components/StackedTotalBar";
 import { useToast } from "@/components/ToastProvider";
+import CompliancePilotPanel from "@/components/CompliancePilotPanel";
 import MaterialCalcGroupList from "@/components/MaterialCalcGroupList";
 import SignaturePassportsPanel from "@/components/SignaturePassportsPanel";
 import TruncatedWithTooltip from "@/components/TruncatedWithTooltip";
@@ -564,11 +566,13 @@ export default function CalculatePrepPage() {
       setLoading(true);
       dbgLoad("Phase3", "start", "GET /api/kb/status", {
         projectId,
-        includeElementPassports: false,
+        includeElementPassports: true,
+        elementPassportsLimit: 200,
       });
       try {
         const res = await fetch(
-          `/api/kb/status?projectId=${encodeURIComponent(projectId)}&includeElementPassports=false`
+          `/api/kb/status?projectId=${encodeURIComponent(projectId)}` +
+            `&includeElementPassports=true&elementPassportsLimit=200&elementPassportsUniqueName=false`
         );
         if (!res.ok) {
           const msg = await res.text();
@@ -587,7 +591,10 @@ export default function CalculatePrepPage() {
           kbPath: json.kbPath,
           epdCoverage: json.epdCoverage,
         });
-        if (!cancelled) setStatus(json);
+        if (!cancelled) {
+          setStatus(json);
+          passportsFetchedRef.current = Boolean(json.elementPassports?.length);
+        }
       } catch (e: any) {
         if (!cancelled) setError(e?.message ?? String(e));
       } finally {
@@ -676,6 +683,26 @@ export default function CalculatePrepPage() {
         <div>
           <ProjectIdField value={projectId} readOnly />
         </div>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs">
+          <Link
+            href={`/kb?projectId=${encodeURIComponent(projectId)}`}
+            className="font-medium text-violet-800 underline dark:text-violet-300"
+          >
+            Phase 2 — Link (KB)
+          </Link>
+          <Link
+            href={`/bim?projectId=${encodeURIComponent(projectId)}&view=passports`}
+            className="font-medium text-violet-800 underline dark:text-violet-300"
+          >
+            Phase 4 — Passports
+          </Link>
+          <Link
+            href={`/bim?projectId=${encodeURIComponent(projectId)}&view=inspect`}
+            className="font-medium text-violet-800 underline dark:text-violet-300"
+          >
+            Phase 4 — Inspect (API)
+          </Link>
+        </div>
 
         {loading ? <p className="mt-2 text-sm">Loading KB status...</p> : null}
         {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
@@ -727,6 +754,15 @@ export default function CalculatePrepPage() {
             <strong>real GWP in the KB</strong> (Phase A blocks dictionary routing-only / missing GWP);
             Selected is what will be submitted to calculation.
           </p>
+
+          <div className="mt-4">
+            <CompliancePilotPanel
+              projectId={projectId}
+              sourceDataLabel={`${projectId}.ifc`}
+              passports={status.elementPassports}
+              loading={loading}
+            />
+          </div>
 
           <details className="mt-4">
             <summary className="cursor-pointer text-xs underline">Data quality / readiness</summary>

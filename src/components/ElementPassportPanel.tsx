@@ -14,7 +14,7 @@ export default function ElementPassportPanel(props: Props) {
       <div className="rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
         <h2 className="text-sm font-semibold">Element passport</h2>
         <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
-          Select an element in the viewer to inspect identity, materials, and IFC quantities.
+          Select an element to inspect identity and materials. IFC quantities appear in the right column.
         </p>
       </div>
     );
@@ -55,6 +55,8 @@ export default function ElementPassportPanel(props: Props) {
         <dd className="font-mono">{p.ifcType ?? "—"}</dd>
         <dt className="text-zinc-500">globalId</dt>
         <dd className="font-mono break-all">{p.globalId ?? "—"}</dd>
+        <dt className="text-zinc-500">IFC fire (Pset)</dt>
+        <dd>{p.ifcFireRating ?? "—"}</dd>
       </dl>
 
       <div className="mt-4">
@@ -80,22 +82,6 @@ export default function ElementPassportPanel(props: Props) {
           </ul>
         ) : (
           <p className="mt-1 text-xs text-zinc-500">No material links on this element.</p>
-        )}
-      </div>
-
-      <div className="mt-4">
-        <p className="text-xs font-medium">IFC quantities</p>
-        {p.ifcQuantities.length ? (
-          <ul className="mt-1 space-y-1 text-xs font-mono">
-            {p.ifcQuantities.map((q, idx) => (
-              <li key={`${q.quantityName}-${idx}`}>
-                {q.quantityName}: {q.value}
-                {q.unit ? ` ${q.unit}` : ""}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-1 text-xs text-zinc-500">No IFC quantities on this element.</p>
         )}
       </div>
     </div>

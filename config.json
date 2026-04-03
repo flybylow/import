@@ -3,26 +3,26 @@
     {
       "id": "b-epd-be",
       "type": "b-epd-be",
-      "ttlPath": "data/sources/B-EPD/b-epd-2026-04-01-175536.ttl",
+      "ttlPath": "data/sources/B-EPD/b-epd-2026-04-01-175536-2026-04-01T19-57-41-036Z-2026-04-01T19-57-41-105Z.ttl",
       "enabled": true
     },
     {
       "id": "epd-hub",
       "type": "epd-hub",
       "ttlPath": "data/sources/epd-hub/epd-hub-handpick-2026-03-23.ttl",
-      "enabled": true
+      "enabled": false
     },
     {
       "id": "kbob",
       "type": "kbob",
       "ttlPath": "data/sources/kbob/kbob-2026-03-16-v8.02.ttl",
-      "enabled": true
+      "enabled": false
     },
     {
       "id": "ice-educational",
       "type": "ice-educational",
       "ttlPath": "data/sources/ice/ice-educational-2025-10-v4.1.ttl",
-      "enabled": true
+      "enabled": false
     }
   ]
 }

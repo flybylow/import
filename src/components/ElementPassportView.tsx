@@ -26,6 +26,8 @@ export type ElementPassport = {
   ifcType?: string;
   globalId?: string;
   expressId?: number;
+  /** From IFC Pset (`ont:fireRating` on `bim:element-*` in KB), when present. */
+  ifcFireRating?: string;
   /** Present when API dedupes by name: N elements share this `schema:name`. */
   sameNameElementCount?: number;
   materials: ElementPassportMaterial[];
@@ -167,7 +169,7 @@ export default function ElementPassportView(props: Props) {
             <>
               {" "}
               (preview cap <span className="font-mono">{limit}</span> — raise{" "}
-              <span className="font-mono">elementPassportsLimit</span> in API query, max 300)
+              <span className="font-mono">elementPassportsLimit</span> in API query; server max 50k)
             </>
           ) : null}
         </span>
@@ -240,6 +242,8 @@ export default function ElementPassportView(props: Props) {
                   <dd className="font-mono">{p.expressId ?? "—"}</dd>
                   <dt className="font-mono text-zinc-500">globalId</dt>
                   <dd className="font-mono break-all">{p.globalId ?? "—"}</dd>
+                  <dt className="font-mono text-zinc-500">IFC fire (Pset)</dt>
+                  <dd className="break-words">{p.ifcFireRating ?? "—"}</dd>
                 </dl>
               </div>
               <div>

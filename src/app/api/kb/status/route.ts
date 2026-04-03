@@ -168,6 +168,8 @@ export type ElementPassport = {
   ifcType?: string;
   globalId?: string;
   expressId?: number;
+  /** IFC Pset fire rating on the element (`ont:fireRating`), when present in KB. */
+  ifcFireRating?: string;
   /** When deduping by name: how many `bim:element-*` share this name key (same trimmed `schema:name`). */
   sameNameElementCount?: number;
   materials: ElementPassportMaterial[];
@@ -360,6 +362,7 @@ function buildOneElementPassport(
   const ifcType = getLitValue(store, el, ONT("ifcType")) || undefined;
   const globalId = getLitValue(store, el, ONT("globalId")) || undefined;
   const expressId = safeNum(getLitValue(store, el, ONT("expressId")));
+  const ifcFireRating = getLitValue(store, el, ONT("fireRating")) || undefined;
 
   const ifcQuantities: ElementPassport["ifcQuantities"] = [];
   const qtyStmts = store.statementsMatching(el, ONT("hasIfcQuantity"), null as any);
@@ -465,6 +468,7 @@ function buildOneElementPassport(
     ifcType,
     globalId,
     expressId: expressId ?? id,
+    ifcFireRating,
     materials,
     ifcQuantities,
   };
@@ -565,7 +569,8 @@ export async function GET(request: Request) {
   const parsedPassportLimit = rawPassportLimit != null ? Number(rawPassportLimit) : 80;
 
   const isSignatureMode = elementPassportsMode === "signature";
-  const maxLimit = isSignatureMode ? 1000 : 300;
+  /** Raw element-passport rows can match full KB size; keep a hard cap for safety. */
+  const maxLimit = isSignatureMode ? 1000 : 50_000;
 
   const elementPassportsLimit = Math.min(
     maxLimit,

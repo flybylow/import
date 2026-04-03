@@ -1,6 +1,6 @@
 {
-  "version": "routing-2026-03-31-hydration",
-  "description": "Routing labels and patterns only. Precast breedplaat uses dedicated slug precast_breedplaat (before AAC). Wall tiles / partitions / ceilings / plastic / fire boards before AAC; hatch layers skipped in layer2.",
+  "version": "routing-2026-04-04-composite-materiallist",
+  "description": "IfcMaterialList joins (|): do not let generic reinforced-concrete patterns win over timber when wood+concrete appear together (layer2 skip). Removed standalone `gewapend` pattern; `loofhout` → timber in material-norm.",
   "entries": [
     {
       "epdSlug": "kalkzandsteen",
@@ -281,6 +281,8 @@
         "gypsum blocks",
         "plaster gypsum",
         "gipsplafond",
+        "gipsplaat",
+        "gypsum plasterboard",
         "gipsblokken",
         "gypsum plasterboard ceiling suspended",
         "gypsum partition wall",
@@ -322,7 +324,6 @@
       "matchPatterns": [
         "beton gewapend",
         "reinforced concrete",
-        "gewapend",
         "beton armiert"
       ],
       "standardName": "Reinforced concrete in-situ",
@@ -375,6 +376,27 @@
       "defaultDensityKgPerM3": 7140
     },
     {
+      "epdSlug": "aluminium_window_frame",
+      "matchPatterns": [
+        "aluminium window frame",
+        "aluminium profile",
+        "ifc kozijn",
+        "window frame aluminium",
+        "fensterrahmen aluminium",
+        "cadre fenetre aluminium"
+      ],
+      "standardName": "Aluminium window frame (joinery)",
+      "category": "Metals",
+      "subcategory": "Aluminium joinery",
+      "matchConfidence": 0.72,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "kbob",
+      "epdName": "Fensterrahmen Aluminium / Cadre fenêtre (route via source)",
+      "kbobUuid": "9F6858EE-648D-43AA-A72E-46D8A0B25E11",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 2700
+    },
+    {
       "epdSlug": "steel",
       "matchPatterns": [
         "staal",
@@ -400,6 +422,7 @@
       "epdSlug": "timber",
       "matchPatterns": [
         "hout",
+        "loofhout",
         "multiplex",
         "underlayment",
         "platte",
