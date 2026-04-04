@@ -40,6 +40,14 @@ export default function AdminNavMenu() {
           role="menu"
         >
           <Link
+            href={`/timeline?projectId=${encodeURIComponent(projectId)}`}
+            role="menuitem"
+            className="block px-4 py-2.5 text-sm text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            onClick={() => setOpen(false)}
+          >
+            Timeline
+          </Link>
+          <Link
             href="/pipeline"
             role="menuitem"
             className="block px-4 py-2.5 text-sm text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"

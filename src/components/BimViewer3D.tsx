@@ -19,6 +19,9 @@ type Props = {
   className?: string;
 };
 
+/** MVP: dim the whole abstract city first; selection is drawn opaque after (KISS). */
+const ABSTRACT_GHOST_OPACITY = 0.14;
+
 function hashToUnitInterval(n: number) {
   const x = Math.sin(n * 12.9898) * 43758.5453;
   return x - Math.floor(x);
@@ -47,7 +50,7 @@ export default function BimViewer3D(props: Props) {
     onViewerStateRef.current?.({ ready: false, error: null });
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf4f4f5);
+    scene.background = null;
 
     const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 2000);
     camera.position.set(20, 20, 24);
@@ -91,7 +94,13 @@ export default function BimViewer3D(props: Props) {
       const geo = new THREE.BoxGeometry(1.1, h, 1.1);
       const hue = hashToUnitInterval(item.expressId) * 0.2 + 0.52;
       const color = new THREE.Color().setHSL(hue, 0.6, 0.58);
-      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
+      const mat = new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.7,
+        transparent: true,
+        opacity: ABSTRACT_GHOST_OPACITY,
+        depthWrite: false,
+      });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(baseX, h / 2, baseZ);
       mesh.userData.expressId = item.expressId;
@@ -191,6 +200,9 @@ export default function BimViewer3D(props: Props) {
         const mat = prevMesh.material as THREE.MeshStandardMaterial;
         mat.color.copy(prevMesh.userData.baseColor as THREE.Color);
         mat.emissive.set(0x000000);
+        mat.transparent = true;
+        mat.opacity = ABSTRACT_GHOST_OPACITY;
+        mat.depthWrite = false;
       }
     }
 
@@ -200,6 +212,9 @@ export default function BimViewer3D(props: Props) {
         const mat = mesh.material as THREE.MeshStandardMaterial;
         mat.color.set(0x8b5cf6);
         mat.emissive.set(0x2e1065);
+        mat.transparent = true;
+        mat.opacity = 1;
+        mat.depthWrite = true;
 
         const applyFocus = () => {
           const controls = controlsRef.current;
@@ -227,7 +242,7 @@ export default function BimViewer3D(props: Props) {
 
   return (
     <div
-      className={`relative flex w-full min-w-0 flex-col overflow-hidden rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 ${classNameProp}`.trim()}
+      className={`relative flex w-full min-w-0 flex-col overflow-hidden rounded border border-zinc-200 dark:border-zinc-800 bg-transparent ${classNameProp}`.trim()}
     >
       {/* Inline minHeight so parent Tailwind min-h-0 cannot collapse the WebGL mount to 0px. */}
       <div

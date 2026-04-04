@@ -28,31 +28,40 @@ export default function RootLayout({ children }) {
     >
       <body className="flex h-dvh min-h-0 flex-col overflow-hidden">
         <header className="shrink-0 border-b border-zinc-200 dark:border-zinc-800">
-          <div className="w-full max-w-[1400px] mx-auto px-6 py-3 flex items-center justify-between gap-4">
-            <nav className="flex flex-wrap items-center gap-4" aria-label="Main">
+          <div className="mx-auto flex w-full max-w-[1400px] min-w-0 items-center justify-between gap-4 px-6 py-3">
+            <nav
+              className="flex min-w-0 flex-1 flex-nowrap items-center gap-4 overflow-x-auto overscroll-x-contain py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              aria-label="Main"
+            >
               <Link
                 href="/"
-                className="text-sm font-medium text-zinc-900 dark:text-zinc-50 hover:underline"
+                className="shrink-0 text-sm font-medium text-zinc-900 dark:text-zinc-50 hover:underline"
               >
                 Phase 1
               </Link>
               <Link
                 href="/kb"
-                className="text-sm font-medium text-zinc-900 dark:text-zinc-50 hover:underline"
+                className="shrink-0 text-sm font-medium text-zinc-900 dark:text-zinc-50 hover:underline"
               >
                 Phase 2 - Link
               </Link>
               <Link
                 href="/calculate"
-                className="text-sm font-medium text-zinc-900 dark:text-zinc-50 hover:underline"
+                className="shrink-0 text-sm font-medium text-zinc-900 dark:text-zinc-50 hover:underline"
               >
                 Phase 3 - Calculate
               </Link>
               <Link
                 href="/bim"
-                className="text-sm font-medium text-zinc-900 dark:text-zinc-50 hover:underline"
+                className="shrink-0 text-sm font-medium text-zinc-900 dark:text-zinc-50 hover:underline"
               >
                 Phase 4 - Visualize
+              </Link>
+              <Link
+                href="/timeline"
+                className="shrink-0 text-sm font-medium text-zinc-900 dark:text-zinc-50 hover:underline"
+              >
+                Timeline
               </Link>
             </nav>
             <AdminNavMenu />

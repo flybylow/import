@@ -35,12 +35,13 @@ export default function BimDebugPage() {
     if (!mount) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf5f5f5);
+    scene.background = null;
     const camera = new THREE.PerspectiveCamera(55, mount.clientWidth / mount.clientHeight, 0.1, 1000);
     camera.position.set(4, 3, 6);
     camera.lookAt(0, 0, 0);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setClearColor(0x000000, 0);
     renderer.setSize(mount.clientWidth, mount.clientHeight);
     mount.appendChild(renderer.domElement);
 

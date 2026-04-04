@@ -106,11 +106,14 @@ export default function PassportElementFinder(props: Props) {
       : null;
 
   const colClass =
-    "flex min-h-0 min-w-0 flex-1 flex-col border-r border-zinc-200 bg-zinc-50 last:border-r-0 dark:border-zinc-800 dark:bg-zinc-950/40";
+    "flex min-h-0 min-w-0 flex-col border-r border-zinc-200 bg-zinc-50 last:border-r-0 dark:border-zinc-800 dark:bg-zinc-950/40 @min-[28rem]:h-full @min-[28rem]:max-h-full";
+
+  const listClass =
+    "min-h-0 flex-1 overflow-y-auto p-0.5 max-h-[min(28vh,14rem)] @min-[28rem]:max-h-none";
 
   return (
     <div
-      className={`@container flex min-h-0 min-w-0 flex-1 flex-col rounded border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950/40 ${className}`.trim()}
+      className={`@container flex h-full min-h-0 w-full min-w-0 flex-col rounded border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950/40 ${className}`.trim()}
     >
       <div className="shrink-0 space-y-1 border-b border-zinc-200 px-2 py-1.5 dark:border-zinc-800">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -122,8 +125,8 @@ export default function PassportElementFinder(props: Props) {
               How columns work
             </summary>
             <p className="mt-1 leading-snug">
-              Column 1: IFC type · Column 2: instances · Column 3: preview. The
-              filter narrows all three.
+              Column 1: IFC type · Column 2: instances · Column 3: quick preview. Full passport (materials &amp; EPD)
+              is in Passport snapshot under the grid. The filter narrows all three columns.
             </p>
           </details>
         </div>
@@ -149,16 +152,13 @@ export default function PassportElementFinder(props: Props) {
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 divide-y divide-zinc-200 overflow-hidden @min-[28rem]:grid-cols-3 @min-[28rem]:divide-x @min-[28rem]:divide-y-0 dark:divide-zinc-800">
+      <div className="grid min-h-0 w-full flex-1 grid-cols-1 divide-y divide-zinc-200 overflow-y-auto @min-[28rem]:grid-cols-3 @min-[28rem]:items-stretch @min-[28rem]:divide-x @min-[28rem]:divide-y-0 @min-[28rem]:overflow-hidden dark:divide-zinc-800">
         {/* Col 1 — IFC type */}
         <div className={colClass}>
           <div className="shrink-0 border-b border-zinc-200 px-2 py-1 text-[10px] font-medium text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
             IFC type
           </div>
-          <ul
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-0.5"
-            aria-label="IFC types"
-          >
+          <ul className={listClass} aria-label="IFC types">
             {sortedTypeKeys.length === 0 ? (
               <li className="px-2 py-2 text-[10px] text-zinc-500">
                 No types match the filter.
@@ -211,10 +211,7 @@ export default function PassportElementFinder(props: Props) {
           <div className="shrink-0 border-b border-zinc-200 px-2 py-1 text-[10px] font-medium text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
             Elements
           </div>
-          <ul
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-0.5"
-            aria-label="Elements for selected IFC type"
-          >
+          <ul className={listClass} aria-label="Elements for selected IFC type">
             {selectedTypeKey == null ? (
               <li className="px-2 py-2 text-[10px] text-zinc-500">
                 Select an IFC type in the first column.
@@ -265,11 +262,12 @@ export default function PassportElementFinder(props: Props) {
           <div className="shrink-0 border-b border-zinc-200 px-2 py-1 text-[10px] font-medium text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
             Preview
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 text-[10px] text-zinc-700 dark:text-zinc-200">
+          <div className="min-h-0 flex-1 overflow-y-auto p-2 text-[10px] text-zinc-700 dark:text-zinc-200 max-h-[min(28vh,14rem)] @min-[28rem]:max-h-none">
             {!previewItem ? (
               <p className="text-zinc-500 dark:text-zinc-400">
-                Select an element in the middle column. Full passport and
-                quantities stay in the panels on the right.
+                Select an element in the middle column. Full materials &amp; EPD appear in{" "}
+                <span className="font-medium text-zinc-700 dark:text-zinc-200">Passport snapshot</span> under this
+                finder.
               </p>
             ) : (
               <dl className="grid min-w-0 grid-cols-[auto_1fr] gap-x-2 gap-y-1">
@@ -295,6 +293,12 @@ export default function PassportElementFinder(props: Props) {
                 ) : null}
               </dl>
             )}
+            {previewItem ? (
+              <p className="mt-2 border-t border-zinc-200 pt-2 text-[9px] leading-snug text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                For EPD registry fields, GWP formatting, and provenance → see{" "}
+                <span className="font-medium text-zinc-600 dark:text-zinc-300">Passport snapshot</span> below.
+              </p>
+            ) : null}
           </div>
         </div>
       </div>

@@ -15,16 +15,59 @@ type Props = {
   projectId: string;
   selectedExpressId: number | null;
   onSelectExpressId: (id: number | null) => void;
+  /** Current BIM page query string (no leading `?`), e.g. `projectId=example&view=passports`. */
+  urlQueryString?: string;
   className?: string;
 };
+
+/** Readable BIM query chip: `id:757742 · vw:ppv · pid:example` (full `?…` in tooltip). */
+function compactBimUrlQuery(qs: string): { compact: string; title: string } | null {
+  const s = qs.trim();
+  if (!s) return null;
+  const sp = new URLSearchParams(s);
+  const pid = sp.get("projectId")?.trim();
+  const view = sp.get("view")?.trim() ?? "";
+  const expressId = sp.get("expressId")?.trim();
+  const viewCode =
+    view === "passports"
+      ? "ppv"
+      : view === "building"
+        ? "bld"
+        : view === "3dtest"
+          ? "3dt"
+          : view === "inspect"
+            ? "ins"
+            : view || "";
+  const parts: string[] = [];
+  if (expressId) parts.push(`id:${expressId}`);
+  if (viewCode) parts.push(`vw:${viewCode}`);
+  if (pid) parts.push(`pid:${pid}`);
+  const known = new Set(["projectId", "view", "expressId"]);
+  for (const [k, v] of sp.entries()) {
+    if (known.has(k)) continue;
+    if (v) parts.push(`${k}:${v}`);
+  }
+  const compact = parts.join(" · ");
+  const title = [
+    `Full query: ?${s}`,
+    "",
+    "Keys: id = expressId · vw = view (ppv=passports, bld=building, 3dt=3D sample, ins=inspect) · pid = projectId",
+  ].join("\n");
+  return { compact, title };
+}
 
 /**
  * Orchestrates passport data from `GET /api/kb/status` before mounting the list + 3D UI,
  * and surfaces the exact request URL (copy / refresh) for frequent API checks.
  */
 export default function BimPassportWorkspace(props: Props) {
-  const { projectId, selectedExpressId, onSelectExpressId, className = "" } =
-    props;
+  const {
+    projectId,
+    selectedExpressId,
+    onSelectExpressId,
+    urlQueryString = "",
+    className = "",
+  } = props;
   const { showToast } = useToast();
 
   const [refreshKey, setRefreshKey] = useState(0);
@@ -54,6 +97,11 @@ export default function BimPassportWorkspace(props: Props) {
     if (typeof window === "undefined") return apiPath;
     return `${window.location.origin}${apiPath}`;
   }, [apiPath]);
+
+  const urlQueryCompact = useMemo(
+    () => compactBimUrlQuery(urlQueryString),
+    [urlQueryString]
+  );
 
   const refetch = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -120,19 +168,29 @@ export default function BimPassportWorkspace(props: Props) {
   }, [absoluteApiUrl, showToast]);
 
   return (
-    <div className={`flex min-h-0 flex-1 flex-col gap-2 ${className}`.trim()}>
+    <div className={`flex w-full flex-col gap-2 ${className}`.trim()}>
       <details className="group shrink-0 rounded border border-zinc-200 bg-zinc-50 text-xs text-zinc-700 open:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950/50 dark:text-zinc-200 dark:open:bg-zinc-950/50">
         <summary className="cursor-pointer list-none px-2 py-1.5 [&::-webkit-details-marker]:hidden">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-medium text-zinc-800 dark:text-zinc-100">
               Passport data source
               {loading && passportPhase ? (
-                <span className="ml-2 inline-flex items-center gap-1.5 font-normal text-amber-800 dark:text-amber-200">
-                  <span
-                    className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-amber-500"
-                    aria-hidden
-                  />
-                  <span className="font-mono text-[10px]">{passportPhase}</span>
+                <span className="ml-2 inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-normal text-amber-800 dark:text-amber-200">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-amber-500"
+                      aria-hidden
+                    />
+                    <span className="font-mono text-[10px]">{passportPhase}</span>
+                  </span>
+                  {urlQueryCompact ? (
+                    <code
+                      className="max-w-[min(100%,36rem)] break-all font-mono text-[10px] font-normal text-amber-900/80 dark:text-amber-100/85"
+                      title={urlQueryCompact.title}
+                    >
+                      URL {urlQueryCompact.compact}
+                    </code>
+                  ) : null}
                 </span>
               ) : !loading && !error ? (
                 <span className="ml-2 font-normal text-zinc-500 dark:text-zinc-400">
@@ -145,6 +203,18 @@ export default function BimPassportWorkspace(props: Props) {
                         {passportsOrdered.length}
                       </code>{" "}
                       / {passportTotal} rows
+                    </>
+                  ) : null}
+                  {urlQueryCompact ? (
+                    <>
+                      {" "}
+                      ·{" "}
+                      <code
+                        className="max-w-[min(100%,36rem)] break-all font-mono text-[10px] text-zinc-600 dark:text-zinc-400"
+                        title={urlQueryCompact.title}
+                      >
+                        URL {urlQueryCompact.compact}
+                      </code>
                     </>
                   ) : null}
                 </span>
@@ -265,7 +335,7 @@ export default function BimPassportWorkspace(props: Props) {
       ) : null}
 
       {loading ? (
-        <div className="flex min-h-[min(40dvh,16rem)] flex-1 items-center justify-center rounded border border-dashed border-zinc-300 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+        <div className="flex min-h-[min(40dvh,16rem)] w-full items-center justify-center rounded border border-dashed border-zinc-300 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
           Loading passport workspace…
         </div>
       ) : error && !kbMissing ? (
@@ -283,7 +353,9 @@ export default function BimPassportWorkspace(props: Props) {
           onSelectExpressId={onSelectExpressId}
           passportByExpressId={passportByExpressId}
           passportsOrdered={passportsOrdered}
-          className="min-h-0 flex-1 overflow-hidden"
+          passportTotal={passportTotal}
+          loadedElementCountInKb={loadedElementCountInKb}
+          className="w-full"
         />
       )}
     </div>

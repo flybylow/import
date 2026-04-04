@@ -15,6 +15,11 @@ export type ElementPassportMaterial = {
   epdDataProvenance?: string;
   sourceProductUri?: string;
   sourceFileName?: string;
+  producer?: string;
+  productionLocation?: string;
+  issueDate?: string;
+  validUntil?: string;
+  epdIdentifier?: string;
   declaredUnit?: string;
   gwpPerUnit?: number;
   densityKgPerM3?: number;
@@ -315,6 +320,50 @@ export default function ElementPassportView(props: Props) {
                                 ? ` (${m.matchConfidence.toFixed(2)})`
                                 : ""}
                             </div>
+                          ) : null}
+                          {m.epdDataProvenance?.trim() ? (
+                            <div className="text-[10px] text-zinc-500" title={m.epdDataProvenance}>
+                              Provenance:{" "}
+                              {m.epdDataProvenance.length > 64
+                                ? `${m.epdDataProvenance.slice(0, 62)}…`
+                                : m.epdDataProvenance}
+                            </div>
+                          ) : null}
+                          {m.producer?.trim() ||
+                          m.productionLocation?.trim() ||
+                          m.epdIdentifier?.trim() ||
+                          m.issueDate?.trim() ||
+                          m.validUntil?.trim() ? (
+                            <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 border-t border-emerald-200/60 pt-1 text-[10px] dark:border-emerald-900/50">
+                              {m.epdIdentifier?.trim() ? (
+                                <>
+                                  <dt className="text-zinc-500">ID</dt>
+                                  <dd className="min-w-0 break-all font-mono">{m.epdIdentifier.trim()}</dd>
+                                </>
+                              ) : null}
+                              {m.producer?.trim() ? (
+                                <>
+                                  <dt className="text-zinc-500">Producer</dt>
+                                  <dd>{m.producer.trim()}</dd>
+                                </>
+                              ) : null}
+                              {m.productionLocation?.trim() ? (
+                                <>
+                                  <dt className="text-zinc-500">Location</dt>
+                                  <dd>{m.productionLocation.trim()}</dd>
+                                </>
+                              ) : null}
+                              {m.issueDate?.trim() || m.validUntil?.trim() ? (
+                                <>
+                                  <dt className="text-zinc-500">Dates</dt>
+                                  <dd className="tabular-nums">
+                                    {m.issueDate?.trim() ? m.issueDate.trim() : "—"}
+                                    {" → "}
+                                    {m.validUntil?.trim() ? m.validUntil.trim() : "—"}
+                                  </dd>
+                                </>
+                              ) : null}
+                            </dl>
                           ) : null}
                         </div>
                       ) : (

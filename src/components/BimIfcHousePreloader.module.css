@@ -1,0 +1,109 @@
+.houseSvg {
+  color: rgb(103 232 249 / 0.85);
+}
+
+.scaffold {
+  animation: bimScaffoldPulse 1.6s ease-in-out infinite;
+}
+
+.walls {
+  transform-origin: 40px 62px;
+  animation: bimWallsRise 2.6s ease-in-out infinite;
+}
+
+.roof {
+  transform-origin: 40px 36px;
+  animation: bimRoofSet 2.6s ease-in-out infinite;
+}
+
+.window {
+  animation: bimWindowFade 2.6s ease-in-out infinite;
+}
+
+@keyframes bimScaffoldPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+@keyframes bimWallsRise {
+  0%,
+  8% {
+    transform: scaleY(0.12);
+    opacity: 0.4;
+  }
+  28%,
+  72% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  88%,
+  100% {
+    transform: scaleY(0.12);
+    opacity: 0.4;
+  }
+}
+
+@keyframes bimRoofSet {
+  0%,
+  22% {
+    transform: translateY(-14px);
+    opacity: 0;
+  }
+  38%,
+  72% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  88%,
+  100% {
+    transform: translateY(-14px);
+    opacity: 0;
+  }
+}
+
+@keyframes bimWindowFade {
+  0%,
+  32% {
+    opacity: 0;
+  }
+  42%,
+  68% {
+    opacity: 1;
+  }
+  82%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scaffold,
+  .walls,
+  .roof,
+  .window {
+    animation: none;
+  }
+
+  .walls {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+
+  .roof {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .window {
+    opacity: 1;
+  }
+
+  .scaffold {
+    opacity: 0.55;
+  }
+}

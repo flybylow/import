@@ -18,7 +18,10 @@ type KGNodeKind =
   | "element"
   | "materialMatched"
   | "materialUnmatched"
-  | "epd";
+  | "epd"
+  | "timelineHub"
+  | "timelineEvent"
+  | "timelineProp";
 
 export type KGNode = {
   id: string;
@@ -26,6 +29,8 @@ export type KGNode = {
   kind: KGNodeKind;
   x: number;
   y: number;
+  /** Optional depth for 3D graphs (`KgForceGraph3D` maps this to `fz`). */
+  z?: number;
   // Optional fixed position. Leave undefined to allow node dragging.
   fx?: number;
   fy?: number;
@@ -131,7 +136,7 @@ export default function KgForceGraph(props: {
   return (
     <div
       ref={ref}
-      className="w-full h-[420px] min-w-0 border border-zinc-200 dark:border-zinc-800 rounded overflow-hidden relative"
+      className="relative h-[420px] min-w-0 w-full overflow-hidden rounded border border-zinc-200 dark:border-zinc-800 bg-transparent"
     >
       <div className="absolute top-2 right-2 z-10 flex gap-2">
         <button
@@ -148,6 +153,7 @@ export default function KgForceGraph(props: {
         ref={fgMethodsRef}
         width={size.width}
         height={size.height}
+        backgroundColor="rgba(0,0,0,0)"
         graphData={graph as any}
         nodeLabel={(n: any) => n.label}
         // Keep default-ish sizing. Clickability should come from correct

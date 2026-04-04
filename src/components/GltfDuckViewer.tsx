@@ -29,12 +29,13 @@ export default function GltfDuckViewer(props: Props) {
     setErrorDetail(null);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xe4e4e7);
+    scene.background = null;
 
     const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 500);
     camera.position.set(2, 1.6, 2.8);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     if ("outputColorSpace" in renderer) {
       (renderer as THREE.WebGLRenderer).outputColorSpace =
@@ -155,7 +156,7 @@ export default function GltfDuckViewer(props: Props) {
 
   return (
     <div
-      className={`relative flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950 ${className}`.trim()}
+      className={`relative flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-zinc-200 dark:border-zinc-800 bg-transparent ${className}`.trim()}
     >
       <div
         ref={mountRef}

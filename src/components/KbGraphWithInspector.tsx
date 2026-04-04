@@ -299,7 +299,7 @@ export default function KbGraphWithInspector(props: {
 
         <div className="w-[280px] shrink-0">
           <div className="text-sm font-medium">Inspect properties</div>
-          <div className="mt-2 p-3 border border-zinc-200 dark:border-zinc-800 rounded bg-white dark:bg-zinc-900">
+          <div className="mt-2 rounded border border-zinc-200 dark:border-zinc-800 bg-transparent p-3">
             {selectedNode ? (
               <NodeInspector node={selectedNode} />
             ) : (

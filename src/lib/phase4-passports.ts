@@ -10,6 +10,14 @@ export type Phase4PassportMaterial = {
   epdDataProvenance?: string;
   sourceProductUri?: string;
   sourceFileName?: string;
+  /** From KB EPD node (`ont:producer`), when present. */
+  producer?: string;
+  /** From KB EPD node (`ont:productionLocation`). */
+  productionLocation?: string;
+  issueDate?: string;
+  validUntil?: string;
+  /** From KB EPD node (`dcterms:identifier`). */
+  epdIdentifier?: string;
   declaredUnit?: string;
   gwpPerUnit?: number;
   densityKgPerM3?: number;
@@ -74,6 +82,18 @@ export async function loadPhase4PassportsAllInstances(projectId: string): Promis
     elementPassportsLimit: ALL_INSTANCES_PASSPORT_LIMIT,
     elementPassportsUniqueName: false,
   });
+}
+
+const allInstancesByProjectCache = new Map<string, Promise<Phase4PassportData>>();
+
+/** Shared in-flight / resolved fetch per `projectId` (BIM viewer info panel + type-group visualizer). */
+export function loadPhase4PassportsAllInstancesCached(projectId: string): Promise<Phase4PassportData> {
+  let p = allInstancesByProjectCache.get(projectId);
+  if (!p) {
+    p = loadPhase4PassportsAllInstances(projectId);
+    allInstancesByProjectCache.set(projectId, p);
+  }
+  return p;
 }
 
 /** Deduped express ids for KB rows whose `ifcType` matches (after trim, or `Unknown`). */
@@ -148,6 +168,29 @@ export function elementSummariesFireRatedDoors(
   const map = new Map<number, GroupElementSummary>();
   for (const p of ordered) {
     if (!/\bdoor\b/i.test(p.ifcType ?? "") || !p.ifcFireRating?.trim()) continue;
+    mergeSummary(map, p);
+  }
+  return [...map.values()].sort((a, b) => a.expressId - b.expressId);
+}
+
+/**
+ * Dedupe key aligned with `GET /api/kb/status` when `elementPassportsUniqueName` is true:
+ * trimmed lowercase `schema:name`, or `__unnamed__:${elementId}` (KB element id).
+ */
+export function elementPassportNameDedupeKey(p: Phase4ElementPassport): string {
+  const t = p.elementName?.trim();
+  if (t) return t.toLowerCase();
+  return `__unnamed__:${p.elementId}`;
+}
+
+/** Every IFC instance in `ordered` that shares the same name key (one summary per expressId). */
+export function instanceSummariesForNameDedupeKey(
+  ordered: Phase4ElementPassport[],
+  nameKey: string
+): GroupElementSummary[] {
+  const map = new Map<number, GroupElementSummary>();
+  for (const p of ordered) {
+    if (elementPassportNameDedupeKey(p) !== nameKey) continue;
     mergeSummary(map, p);
   }
   return [...map.values()].sort((a, b) => a.expressId - b.expressId);

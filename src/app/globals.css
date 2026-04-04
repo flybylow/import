@@ -68,3 +68,27 @@ body {
     background: #52525b;
   }
 }
+
+/* BIM dock panels: thin, low-contrast scrollbar on transparent track */
+.bim-panel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+.bim-panel-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.bim-panel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.bim-panel-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+
+.bim-panel-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
