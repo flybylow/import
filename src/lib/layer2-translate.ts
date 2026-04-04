@@ -61,6 +61,10 @@ type MatchEntry = {
    * Phase 2 adds `ont:density` so volume × density × GWP works in Calculate.
    */
   defaultDensityKgPerM3?: number;
+  /**
+   * Optional hand-picked GWP (A1–A3 per kg product) for deliveries / MVP when KB hydration is skipped.
+   */
+  gwpKgCo2ePerTonne?: number;
 };
 
 const MATERIAL_DICTIONARY_PATH = path.join(
@@ -162,7 +166,7 @@ function matchMaterialToDictionary(
  * Maps raw overlap score from `source-match` (see `ont:sourceMatchScore` on materials)
  * to a 0–1 confidence for display. Not an LCA value.
  */
-function confidenceFromSourceScore(score: number) {
+export function confidenceFromSourceScore(score: number) {
   return Math.min(0.92, 0.38 + score / 120);
 }
 

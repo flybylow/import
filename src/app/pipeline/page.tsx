@@ -33,13 +33,14 @@ const STEPS: Step[] = [
   {
     phase: "Side inputs",
     title: "Routing & EPD sources",
-    body: "Not from IFC: the dictionary labels routes only; KBOB/ICE (and other) Turtle under data/sources supply real EPD rows when text overlap is strong enough.",
+    body: "Not from IFC: the dictionary labels routes only; KBOB/ICE (and other) Turtle under data/sources supply real EPD rows when text overlap is strong enough. Leveringsbon (delivery note) ingest and step-by-step UI: /deliveries.",
     href: "/sources",
     hrefLabel: "Sources",
     files: [
       "src/data/material-dictionary.json",
       "data/sources/**",
       "config.json",
+      "src/app/deliveries/page.tsx (UI + ingest walkthrough)",
     ],
   },
   {

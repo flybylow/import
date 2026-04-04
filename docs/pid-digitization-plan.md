@@ -8,7 +8,7 @@ This document ties the **Postinterventiedossier (PID)** digitization vision to *
 - Close the gap between **design/BIM**, **delivered products**, and **evidence** (EPD, leveringsbon, site reports).
 - Reuse the existing **IFC → enriched TTL → KB → passports → calculate** pipeline where possible.
 
-Related internal docs: `docs/bim-to-kg-journey.md`, `docs/sources-contract.md`, `docs/kg-expansion-sources-benelux-eu.md`.
+Related internal docs: `docs/bim-to-kg-journey.md`, `docs/sources-contract.md`, `docs/kg-expansion-sources-benelux-eu.md`, `docs/deliveries-importer-integration.md` (leveringsbon ingest, `data/` persistence, timeline).
 
 ---
 

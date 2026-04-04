@@ -46,15 +46,17 @@ function getLit(store: $rdf.Store, subj: any, pred: any) {
 }
 
 function scoreAgainstCombined(combinedNorm: string, matchText: string): number {
-  const mt = normMaterialLabelForMatch(matchText);
-  if (!mt) return 0;
-
   let score = 0;
-  for (const part of mt.split("|")) {
+  // Split on `|` before normalizing: norm strips `|` to space, which would merge
+  // programme ids (e.g. `22-012-002`) into an undigestible blob vs short delivery lines.
+  for (const part of matchText.split("|")) {
     const p = normMaterialLabelForMatch(part);
     if (p.length < 4) continue;
     if (combinedNorm.includes(p)) score += p.length;
   }
+
+  const mt = normMaterialLabelForMatch(matchText);
+  if (!mt) return score;
 
   const words = mt.match(/[\p{L}\p{N}]+/gu);
   if (words) {
@@ -225,6 +227,48 @@ export function pickFirstOrderedSourceMatch(args: {
     });
     if (hit) return hit;
   }
+  return null;
+}
+
+/**
+ * For delivery lines / summaries that report GWP per tonne: B-EPD importer stores
+ * per-kg GWP with `ont:declaredUnit` "kg"; m²/m³ rows cannot be converted without density.
+ */
+export function readGwpKgCo2ePerTonneFromSourceStore(
+  store: $rdf.Store,
+  term: $rdf.NamedNode
+): number | null {
+  const gwpRaw = getLit(store, term, ONT("gwpPerUnit"));
+  if (gwpRaw == null || String(gwpRaw).trim() === "") return null;
+  const gwp = Number(String(gwpRaw).replace(",", "."));
+  if (!Number.isFinite(gwp)) return null;
+
+  const declRaw = (getLit(store, term, ONT("declaredUnit")) as string) ?? "";
+  const decl = declRaw.trim();
+  const du = decl.toLowerCase().replace(/\s/g, "");
+
+  if (du === "kg" || decl.length === 0) {
+    return gwp * 1000;
+  }
+
+  if (
+    /\btonne?s?\b/i.test(decl) ||
+    /\bper\s*tonne\b/i.test(decl) ||
+    /\b1\s*t(?:onne)?s?\b/i.test(decl)
+  ) {
+    return gwp;
+  }
+
+  if (
+    /^1m[23]$/i.test(du) ||
+    du.includes("m2") ||
+    du.includes("m3") ||
+    /\bm²\b/i.test(decl) ||
+    /\bm³\b/i.test(decl)
+  ) {
+    return null;
+  }
+
   return null;
 }
 

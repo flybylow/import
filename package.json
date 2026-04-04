@@ -14,12 +14,14 @@
     "clean:pipeline": "node scripts/clean-pipeline.js",
     "build:kb": "tsx --tsconfig tsconfig.json scripts/build-kb.ts",
     "report:epd": "tsx --tsconfig tsconfig.json scripts/report-epd-coverage.ts",
-    "test:2050": "node --env-file=.env scripts/test-2050-api.mjs"
+    "test:2050": "node --env-file=.env scripts/test-2050-api.mjs",
+    "import:schependomlaan-timeline": "tsx --tsconfig tsconfig.json scripts/import-schependomlaan-timeline-audit.ts"
   },
   "dependencies": {
     "@thatopen/components": "^3.3.3",
     "@thatopen/components-front": "^3.3.3",
     "@types/three": "^0.183.1",
+    "csv-parse": "^6.2.1",
     "next": "16.2.1",
     "rdflib": "^2.3.6",
     "react": "19.2.4",
