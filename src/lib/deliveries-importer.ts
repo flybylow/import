@@ -1,5 +1,15 @@
-import { loadMaterialDictionaryFromDisk } from "@/lib/layer2-translate";
+import {
+  confidenceFromSourceScore,
+  loadMaterialDictionaryFromDisk,
+} from "@/lib/layer2-translate";
 import { normMaterialLabelForMatch } from "@/lib/material-norm";
+import { loadSourcesConfig } from "@/lib/sources-config";
+import {
+  bimEpdSlugForSourceCandidate,
+  loadMergedSourceStoreAndCandidates,
+  pickFirstOrderedSourceMatch,
+  readGwpKgCo2ePerTonneFromSourceStore,
+} from "@/lib/source-match";
 
 export type LeveringsbonItem = {
   description: string;
@@ -18,10 +28,14 @@ export type LeveringsbonInput = {
 
 export type DeliveryMatchDetail = {
   productName: string;
+  /** Hyphenated id for display; use `epdBimSuffix` for the exact `bim:epd-*` local name when set. */
   epdId: string;
+  /** Exact suffix for `bim:epd-{suffix}` (e.g. B-EPD slugs with `__` hashes). */
+  epdBimSuffix?: string;
   gwpKgCo2ePerTonne: number | null;
   confidence: number;
-  source: "dictionary";
+  /** `dictionary` or enabled source id from `config.json` (e.g. `b-epd-be`). */
+  source: string;
 };
 
 export type DeliveryLineMatch = {
@@ -137,7 +151,9 @@ function deliveryNoteToTurtle(args: {
       linePush(`    dpp:lot ${turtleString(item.lot.trim())}`);
     }
     if (m.match) {
-      linePush(`    dpp:matchedEpd bim:epd-${m.match.epdId.replace(/-/g, "_")}`);
+      const bimSuffix =
+        m.match.epdBimSuffix ?? m.match.epdId.replace(/-/g, "_");
+      linePush(`    dpp:matchedEpd bim:epd-${bimSuffix}`);
       const c = Math.round(m.match.confidence * 100) / 100;
       linePush(`    dpp:matchConfidence "${c}"^^xsd:decimal`);
       if (m.match.gwpKgCo2ePerTonne != null && Number.isFinite(m.match.gwpKgCo2ePerTonne)) {
@@ -157,11 +173,45 @@ function deliveryNoteToTurtle(args: {
  */
 export function ingestLeveringsbon(input: LeveringsbonInput): DeliveryIngestResult {
   const { entries } = loadMaterialDictionaryFromDisk();
+  const { sources: sourceEntries } = loadSourcesConfig();
+  const { store: sourceStore, candidatesBySource } =
+    loadMergedSourceStoreAndCandidates(sourceEntries);
   const docKey = input.afleverbon?.trim() || `ingest-${Date.now()}`;
 
   const matches: DeliveryLineMatch[] = input.items.map((item) => {
     const description = String(item.description ?? "").trim();
     const normalized = normMaterialLabelForMatch(description);
+
+    if (normalized) {
+      const sourceHit = pickFirstOrderedSourceMatch({
+        orderedEntries: sourceEntries,
+        candidatesBySource,
+        combinedNorm: normalized,
+      });
+      if (sourceHit) {
+        const { candidate, score } = sourceHit;
+        const bimSuffix = bimEpdSlugForSourceCandidate(candidate);
+        const gwpTonne = readGwpKgCo2ePerTonneFromSourceStore(
+          sourceStore,
+          candidate.term
+        );
+        const conf = confidenceFromSourceScore(score);
+        return {
+          description,
+          normalized,
+          match: {
+            productName: candidate.displayName,
+            epdId: epdIdFromSlug(bimSuffix),
+            epdBimSuffix: bimSuffix,
+            gwpKgCo2ePerTonne: gwpTonne,
+            confidence: conf,
+            source: candidate.sourceId,
+          },
+          confidence: conf,
+        };
+      }
+    }
+
     const hit = description ? matchDescriptionToDictionary(entries, description) : null;
     if (!hit) {
       return {

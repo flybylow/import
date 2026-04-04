@@ -166,7 +166,7 @@ function matchMaterialToDictionary(
  * Maps raw overlap score from `source-match` (see `ont:sourceMatchScore` on materials)
  * to a 0–1 confidence for display. Not an LCA value.
  */
-function confidenceFromSourceScore(score: number) {
+export function confidenceFromSourceScore(score: number) {
   return Math.min(0.92, 0.38 + score / 120);
 }
 

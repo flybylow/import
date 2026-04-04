@@ -63,6 +63,19 @@ export default function RootLayout({ children }) {
               >
                 Timeline
               </Link>
+              <Link
+                href="/timeline?view=graph"
+                className="shrink-0 text-sm font-medium text-zinc-900 dark:text-zinc-50 hover:underline"
+                title="Opens audit timeline on the 3D KB graph (spine layout). Add &kbLayout=materialFlow for material → work."
+              >
+                Timeline KB
+              </Link>
+              <Link
+                href="/deliveries"
+                className="shrink-0 text-sm font-medium text-zinc-900 dark:text-zinc-50 hover:underline"
+              >
+                Deliveries
+              </Link>
             </nav>
             <AdminNavMenu />
           </div>

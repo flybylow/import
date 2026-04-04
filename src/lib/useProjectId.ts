@@ -28,7 +28,13 @@ export function useProjectId() {
   });
 
   useEffect(() => {
-    if (q) setInternal(q);
+    if (!q) return;
+    setInternal(q);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, q);
+    } catch {
+      // ignore
+    }
   }, [q]);
 
   const projectId = q || internal;

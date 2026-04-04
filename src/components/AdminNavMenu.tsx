@@ -48,6 +48,22 @@ export default function AdminNavMenu() {
             Timeline
           </Link>
           <Link
+            href={`/timeline?projectId=${encodeURIComponent(projectId)}&view=graph`}
+            role="menuitem"
+            className="block px-4 py-2.5 text-sm text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            onClick={() => setOpen(false)}
+          >
+            Timeline KB (3D graph)
+          </Link>
+          <Link
+            href={`/timeline?projectId=${encodeURIComponent(projectId)}&view=graph&kbLayout=materialFlow`}
+            role="menuitem"
+            className="block px-4 py-2.5 text-sm text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            onClick={() => setOpen(false)}
+          >
+            Timeline KB · material → work
+          </Link>
+          <Link
             href="/pipeline"
             role="menuitem"
             className="block px-4 py-2.5 text-sm text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
@@ -62,6 +78,14 @@ export default function AdminNavMenu() {
             onClick={() => setOpen(false)}
           >
             Sources
+          </Link>
+          <Link
+            href="/deliveries"
+            role="menuitem"
+            className="block px-4 py-2.5 text-sm text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            onClick={() => setOpen(false)}
+          >
+            Deliveries
           </Link>
           <Link
             href="/bim"

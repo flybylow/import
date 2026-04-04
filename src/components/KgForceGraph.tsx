@@ -21,6 +21,7 @@ type KGNodeKind =
   | "epd"
   | "timelineHub"
   | "timelineEvent"
+  | "timelineMaterial"
   | "timelineProp";
 
 export type KGNode = {
@@ -37,11 +38,18 @@ export type KGNode = {
   val: number;
   color: string;
   meta?: Record<string, any>;
+  /**
+   * When true, `KgForceGraph3D` allows dragging this node; all others stay fixed at layout
+   * (e.g. timeline message / note satellites only).
+   */
+  draggable?: boolean;
 };
 
 export type KGLink = {
   source: string;
   target: string;
+  /** When set, `KgForceGraph3D` uses this for the edge (default is amber). */
+  color?: string;
 };
 
 function useContainerSize() {
