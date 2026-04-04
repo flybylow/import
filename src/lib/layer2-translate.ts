@@ -61,6 +61,10 @@ type MatchEntry = {
    * Phase 2 adds `ont:density` so volume × density × GWP works in Calculate.
    */
   defaultDensityKgPerM3?: number;
+  /**
+   * Optional hand-picked GWP (A1–A3 per kg product) for deliveries / MVP when KB hydration is skipped.
+   */
+  gwpKgCo2ePerTonne?: number;
 };
 
 const MATERIAL_DICTIONARY_PATH = path.join(

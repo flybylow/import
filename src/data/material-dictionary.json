@@ -3,6 +3,62 @@
   "description": "IfcMaterialList joins (|): do not let generic reinforced-concrete patterns win over timber when wood+concrete appear together (layer2 skip). Removed standalone `gewapend` pattern; `loofhout` → timber in material-norm.",
   "entries": [
     {
+      "epdSlug": "porotherm_38_t_profi",
+      "matchPatterns": ["porotherm 38 t profi"],
+      "standardName": "Porotherm 38 T Profi",
+      "category": "Masonry",
+      "subcategory": "Clay masonry block",
+      "matchConfidence": 0.95,
+      "matchType": "dictionary_exact",
+      "epdSource": "oekobaudat",
+      "epdName": "Porotherm 38 T Profi",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 1400,
+      "gwpKgCo2ePerTonne": 98.4
+    },
+    {
+      "epdSlug": "porotherm_19_t_profi",
+      "matchPatterns": ["porotherm 19 t profi"],
+      "standardName": "Porotherm 19 T Profi",
+      "category": "Masonry",
+      "subcategory": "Clay masonry block",
+      "matchConfidence": 0.95,
+      "matchType": "dictionary_exact",
+      "epdSource": "oekobaudat",
+      "epdName": "Porotherm 19 T Profi",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 1400,
+      "gwpKgCo2ePerTonne": 96.2
+    },
+    {
+      "epdSlug": "koramic_planum_11",
+      "matchPatterns": ["koramic planum 11"],
+      "standardName": "Koramic Planum 11",
+      "category": "Masonry",
+      "subcategory": "Roof tile",
+      "matchConfidence": 0.88,
+      "matchType": "dictionary_exact",
+      "epdSource": "oekobaudat",
+      "epdName": "Koramic Planum 11",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 2000,
+      "gwpKgCo2ePerTonne": 82.5
+    },
+    {
+      "epdSlug": "terca_klinker_brussel",
+      "matchPatterns": ["terca klinker brussel"],
+      "standardName": "Terca Klinker Brussel",
+      "category": "Masonry",
+      "subcategory": "Facing brick",
+      "matchConfidence": 0.88,
+      "matchType": "dictionary_exact",
+      "epdSource": "oekobaudat",
+      "epdName": "Terca Klinker Brussel",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 1800,
+      "gwpKgCo2ePerTonne": 89.1
+    },
+    {
       "epdSlug": "kalkzandsteen",
       "matchPatterns": [
         "kalkzandsteen",
