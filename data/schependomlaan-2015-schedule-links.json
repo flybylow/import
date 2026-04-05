@@ -1,0 +1,11 @@
+{
+  "description": "Optional sidecar for import-schependomlaan-msproject-timeline.ts — link MS Project task UID or name fragments to materialReference / targetExpressId.",
+  "byTaskUid": {},
+  "byNameContains": [
+    {
+      "contains": "betonvloer",
+      "materialReference": "dpp:material/ifc_betonvloer_ihw_300mm",
+      "targetExpressId": 33028
+    }
+  ]
+}

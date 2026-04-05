@@ -5,6 +5,11 @@ import Button from "@/components/Button";
 import ProjectIdField from "@/components/ProjectIdField";
 import { useToast } from "@/components/ToastProvider";
 import { dbg, dbgButton, dbgLoad } from "@/lib/client-pipeline-debug";
+import {
+  PHASE1_LIBRARY_SAMPLES,
+  PHASE1_LIBRARY_SAMPLE_KEYS,
+  type Phase1LibrarySampleKey,
+} from "@/lib/phase1-library-samples";
 import { useProjectId } from "@/lib/useProjectId";
 
 type ParseResponse = {
@@ -34,6 +39,18 @@ export default function Home() {
   const [enrichedDownloadUrl, setEnrichedDownloadUrl] = useState<string | null>(
     null
   );
+  const [librarySample, setLibrarySample] =
+    useState<Phase1LibrarySampleKey>("schependomlaan");
+
+  /** Keep sample radio aligned when `projectId` matches a library default (URL / storage). */
+  useEffect(() => {
+    const pid = projectId.trim();
+    const match = PHASE1_LIBRARY_SAMPLE_KEYS.find(
+      (k) => PHASE1_LIBRARY_SAMPLES[k].suggestedProjectId === pid
+    );
+    if (match) setLibrarySample(match);
+  }, [projectId]);
+
   const PREVIEW_MAX_LINES = 220;
   const ENRICH_FULL_LIMIT_LINES = 1200;
 
@@ -83,7 +100,7 @@ export default function Home() {
   }, [enrichedDownloadUrl]);
 
   const onRunExample = async () => {
-    dbgButton("Phase1", "Import BIM (run-example)", { projectId });
+    dbgButton("Phase1", "Import BIM (run-example)", { projectId, librarySample });
     setError(null);
     setTriples(null);
     setEnriched(null);
@@ -94,7 +111,7 @@ export default function Home() {
       const res = await fetch("/api/run-example", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId }),
+        body: JSON.stringify({ projectId, sample: librarySample }),
       });
       if (!res.ok) {
         const msg = await res.text();
@@ -238,8 +255,9 @@ export default function Home() {
                 Upload BIM
               </h2>
               <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                Choose a model from your computer (coming soon) or from the sample library,
-                then name the project.
+                Choose a model from your computer (coming soon) or from the sample library.
+                The project name updates when you switch samples; adjust it if you need a
+                custom id.
               </p>
             </div>
           </div>
@@ -263,23 +281,62 @@ export default function Home() {
                   <summary className="cursor-pointer font-medium text-zinc-800 dark:text-zinc-100">
                     Sample library
                   </summary>
-                  <div className="mt-2 text-xs text-zinc-700 dark:text-zinc-200">
-                    <code className="font-mono">data/IFC Schependomlaan.ifc</code>
-                    <div className="mt-1">
-                      <a
-                        className="underline"
-                        href={`/api/file?name=${encodeURIComponent(
-                          "IFC Schependomlaan.ifc"
-                        )}`}
+                  <div className="mt-2 space-y-2 text-xs text-zinc-700 dark:text-zinc-200">
+                    <p className="text-zinc-600 dark:text-zinc-400">
+                      Pick a model — the{" "}
+                      <span className="font-medium">project name</span> below switches to
+                      that sample&apos;s default (you can still edit it). Each id keeps its
+                      own <code className="font-mono">data/&lt;id&gt;.*</code> files.
+                    </p>
+                    {(
+                      Object.entries(PHASE1_LIBRARY_SAMPLES) as [
+                        Phase1LibrarySampleKey,
+                        (typeof PHASE1_LIBRARY_SAMPLES)["schependomlaan"],
+                      ][]
+                    ).map(([key, meta]) => (
+                      <label
+                        key={key}
+                        className={`flex cursor-pointer flex-col gap-1 rounded-md border px-2 py-2 ${
+                          librarySample === key
+                            ? "border-violet-400 bg-violet-50/80 dark:border-violet-500 dark:bg-violet-950/30"
+                            : "border-zinc-200 dark:border-zinc-700"
+                        }`}
                       >
-                        Open / download
-                      </a>
-                    </div>
+                        <span className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="library-sample"
+                            checked={librarySample === key}
+                            onChange={() => {
+                              setLibrarySample(key);
+                              setProjectId(PHASE1_LIBRARY_SAMPLES[key].suggestedProjectId);
+                            }}
+                            className="shrink-0"
+                          />
+                          <span className="font-medium text-zinc-900 dark:text-zinc-50">
+                            {meta.label}
+                          </span>
+                        </span>
+                        <code className="ml-6 font-mono text-[10px] text-zinc-600 dark:text-zinc-400">
+                          data/{meta.dataFile}
+                        </code>
+                        <div className="ml-6 flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <a
+                            className="underline"
+                            href={`/api/file?name=${encodeURIComponent(meta.dataFile)}`}
+                          >
+                            Open / download
+                          </a>
+                        </div>
+                      </label>
+                    ))}
                   </div>
                 </details>
               </div>
               <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                Import from library runs the demo pipeline on the bundled IFC.
+                Import copies the chosen file to{" "}
+                <code className="font-mono">data/&lt;project name&gt;.ifc</code> and
+                generates triples.
               </p>
             </div>
 
@@ -309,12 +366,13 @@ export default function Home() {
                   variant="primary"
                   onClick={onRunExample}
                   disabled={loading || phase2Loading}
+                  title={`Sample: ${PHASE1_LIBRARY_SAMPLES[librarySample].label}`}
                 >
                   {loading
                     ? "Importing…"
                     : triples
-                      ? "Re-import from library"
-                      : "Import from library"}
+                      ? "Re-import sample"
+                      : "Import sample"}
                 </Button>
 
                 <Button

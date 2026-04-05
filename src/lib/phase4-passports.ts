@@ -1,3 +1,5 @@
+import { passportMaterialMatchesSlug } from "@/lib/material-slug-match";
+
 export type Phase4PassportMaterial = {
   materialId: number;
   materialName: string;
@@ -168,6 +170,29 @@ export function elementSummariesFireRatedDoors(
   const map = new Map<number, GroupElementSummary>();
   for (const p of ordered) {
     if (!/\bdoor\b/i.test(p.ifcType ?? "") || !p.ifcFireRating?.trim()) continue;
+    mergeSummary(map, p);
+  }
+  return [...map.values()].sort((a, b) => a.expressId - b.expressId);
+}
+
+/** Match rule aligned with timeline construction buildup (`passportMatchesMaterialSlug`). */
+function passportRowMatchesMaterialSlug(p: Phase4ElementPassport, slugLower: string): boolean {
+  for (const m of p.materials) {
+    if (passportMaterialMatchesSlug(m.materialName, slugLower)) return true;
+  }
+  return false;
+}
+
+/** IFC instances whose passport materials match a DPP slug (e.g. tail of `timeline:materialReference`). */
+export function elementSummariesByMaterialSlug(
+  ordered: Phase4ElementPassport[],
+  materialSlug: string
+): GroupElementSummary[] {
+  const slug = materialSlug.trim().toLowerCase();
+  if (!slug) return [];
+  const map = new Map<number, GroupElementSummary>();
+  for (const p of ordered) {
+    if (!passportRowMatchesMaterialSlug(p, slug)) continue;
     mergeSummary(map, p);
   }
   return [...map.values()].sort((a, b) => a.expressId - b.expressId);

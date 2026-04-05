@@ -19,6 +19,8 @@ type PostBody = {
   actorLabel?: string;
   actorSystem?: boolean;
   targetExpressId?: number | null;
+  /** Optional dpp:material/… or EPC URI — stored as `timeline:materialReference`. */
+  materialReference?: string | null;
   /** Optional ISO timestamp (e.g. back-dated manual log). Defaults to now. */
   timestampIso?: string;
 };
@@ -82,6 +84,11 @@ export async function POST(request: Request) {
     targetExpressId = Math.floor(n);
   }
 
+  const materialReference =
+    typeof body.materialReference === "string" && body.materialReference.trim()
+      ? body.materialReference.trim()
+      : undefined;
+
   const eventId = randomUUID();
   let timestampIso = new Date().toISOString();
   if (typeof body.timestampIso === "string" && body.timestampIso.trim()) {
@@ -99,6 +106,7 @@ export async function POST(request: Request) {
     eventAction: actionRaw,
     ...(message ? { message } : {}),
     ...(targetExpressId !== undefined ? { targetExpressId } : {}),
+    ...(materialReference ? { materialReference } : {}),
     source: "form",
   };
 

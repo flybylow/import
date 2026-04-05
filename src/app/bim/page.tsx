@@ -34,6 +34,7 @@ import { BIM_GLASS_ISLAND } from "@/lib/bim-glass-ui";
 import { bimSearchParamsSummary } from "@/lib/bim-search-params-summary";
 import {
   elementSummariesByIfcTypeKey,
+  elementSummariesByMaterialSlug,
   elementSummariesFireRatedDoors,
   loadPhase4PassportsAllInstancesCached,
   type GroupElementSummary,
@@ -51,6 +52,7 @@ function BimFacePageInner() {
 
   const qView = searchParams.get("view")?.trim() ?? "";
   const qExpressId = searchParams.get("expressId")?.trim() ?? "";
+  const qMaterialSlug = searchParams.get("materialSlug")?.trim() ?? "";
 
   const bimUrlFromLocation = useMemo(() => {
     const q = searchParams.toString();
@@ -77,6 +79,8 @@ function BimFacePageInner() {
   /** Sub-elements for the active group (same order as viewer highlight). */
   const [visualizerMembers, setVisualizerMembers] = useState<GroupElementSummary[] | null>(null);
   const visualizerRawPassportsRef = useRef<Phase4ElementPassport[] | null>(null);
+  /** Last `materialSlug` we fully applied (avoids replace→effect loops). */
+  const materialSlugSyncedRef = useRef<string | null>(null);
   const ifcViewerRef = useRef<BuildingIfcViewerHandle | null>(null);
   const [wholeGraphAlphaDebug, setWholeGraphAlphaDebug] = useState(false);
   /** Demo: That Open `Highlighter` overlay groups (multi-color) alongside focus ghosting. */
@@ -170,11 +174,17 @@ function BimFacePageInner() {
   );
 
   const clearIfcVisualizer = useCallback(() => {
+    materialSlugSyncedRef.current = null;
     setVisualizerExpressIds(null);
     setVisualizerLabel(null);
     setVisualizerActiveKey(null);
     setVisualizerMembers(null);
-  }, []);
+    const p = new URLSearchParams(searchParams.toString());
+    if (!p.has("materialSlug")) return;
+    p.delete("materialSlug");
+    p.set("projectId", projectId);
+    router.replace(`${pathname}?${p.toString()}`, { scroll: false });
+  }, [pathname, projectId, router, searchParams]);
 
   const ensureVisualizerPassportRows = useCallback(async () => {
     if (visualizerRawPassportsRef.current?.length) return visualizerRawPassportsRef.current;
@@ -199,6 +209,8 @@ function BimFacePageInner() {
         p.set("projectId", projectId);
         p.set("view", "3dtest");
         p.delete("expressId");
+        p.delete("materialSlug");
+        materialSlugSyncedRef.current = null;
         router.replace(`${pathname}?${p.toString()}`, { scroll: false });
       } catch (e) {
         console.warn("[bim] IFC type visualizer", e);
@@ -232,6 +244,8 @@ function BimFacePageInner() {
       p.set("projectId", projectId);
       p.set("view", "3dtest");
       p.delete("expressId");
+      p.delete("materialSlug");
+      materialSlugSyncedRef.current = null;
       router.replace(`${pathname}?${p.toString()}`, { scroll: false });
     } catch (e) {
       console.warn("[bim] fire doors visualizer", e);
@@ -246,6 +260,63 @@ function BimFacePageInner() {
     projectId,
     router,
     searchParams,
+  ]);
+
+  useEffect(() => {
+    if (viewMode !== "3dtest") {
+      materialSlugSyncedRef.current = null;
+      return;
+    }
+    if (!qMaterialSlug.trim()) {
+      materialSlugSyncedRef.current = null;
+      return;
+    }
+    const slug = qMaterialSlug.trim().toLowerCase();
+    if (materialSlugSyncedRef.current === slug) return;
+    let cancelled = false;
+    setVisualizerLoading(true);
+    void (async () => {
+      try {
+        const ordered = await ensureVisualizerPassportRows();
+        if (cancelled) return;
+        const summaries = elementSummariesByMaterialSlug(ordered, slug);
+        const ids = summaries.map((s) => s.expressId);
+        setVisualizerMembers(summaries.length ? summaries : null);
+        setVisualizerExpressIds(ids.length ? ids : null);
+        setVisualizerLabel(
+          ids.length ? `Material · ${slug} · ${ids.length} instances` : `Material · ${slug} · 0 instances`
+        );
+        setVisualizerActiveKey(`material:${slug}`);
+        setSelectedExpressId(null);
+        const p = new URLSearchParams(searchParams.toString());
+        p.set("projectId", projectId);
+        p.set("view", "3dtest");
+        p.delete("expressId");
+        p.set("materialSlug", slug);
+        router.replace(`${pathname}?${p.toString()}`, { scroll: false });
+        if (!cancelled) materialSlugSyncedRef.current = slug;
+      } catch (e) {
+        console.warn("[bim] material slug visualizer", e);
+        if (!cancelled) {
+          materialSlugSyncedRef.current = null;
+          clearIfcVisualizer();
+        }
+      } finally {
+        if (!cancelled) setVisualizerLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    clearIfcVisualizer,
+    ensureVisualizerPassportRows,
+    pathname,
+    projectId,
+    qMaterialSlug,
+    router,
+    searchParams,
+    viewMode,
   ]);
 
   const onSelectIfcRowClearingVisualizer = useCallback(
@@ -278,6 +349,7 @@ function BimFacePageInner() {
 
   useEffect(() => {
     visualizerRawPassportsRef.current = null;
+    materialSlugSyncedRef.current = null;
     setVisualizerExpressIds(null);
     setVisualizerLabel(null);
     setVisualizerActiveKey(null);

@@ -29,6 +29,8 @@
 #
 # Keep local IFC/model inputs out of Git history.
 /data/**/*.ifc
+# Tiny bundled second sample for Phase 1 (~400 KB); large project IFCs stay untracked.
+!/data/ifc-sample-small.ifc
 
 # production
 /build

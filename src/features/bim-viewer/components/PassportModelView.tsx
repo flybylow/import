@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import BimViewer3D from "@/components/BimViewer3D";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import PassportBatchOverview from "@/components/PassportBatchOverview";
+import PassportIfcMiniPreview from "@/features/bim-viewer/components/PassportIfcMiniPreview";
 import ElementPassportPanel from "@/components/ElementPassportPanel";
 import ElementPassportQuantitiesPanel from "@/components/ElementPassportQuantitiesPanel";
 import PassportElementFinder from "@/components/PassportElementFinder";
-import { PassportPreviewSnapshot } from "@/components/PassportPreviewSnapshot";
 import type { Phase4ElementPassport } from "@/lib/phase4-passports";
 
 type ViewerItem = {
@@ -51,29 +50,52 @@ export default function PassportModelView(props: Props) {
     className = "",
   } = props;
 
-  const viewerItems = useMemo<ViewerItem[]>(
-    () =>
-      passportsOrdered.map((p) => ({
-        expressId: p.expressId ?? p.elementId,
+  /** IFC type-column group: all filtered expressIds → `BuildingIfcViewer` `focusExpressIds`. */
+  const [typeGroupExpressIds, setTypeGroupExpressIds] = useState<number[] | null>(null);
+
+  const handleSelectTypeGroup = useCallback((ids: number[]) => {
+    setTypeGroupExpressIds((prev) => {
+      if (ids.length === 0) return prev === null ? prev : null;
+      if (
+        prev !== null &&
+        prev.length === ids.length &&
+        prev.every((v, i) => v === ids[i])
+      ) {
+        return prev;
+      }
+      return [...ids];
+    });
+  }, []);
+
+  const handleSelectExpressId = useCallback(
+    (id: number | null) => {
+      setTypeGroupExpressIds(null);
+      onSelectExpressId(id);
+    },
+    [onSelectExpressId]
+  );
+
+  useEffect(() => {
+    if (selectedExpressId != null) {
+      setTypeGroupExpressIds(null);
+    }
+  }, [selectedExpressId]);
+
+  const viewerItems = useMemo<ViewerItem[]>(() => {
+    const rows: ViewerItem[] = [];
+    for (const p of passportsOrdered) {
+      const ex = p.expressId ?? p.elementId;
+      if (!Number.isFinite(ex)) continue;
+      rows.push({
+        expressId: Number(ex),
         label: p.elementName ?? `element-${p.elementId}`,
         ifcType: p.ifcType,
         globalId: p.globalId,
-        heightHint: p.ifcQuantities.find((q) => q.quantityName === "Height")
-          ?.value,
-      })),
-    [passportsOrdered]
-  );
-
-  /** Up to 600 boxes; always include `selectedExpressId` so URL deep links can focus the camera. */
-  const VIEWER_3D_CAP = 600;
-  const viewerItemsFor3d = useMemo(() => {
-    const base = viewerItems.slice(0, VIEWER_3D_CAP);
-    if (selectedExpressId == null) return base;
-    if (base.some((x) => x.expressId === selectedExpressId)) return base;
-    const extra = viewerItems.find((x) => x.expressId === selectedExpressId);
-    if (!extra) return base;
-    return [extra, ...base.slice(0, VIEWER_3D_CAP - 1)];
-  }, [viewerItems, selectedExpressId]);
+        heightHint: p.ifcQuantities.find((q) => q.quantityName === "Height")?.value,
+      });
+    }
+    return rows;
+  }, [passportsOrdered]);
 
   const selectedMissingFromPassportBatch =
     selectedExpressId != null &&
@@ -89,32 +111,30 @@ export default function PassportModelView(props: Props) {
   );
 
   /**
-   * Data flow (single selection pipeline):
-   * `selectedExpressId` (URL ↔ parent) → abstract 3D + finder highlight + `passportByExpressId[id]` → detail cards.
+   * Selection: URL ↔ `selectedExpressId` → IFC preview, finder, materials/quantities sidebar; fire snapshot → separate page.
    */
 
   return (
     <div
       className={`flex w-full flex-col gap-3 overflow-x-hidden lg:flex-row lg:items-start lg:gap-6 ${className}`.trim()}
     >
-      {/* —— Left ~⅓: overview + abstract spatial preview —— */}
+      {/* Left: folded batch stats + IFC preview */}
       <section
         className="flex w-full min-w-0 shrink-0 flex-col gap-2 lg:max-w-md xl:max-w-lg"
-        aria-label="Passport overview and spatial preview"
+        aria-label="Passport overview and IFC preview"
       >
         {selectedMissingFromPassportBatch ? (
           <div className="shrink-0 rounded-lg border border-amber-300/80 bg-amber-50 px-3 py-2 text-[11px] text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
-            expressId{" "}
-            <code className="font-mono">{selectedExpressId}</code> is not in this
-            passport batch (API limit / ordering). This preview cannot place it — open{" "}
+            <code className="font-mono">{selectedExpressId}</code> is outside this
+            loaded passport slice (API cap / order). IFC preview may still show geometry.{" "}
             <Link
               href={`/bim?projectId=${encodeURIComponent(projectId)}&view=building`}
               className="font-medium underline"
             >
               Building
-            </Link>{" "}
-            for IFC mesh, or raise{" "}
-            <code className="font-mono">elementPassportsLimit</code> in the API.
+            </Link>
+            {" · "}
+            <code className="font-mono">elementPassportsLimit</code>
           </div>
         ) : null}
 
@@ -129,135 +149,87 @@ export default function PassportModelView(props: Props) {
         ) : null}
 
         <div
-          className={`flex h-[min(42dvh,22rem)] min-h-[12rem] w-full shrink-0 flex-col overflow-hidden sm:min-h-[14rem] ${DETAIL_CARD}`}
+          className={`flex h-[min(48dvh,26rem)] min-h-[14rem] w-full shrink-0 flex-col overflow-hidden sm:min-h-[16rem] ${DETAIL_CARD}`}
         >
           <header className="shrink-0 border-b border-zinc-200/80 px-3 py-2 dark:border-zinc-800">
             <h2 className="text-xs font-semibold text-zinc-900 dark:text-zinc-50">
-              Spatial preview
+              IFC preview
             </h2>
             <p className="mt-0.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
-              Ghost boxes for the batch; the selected element is opaque. One box per row in the loaded
-              slice (not IFC mesh).{" "}
+              URL / element row = one focus; IFC type column = all instances in this batch (group). Click
+              mesh to pick one.{" "}
               <Link
                 href={`/bim?projectId=${encodeURIComponent(projectId)}&view=building`}
                 className="font-medium text-violet-700 underline dark:text-violet-300"
               >
                 Building
               </Link>{" "}
-              /{" "}
-              <Link
-                href={`/bim?projectId=${encodeURIComponent(projectId)}&view=3dtest`}
-                className="font-medium text-violet-700 underline dark:text-violet-300"
-              >
-                3D sample
-              </Link>{" "}
-              for real geometry.
+              for full view.
             </p>
           </header>
           {viewerItems.length ? (
-            <BimViewer3D
-              items={viewerItemsFor3d}
-              selectedExpressId={selectedExpressId}
-              onSelectExpressId={(id) => onSelectExpressId(id)}
-              className="min-h-0 min-h-[12rem] flex-1 border-t-0"
+            <PassportIfcMiniPreview
+              projectId={projectId}
+              focusExpressId={selectedExpressId}
+              focusExpressIds={
+                typeGroupExpressIds != null && typeGroupExpressIds.length > 0
+                  ? typeGroupExpressIds
+                  : null
+              }
+              onSelectExpressId={handleSelectExpressId}
+              className="min-h-[12rem] flex-1 border-t-0"
             />
           ) : (
             <div className="flex flex-1 items-center justify-center px-3 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
               {loading
-                ? "Loading preview…"
+                ? "Loading…"
                 : kbMissing
-                  ? "No KB — nothing to draw."
+                  ? "No KB — nothing to show."
                   : "No rows in this passport batch."}
             </div>
           )}
         </div>
       </section>
 
-      {/* —— Right ~⅔: finder + inspect / quantities —— */}
+      {/* Right: finder, snapshot, detail panels */}
       <section
         className="flex w-full min-w-0 flex-1 flex-col gap-3 lg:min-w-0 lg:flex-[2]"
         aria-label="Passport element workspace"
       >
         {viewerItems.length ? (
-          <>
-            <div className={`flex w-full min-h-0 flex-col overflow-hidden ${DETAIL_CARD}`}>
-              <header className="shrink-0 border-b border-zinc-200/80 px-3 py-2 dark:border-zinc-800">
-                <h2 className="text-xs font-semibold text-zinc-900 dark:text-zinc-50">
-                  Find element
-                </h2>
-                <p className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
-                  Chooses <code className="rounded bg-zinc-100 px-0.5 font-mono dark:bg-zinc-900">expressId</code>{" "}
-                  → URL, spatial preview, and tiles below. The third finder column is a quick glance; full passport
-                  (materials &amp; EPD) is in <span className="font-medium text-zinc-600 dark:text-zinc-300">Passport snapshot</span>{" "}
-                  under the grid.
-                </p>
-              </header>
-              <div className="min-h-0 max-h-[min(40vh,22rem)] shrink-0 overflow-hidden">
-                <PassportElementFinder
-                  items={viewerItems}
-                  selectedExpressId={selectedExpressId}
-                  onSelectExpressId={onSelectExpressId}
-                  disabled={loading}
-                  passportByExpressId={passportByExpressId}
-                  className="h-full max-h-[min(40vh,22rem)] w-full rounded-none border-0 bg-transparent dark:bg-transparent"
-                />
-              </div>
-
-              <div className="flex min-h-[min(42dvh,26rem)] flex-1 flex-col border-t border-zinc-200 dark:border-zinc-800">
-                <header className="shrink-0 border-b border-zinc-200/80 px-3 py-2 dark:border-zinc-800">
-                  <h2 className="text-xs font-semibold text-zinc-900 dark:text-zinc-50">Passport snapshot</h2>
-                  <p className="mt-0.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
-                    Same KB row as <span className="font-medium text-zinc-600 dark:text-zinc-300">Element details</span>{" "}
-                    — identity, materials, GWP hint, and EPD registry fields. Uses the full width of this column.
-                  </p>
-                </header>
-                <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
-                  {selectedExpressId == null ? (
-                    <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-                      Select an element in the finder or click a box in the spatial preview. The URL{" "}
-                      <code className="rounded bg-zinc-100 px-0.5 font-mono text-[10px] dark:bg-zinc-900">
-                        expressId
-                      </code>{" "}
-                      drives this panel too.
-                    </p>
-                  ) : selectedMissingFromPassportBatch ? (
-                    <p className="text-[11px] leading-snug text-amber-900 dark:text-amber-100">
-                      No passport row for <code className="font-mono">expressId {selectedExpressId}</code> in this
-                      batch. See the left-column banner or open{" "}
-                      <Link
-                        href={`/bim?projectId=${encodeURIComponent(projectId)}&view=building`}
-                        className="font-medium underline"
-                      >
-                        Building
-                      </Link>
-                      .
-                    </p>
-                  ) : selectedPassport ? (
-                    <PassportPreviewSnapshot passport={selectedPassport} />
-                  ) : null}
-                </div>
-              </div>
+          <div
+            className={`flex min-h-[min(72dvh,40rem)] w-full min-w-0 flex-col overflow-hidden ${DETAIL_CARD}`}
+          >
+            <div className="min-h-[min(28vh,17rem)] max-h-[min(58vh,36rem)] min-w-0 flex-1 shrink-0 overflow-hidden">
+              <PassportElementFinder
+                projectId={projectId}
+                items={viewerItems}
+                selectedExpressId={selectedExpressId}
+                onSelectExpressId={handleSelectExpressId}
+                onSelectTypeGroup={handleSelectTypeGroup}
+                disabled={loading}
+                passportByExpressId={passportByExpressId}
+                className="h-full min-h-0 w-full max-h-full rounded-none border-0 bg-transparent dark:bg-transparent"
+              />
             </div>
-
-            <div className="grid w-full grid-cols-1 gap-3 lg:grid-cols-2 lg:items-start">
-              <div className="min-w-0">
-                <ElementPassportPanel
-                  projectId={projectId}
-                  passport={selectedPassport}
-                  selectedExpressId={selectedExpressId}
-                  onClearSelection={() => onSelectExpressId(null)}
-                  className="min-w-0 w-full"
-                />
-              </div>
-              <div className="min-w-0">
-                <ElementPassportQuantitiesPanel
-                  passport={selectedPassport}
-                  selectedExpressId={selectedExpressId}
-                  className="min-w-0 w-full"
-                />
-              </div>
+            <div className="max-h-[min(38dvh,22rem)] min-h-0 shrink-0 overflow-y-auto overflow-x-hidden border-t border-zinc-200/80 dark:border-zinc-800">
+              <ElementPassportPanel
+                projectId={projectId}
+                passport={selectedPassport}
+                selectedExpressId={selectedExpressId}
+                onClearSelection={() => handleSelectExpressId(null)}
+                showIdentity={false}
+                embedded
+                className="min-w-0 w-full"
+              />
+              <ElementPassportQuantitiesPanel
+                passport={selectedPassport}
+                selectedExpressId={selectedExpressId}
+                embedded
+                className="min-w-0 w-full"
+              />
             </div>
-          </>
+          </div>
         ) : (
           <div
             className={`flex min-h-[6rem] w-full flex-col items-center justify-center px-4 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400 ${DETAIL_CARD}`}

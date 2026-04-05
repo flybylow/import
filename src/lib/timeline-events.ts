@@ -9,6 +9,25 @@ import {
 const RDF = $rdf.Namespace("http://www.w3.org/1999/02/22-rdf-syntax-ns#");
 const TL = $rdf.Namespace(TIMELINE_NS);
 
+/** MS Project / schedule import — optional structured literals on `timeline:AuditEvent`. */
+export type TimelineScheduleFields = {
+  taskUid?: string;
+  taskName?: string;
+  startIso?: string;
+  finishIso?: string;
+  percentComplete?: string;
+  outlineNumber?: string;
+  wbs?: string;
+};
+
+/** BCF 2.0 import — optional structured literals. */
+export type TimelineBcfFields = {
+  topicGuid?: string;
+  ifcGuid?: string;
+  sourceArchive?: string;
+  verbalStatus?: string;
+};
+
 /** Structured GS1 EPCIS fields stored as separate `timeline:*` literals (queryable + graph UI). */
 export type TimelineEpcisFields = {
   eventType?: string;
@@ -41,6 +60,8 @@ export type TimelineEventPayload = {
   materialReference?: string;
   /** When set (EPCIS ingest), mirrored as dedicated RDF predicates */
   epcisFields?: TimelineEpcisFields;
+  scheduleFields?: TimelineScheduleFields;
+  bcfFields?: TimelineBcfFields;
 };
 
 export type ParsedTimelineEvent = {
@@ -56,6 +77,8 @@ export type ParsedTimelineEvent = {
   confidence?: number;
   materialReference?: string;
   epcisFields?: TimelineEpcisFields;
+  scheduleFields?: TimelineScheduleFields;
+  bcfFields?: TimelineBcfFields;
 };
 
 function turtleString(s: string): string {
@@ -120,6 +143,37 @@ export function timelineEventToTurtle(p: TimelineEventPayload): string {
     addStr("epcisDestinationListJson", e.destinationListJson);
     addStr("epcisReadPointId", e.readPointId);
     addStr("epcisBizLocationId", e.bizLocationId);
+  }
+  if (p.scheduleFields) {
+    const s = p.scheduleFields;
+    const addSch = (pred: string, val?: string) => {
+      if (val === undefined) return;
+      const t = val.trim();
+      if (!t) return;
+      lines[lines.length - 1] += " ;";
+      lines.push(`    timeline:${pred} ${turtleString(t)}`);
+    };
+    addSch("scheduleTaskUid", s.taskUid);
+    addSch("scheduleTaskName", s.taskName);
+    addSch("scheduleStart", s.startIso);
+    addSch("scheduleFinish", s.finishIso);
+    addSch("schedulePercentComplete", s.percentComplete);
+    addSch("scheduleOutlineNumber", s.outlineNumber);
+    addSch("scheduleWbs", s.wbs);
+  }
+  if (p.bcfFields) {
+    const b = p.bcfFields;
+    const addB = (pred: string, val?: string) => {
+      if (val === undefined) return;
+      const t = val.trim();
+      if (!t) return;
+      lines[lines.length - 1] += " ;";
+      lines.push(`    timeline:${pred} ${turtleString(t)}`);
+    };
+    addB("bcfTopicGuid", b.topicGuid);
+    addB("bcfIfcGuid", b.ifcGuid);
+    addB("bcfSourceArchive", b.sourceArchive);
+    addB("bcfVerbalStatus", b.verbalStatus);
   }
   lines[lines.length - 1] += " .";
   return `${lines.join("\n")}\n`;
@@ -200,6 +254,53 @@ function parseEpcisFieldsFromStore(
   return o;
 }
 
+function parseScheduleFieldsFromStore(
+  store: $rdf.Store,
+  subj: unknown
+): TimelineScheduleFields | undefined {
+  const taskUid = lit(store, subj, TL("scheduleTaskUid"));
+  const taskName = lit(store, subj, TL("scheduleTaskName"));
+  const startIso = lit(store, subj, TL("scheduleStart"));
+  const finishIso = lit(store, subj, TL("scheduleFinish"));
+  const percentComplete = lit(store, subj, TL("schedulePercentComplete"));
+  const outlineNumber = lit(store, subj, TL("scheduleOutlineNumber"));
+  const wbs = lit(store, subj, TL("scheduleWbs"));
+  if (
+    !taskUid &&
+    !taskName &&
+    !startIso &&
+    !finishIso &&
+    !percentComplete &&
+    !outlineNumber &&
+    !wbs
+  ) {
+    return undefined;
+  }
+  const o: TimelineScheduleFields = {};
+  if (taskUid) o.taskUid = taskUid;
+  if (taskName) o.taskName = taskName;
+  if (startIso) o.startIso = startIso;
+  if (finishIso) o.finishIso = finishIso;
+  if (percentComplete) o.percentComplete = percentComplete;
+  if (outlineNumber) o.outlineNumber = outlineNumber;
+  if (wbs) o.wbs = wbs;
+  return o;
+}
+
+function parseBcfFieldsFromStore(store: $rdf.Store, subj: unknown): TimelineBcfFields | undefined {
+  const topicGuid = lit(store, subj, TL("bcfTopicGuid"));
+  const ifcGuid = lit(store, subj, TL("bcfIfcGuid"));
+  const sourceArchive = lit(store, subj, TL("bcfSourceArchive"));
+  const verbalStatus = lit(store, subj, TL("bcfVerbalStatus"));
+  if (!topicGuid && !ifcGuid && !sourceArchive && !verbalStatus) return undefined;
+  const o: TimelineBcfFields = {};
+  if (topicGuid) o.topicGuid = topicGuid;
+  if (ifcGuid) o.ifcGuid = ifcGuid;
+  if (sourceArchive) o.sourceArchive = sourceArchive;
+  if (verbalStatus) o.verbalStatus = verbalStatus;
+  return o;
+}
+
 /**
  * Best-effort parse of `data/<projectId>-timeline.ttl` for listing in UI.
  */
@@ -238,6 +339,8 @@ export function parseTimelineTtl(ttl: string): ParsedTimelineEvent[] {
     const confidence = litDecimal(store, subj, TL("confidence"));
     const materialReference = lit(store, subj, TL("materialReference"));
     const epcisFields = parseEpcisFieldsFromStore(store, subj);
+    const scheduleFields = parseScheduleFieldsFromStore(store, subj);
+    const bcfFields = parseBcfFieldsFromStore(store, subj);
 
     out.push({
       uri: key,
@@ -252,6 +355,8 @@ export function parseTimelineTtl(ttl: string): ParsedTimelineEvent[] {
       ...(confidence !== undefined ? { confidence } : {}),
       ...(materialReference ? { materialReference } : {}),
       ...(epcisFields ? { epcisFields } : {}),
+      ...(scheduleFields ? { scheduleFields } : {}),
+      ...(bcfFields ? { bcfFields } : {}),
     });
   }
 

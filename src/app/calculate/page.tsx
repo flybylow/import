@@ -47,6 +47,12 @@ const PREFERRED_QTY_ORDER = [
   "Height",
 ] as const;
 
+const GROUP_MODE_LABEL: Record<"materialId" | "materialName" | "epd", string> = {
+  materialId: "Material ID",
+  materialName: "Material name",
+  epd: "EPD",
+};
+
 type KbStatusResponse = {
   projectId: string;
   kbPath: string;
@@ -189,6 +195,21 @@ export default function CalculatePrepPage() {
   }, [status, lcaReadyBySlug]);
 
   const displayRows = useMemo(() => {
+    const idToName = new Map(
+      matchedMaterialTraceRows.map((r) => [r.materialId, r.materialName] as const)
+    );
+    const namesForIds = (ids: number[]) => {
+      const sorted = [...ids].sort((a, b) => a - b);
+      const seen = new Set<number>();
+      const parts: string[] = [];
+      for (const id of sorted) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        parts.push(idToName.get(id) ?? `id:${id}`);
+      }
+      return parts.join(" · ");
+    };
+
     const buildQuantityStrings = (
       quantityTotals: Array<{
         quantityName: string;
@@ -234,6 +255,8 @@ export default function CalculatePrepPage() {
         return {
           key: `mat-${row.materialId}`,
           materialLabel: `${row.materialId}: ${row.materialName}`,
+          materialIdCsv: String(row.materialId),
+          materialNamesJoined: row.materialName,
           materialIds: [row.materialId],
           epd: row.epd,
           epdSlug: row.epdSlug,
@@ -316,6 +339,8 @@ export default function CalculatePrepPage() {
         return {
           key,
           materialLabel: row.materialLabel,
+          materialIdCsv: [...row.materialIds].sort((a, b) => a - b).join(", "),
+          materialNamesJoined: namesForIds(row.materialIds),
           materialIds: row.materialIds,
           epd: row.epd,
           epdSlug: row.epdSlug,
@@ -781,31 +806,43 @@ export default function CalculatePrepPage() {
               Listed from the KB graph, these are the materials included in
               calculation because they already have an EPD link.
             </p>
-            <div className="mt-2 flex items-center gap-2 text-xs">
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
               <span className="text-zinc-600 dark:text-zinc-300">Group by:</span>
               <button
                 type="button"
-                className="underline"
+                className={`inline-flex items-center rounded px-2 py-0.5 ${
+                  groupMode === "materialId"
+                    ? "ring-1 ring-amber-400/80 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+                    : "underline"
+                }`}
                 onClick={() => {
                   dbgButton("Phase3", "group trace by material id", {});
                   setGroupMode("materialId");
                 }}
               >
-                material id
+                Material ID
               </button>
               <button
                 type="button"
-                className="underline"
+                className={`inline-flex items-center rounded px-2 py-0.5 ${
+                  groupMode === "materialName"
+                    ? "ring-1 ring-amber-400/80 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+                    : "underline"
+                }`}
                 onClick={() => {
                   dbgButton("Phase3", "group trace by material name", {});
                   setGroupMode("materialName");
                 }}
               >
-                material name
+                Material name
               </button>
               <button
                 type="button"
-                className="underline"
+                className={`inline-flex items-center rounded px-2 py-0.5 ${
+                  groupMode === "epd"
+                    ? "ring-1 ring-amber-400/80 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+                    : "underline"
+                }`}
                 onClick={() => {
                   dbgButton("Phase3", "group trace by EPD", {});
                   setGroupMode("epd");
@@ -814,7 +851,7 @@ export default function CalculatePrepPage() {
                 EPD
               </button>
               <span className="text-zinc-500 dark:text-zinc-400">
-                (now: <code className="font-mono">{groupMode}</code>)
+                Grouping: <span className="font-medium text-zinc-600 dark:text-zinc-300">{GROUP_MODE_LABEL[groupMode]}</span>
               </span>
             </div>
 
@@ -868,8 +905,11 @@ export default function CalculatePrepPage() {
                     <table className="min-w-full text-xs">
                       <thead className="sticky top-0 bg-zinc-100 dark:bg-zinc-900">
                         <tr className="text-left">
+                          <th className="px-2 py-2 font-medium border-b border-zinc-200 dark:border-zinc-800 whitespace-nowrap">
+                            Material ID
+                          </th>
                           <th className="px-2 py-2 font-medium border-b border-zinc-200 dark:border-zinc-800">
-                            Material
+                            Material name
                           </th>
                           <th className="px-2 py-2 font-medium border-b border-zinc-200 dark:border-zinc-800">
                             EPD
@@ -897,11 +937,11 @@ export default function CalculatePrepPage() {
                             key={row.key}
                             className="align-top border-b border-zinc-100 dark:border-zinc-900"
                           >
-                            <td className="px-2 py-2 max-w-[420px]">
-                              <TruncatedWithTooltip
-                                value={row.materialLabel}
-                                className="font-mono"
-                              />
+                            <td className="px-2 py-2 max-w-[140px] font-mono whitespace-nowrap">
+                              <TruncatedWithTooltip value={row.materialIdCsv} />
+                            </td>
+                            <td className="px-2 py-2 max-w-[360px]">
+                              <TruncatedWithTooltip value={row.materialNamesJoined} />
                             </td>
                             <td className="px-2 py-2 max-w-[420px]">
                               <TruncatedWithTooltip value={row.epd} />
@@ -990,11 +1030,14 @@ export default function CalculatePrepPage() {
                         <th className="px-2 py-2 font-medium border-b border-zinc-200 dark:border-zinc-800 w-10">
                           Pick
                         </th>
-                        <th className="px-2 py-2 font-medium border-b border-zinc-200 dark:border-zinc-800">
-                          Source (IFC trace)
+                        <th className="px-2 py-2 font-medium border-b border-zinc-200 dark:border-zinc-800 whitespace-nowrap">
+                          Material ID
                         </th>
                         <th className="px-2 py-2 font-medium border-b border-zinc-200 dark:border-zinc-800">
-                          Mapped EPD (KB)
+                          Material name
+                        </th>
+                        <th className="px-2 py-2 font-medium border-b border-zinc-200 dark:border-zinc-800">
+                          EPD (KB)
                         </th>
                         <th className="px-2 py-2 font-medium border-b border-zinc-200 dark:border-zinc-800">
                           Elements
@@ -1029,8 +1072,11 @@ export default function CalculatePrepPage() {
                                 }}
                               />
                             </td>
-                            <td className="px-2 py-2 max-w-[320px]">
-                              <TruncatedWithTooltip value={row.materialLabel} className="font-mono" />
+                            <td className="px-2 py-2 max-w-[140px] font-mono whitespace-nowrap">
+                              <TruncatedWithTooltip value={row.materialIdCsv} />
+                            </td>
+                            <td className="px-2 py-2 max-w-[280px]">
+                              <TruncatedWithTooltip value={row.materialNamesJoined} />
                             </td>
                             <td className="px-2 py-2 max-w-[360px]">
                               <TruncatedWithTooltip value={row.epd} className="font-mono" />
@@ -1050,8 +1096,14 @@ export default function CalculatePrepPage() {
                     </tbody>
                   </table>
                 ) : (
-                  <div className="p-2 text-zinc-500 dark:text-zinc-400 text-xs">
-                    No rows with quantity records yet.
+                  <div className="p-2 text-zinc-500 dark:text-zinc-400 text-xs space-y-1">
+                    <p>No calculable rows yet.</p>
+                    <p>
+                      Each row needs <strong>quantity records</strong> from the enriched model (
+                      <code className="font-mono">Qty records &gt; 0</code>) and an EPD with{" "}
+                      <code className="font-mono">ont:gwpPerUnit</code> in the KB (LCA-ready, not
+                      placeholder routing-only).
+                    </p>
                   </div>
                 )}
               </div>

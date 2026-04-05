@@ -2,14 +2,18 @@ import fs from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
 import { parseIfcPhase1 } from "@/lib/ifc-parser";
+import {
+  isPhase1LibrarySampleKey,
+  PHASE1_LIBRARY_SAMPLES,
+} from "@/lib/phase1-library-samples";
 import { generateTriplesPhase1 } from "@/lib/triple-generator";
 
 export const runtime = "nodejs";
 
-const EXAMPLE_IFC_RELATIVE_PATH = path.join("data", "IFC Schependomlaan.ifc");
-
 type RunExampleRequest = {
   projectId?: string;
+  /** `schependomlaan` | `small` — defaults to schependomlaan */
+  sample?: string;
 };
 
 export async function POST(request: Request) {
@@ -20,11 +24,16 @@ export async function POST(request: Request) {
     // Allow empty body for backwards compatibility.
   }
   const projectId = body.projectId?.trim() || "example";
-  const ifcPath = path.join(process.cwd(), EXAMPLE_IFC_RELATIVE_PATH);
+  const sampleRaw = body.sample?.trim().toLowerCase() ?? "";
+  const sampleKey = isPhase1LibrarySampleKey(sampleRaw)
+    ? sampleRaw
+    : "schependomlaan";
+  const dataFile = PHASE1_LIBRARY_SAMPLES[sampleKey].dataFile;
+  const ifcPath = path.join(process.cwd(), "data", dataFile);
 
   if (!fs.existsSync(ifcPath)) {
     return NextResponse.json(
-      { error: `Example IFC not found at ${EXAMPLE_IFC_RELATIVE_PATH}` },
+      { error: `Sample IFC not found: data/${dataFile}` },
       { status: 404 }
     );
   }
@@ -39,6 +48,12 @@ export async function POST(request: Request) {
 
   const parsed = await parseIfcPhase1(bytes);
   const { ttlPath, ttl } = await generateTriplesPhase1({ projectId, parsed });
-  return NextResponse.json({ projectId, ttlPath, ttl });
+  return NextResponse.json({
+    projectId,
+    sample: sampleKey,
+    sourceIfc: `data/${dataFile}`,
+    ttlPath,
+    ttl,
+  });
 }
 

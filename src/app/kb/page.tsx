@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { EpdCatalogSelect } from "@/components/EpdCatalogSelect";
 import type { UnmatchedMaterialRowKind } from "@/lib/material-unmatched-diagnostics";
 import { unmatchedRowKindBadgeClass } from "@/lib/unmatched-row-kind-ui";
@@ -93,6 +94,23 @@ function formatStableDateTime(iso: string): string {
 export default function KnowledgeBasePage() {
   const { showToast } = useToast();
   const { projectId } = useProjectId();
+  const searchParams = useSearchParams();
+
+  const focusMaterialId = useMemo((): number | null => {
+    const raw =
+      searchParams.get("focusMaterialId") ?? searchParams.get("materialId");
+    if (!raw) return null;
+    const n = Number.parseInt(raw, 10);
+    return Number.isFinite(n) ? n : null;
+  }, [searchParams]);
+
+  const focusExpressId = useMemo((): number | undefined => {
+    const raw = searchParams.get("expressId")?.trim();
+    if (!raw) return undefined;
+    const n = Number.parseInt(raw, 10);
+    return Number.isFinite(n) ? n : undefined;
+  }, [searchParams]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -110,14 +128,10 @@ export default function KnowledgeBasePage() {
   const [sourcesStatus, setSourcesStatus] = useState<SourceApiRow[] | null>(null);
   const [sourceToggleId, setSourceToggleId] = useState<string | null>(null);
   const [detailsReady, setDetailsReady] = useState(false);
-  /** Deep-link from Sources (or bookmarks): `/kb?...&focusMaterialId=123` */
-  const [focusMaterialId, setFocusMaterialId] = useState<number | null>(null);
-  /** Deep-link from BIM passports: `/kb?...&expressId=33028` — force graph + zoom element node */
-  const [focusExpressId, setFocusExpressId] = useState<number | undefined>(
-    undefined
-  );
 
   const autoBuildStartedRef = useRef(false);
+  /** Avoid repeating “not in preview” toasts for the same id. */
+  const materialFocusMissToastRef = useRef<number | null>(null);
 
   const previewEnriched = useMemo(() => {
     if (!enrichedPreview) return [];
@@ -127,6 +141,10 @@ export default function KnowledgeBasePage() {
   const unmatchedRows = useMemo(
     () => kbResult?.matchingPreview?.unmatched ?? [],
     [kbResult?.matchingPreview?.unmatched]
+  );
+  const matchedRows = useMemo(
+    () => kbResult?.matchingPreview?.matched ?? [],
+    [kbResult?.matchingPreview?.matched]
   );
   const unmatchedTotal =
     kbResult?.epdCoverage?.materialsWithoutEPD ?? unmatchedRows.length;
@@ -140,6 +158,65 @@ export default function KnowledgeBasePage() {
         .join(","),
     [unmatchedRows]
   );
+  const matchedIdsKey = useMemo(
+    () =>
+      matchedRows
+        .map((r) => r.materialId)
+        .sort((a, b) => a - b)
+        .join(","),
+    [matchedRows]
+  );
+
+  /** Cold open from Passports / Sources: load matching preview + graph without requiring “Build KB” first. */
+  useEffect(() => {
+    if (!projectId) return;
+    if (focusMaterialId == null && focusExpressId == null) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/kb/status?projectId=${encodeURIComponent(projectId)}&includeElementPassports=false&matchedLimit=500&unmatchedLimit=5000`
+        );
+        if (cancelled) return;
+        if (res.status === 404) {
+          showToast({
+            type: "info",
+            message: "No KB on disk for this project yet — run Build link graph on Phase 2 first.",
+          });
+          return;
+        }
+        if (!res.ok) {
+          return;
+        }
+        const statusJson = (await res.json()) as Record<string, unknown>;
+        if (cancelled) return;
+        setKbResult((prev) => {
+          const next: KnowledgeBaseResponse = {
+            projectId,
+            kbPath: (statusJson.kbPath as string) ?? `data/${projectId}-kb.ttl`,
+            ttl: prev?.ttl,
+            kbGraph: (statusJson.kbGraph as KBGraph | undefined) ?? prev?.kbGraph,
+            elementCount: statusJson.elementCount as number | undefined,
+            buildMeta: prev?.buildMeta,
+            diff: prev?.diff,
+            epdCoverage: statusJson.epdCoverage as KnowledgeBaseResponse["epdCoverage"],
+            epdCatalog: statusJson.epdCatalog as KnowledgeBaseResponse["epdCatalog"],
+            matchingPreview: statusJson.matchingPreview as KnowledgeBaseResponse["matchingPreview"],
+          };
+          return next;
+        });
+        setKbGraph((statusJson.kbGraph as KBGraph | null | undefined) ?? null);
+      } catch {
+        /* ignore */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- showToast stable enough; avoid refetch loops
+  }, [projectId, focusMaterialId, focusExpressId]);
 
   useEffect(() => {
     const allowed = new Set(unmatchedRows.map((r) => r.materialId));
@@ -164,30 +241,25 @@ export default function KnowledgeBasePage() {
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const raw = params.get("focusMaterialId") ?? params.get("materialId");
-    if (!raw) return;
-    const n = Number(raw);
-    if (Number.isFinite(n)) setFocusMaterialId(n);
-  }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const rawEx = params.get("expressId");
-    if (!rawEx) {
-      setFocusExpressId(undefined);
+    if (focusMaterialId == null || !kbResult?.matchingPreview) return;
+    const inUnmatched = unmatchedRows.some((r) => r.materialId === focusMaterialId);
+    const inMatched = matchedRows.some((r) => r.materialId === focusMaterialId);
+    if (!inUnmatched && !inMatched) {
+      if (materialFocusMissToastRef.current !== focusMaterialId) {
+        materialFocusMissToastRef.current = focusMaterialId;
+        showToast({
+          type: "info",
+          message: `Material ${focusMaterialId} is not in this preview (matched list is capped at 500 rows, or id has no EPD / not in KB). Open the graph or rebuild.`,
+        });
+      }
       return;
     }
-    const n = Number(rawEx);
-    setFocusExpressId(Number.isFinite(n) ? n : undefined);
-  }, [projectId]);
 
-  useEffect(() => {
-    if (focusMaterialId == null || !kbResult?.matchingPreview) return;
-    if (!unmatchedRows.some((r) => r.materialId === focusMaterialId)) return;
-
+    const elId = inUnmatched
+      ? `kb-unmatched-row-${focusMaterialId}`
+      : `kb-matched-row-${focusMaterialId}`;
     const raf = requestAnimationFrame(() => {
-      const el = document.getElementById(`kb-unmatched-row-${focusMaterialId}`);
+      const el = document.getElementById(elId);
       if (!el) return;
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.classList.add(
@@ -208,7 +280,15 @@ export default function KnowledgeBasePage() {
       }, 2600);
     });
     return () => cancelAnimationFrame(raf);
-  }, [focusMaterialId, kbResult?.matchingPreview, unmatchedIdsKey, unmatchedRows]);
+  }, [
+    focusMaterialId,
+    kbResult?.matchingPreview,
+    matchedIdsKey,
+    matchedRows,
+    showToast,
+    unmatchedIdsKey,
+    unmatchedRows,
+  ]);
 
   useEffect(() => {
     // Deep-link: `?autoBuild=1` from enrich/pipeline (`projectId` comes from `useProjectId` + URL).
@@ -806,6 +886,16 @@ export default function KnowledgeBasePage() {
 
               <div className="mt-2">
                 <ToggleSection
+                  key={
+                    focusMaterialId != null &&
+                    matchedRows.some((r) => r.materialId === focusMaterialId)
+                      ? `matched-open-${focusMaterialId}`
+                      : "matched-default"
+                  }
+                  defaultOpen={
+                    focusMaterialId != null &&
+                    matchedRows.some((r) => r.materialId === focusMaterialId)
+                  }
                   title={`Matched materials (${kbResult.epdCoverage?.materialsWithEPD ?? kbResult.matchingPreview.matched.length} have EPD)`}
                   summaryClassName="cursor-pointer text-xs text-zinc-700 dark:text-zinc-200"
                 >
@@ -833,6 +923,7 @@ export default function KnowledgeBasePage() {
                     {kbResult.matchingPreview.matched.length ? (
                       kbResult.matchingPreview.matched.map((m) => (
                         <div
+                          id={`kb-matched-row-${m.materialId}`}
                           key={`m-${m.materialId}`}
                           className="rounded border border-zinc-200 dark:border-zinc-800 px-2 py-1"
                         >
@@ -892,11 +983,15 @@ export default function KnowledgeBasePage() {
             >
               <ToggleSection
                 key={
-                  focusMaterialId != null
+                  focusMaterialId != null &&
+                  unmatchedRows.some((r) => r.materialId === focusMaterialId)
                     ? `unmatched-open-${focusMaterialId}`
                     : "unmatched-default"
                 }
-                defaultOpen={focusMaterialId != null}
+                defaultOpen={
+                  focusMaterialId != null &&
+                  unmatchedRows.some((r) => r.materialId === focusMaterialId)
+                }
                 title={
                   <>
                     Unmatched materials ({unmatchedTotal} have NO EPD)
@@ -912,11 +1007,13 @@ export default function KnowledgeBasePage() {
                 <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
                   Manual matches write to{" "}
                   <code className="font-mono">data/{projectId}-kb.ttl</code>. Rebuilding the KB
-                  overwrites them (MVP).                   Open from Sources with{" "}
+                  overwrites them (MVP).                   Deep-link{" "}
                   <code className="font-mono">
                     {`/kb?projectId=…&focusMaterialId=<id>`}
                   </code>{" "}
-                  to jump here.
+                  loads the KB and scrolls to this row if the material is unmatched, or to{" "}
+                  <strong className="font-medium text-zinc-700 dark:text-zinc-300">Matched materials</strong>{" "}
+                  if it already has an EPD (preview capped at 500 matched rows).
                 </p>
 
                 {kbResult.epdCatalog && unmatchedRows.length ? (

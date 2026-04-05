@@ -57,8 +57,8 @@ function compactBimUrlQuery(qs: string): { compact: string; title: string } | nu
 }
 
 /**
- * Orchestrates passport data from `GET /api/kb/status` before mounting the list + 3D UI,
- * and surfaces the exact request URL (copy / refresh) for frequent API checks.
+ * Loads passport slice from `GET /api/kb/status`, then mounts finder + panels.
+ * Collapsible strip: API URL, refresh, loaded KB path.
  */
 export default function BimPassportWorkspace(props: Props) {
   const {
@@ -173,7 +173,7 @@ export default function BimPassportWorkspace(props: Props) {
         <summary className="cursor-pointer list-none px-2 py-1.5 [&::-webkit-details-marker]:hidden">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-medium text-zinc-800 dark:text-zinc-100">
-              Passport data source
+              KB &amp; API
               {loading && passportPhase ? (
                 <span className="ml-2 inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-normal text-amber-800 dark:text-amber-200">
                   <span className="inline-flex items-center gap-1.5">
@@ -221,20 +221,18 @@ export default function BimPassportWorkspace(props: Props) {
               ) : null}
             </span>
             <span className="shrink-0 text-[10px] text-zinc-400 group-open:hidden">
-              Fold open for API URL
+              API URL, refresh
             </span>
             <span className="hidden shrink-0 text-[10px] text-zinc-400 group-open:inline">
-              Fold closed
+              Close
             </span>
           </div>
         </summary>
         <div className="border-t border-zinc-200 px-2 pb-2 pt-1 dark:border-zinc-800">
           <p className="text-[11px] leading-snug text-zinc-600 dark:text-zinc-400">
-            Same <code className="font-mono">GET</code> the list uses. The list
-            mounts only after the first response completes; use Refresh to pull
-            again. By default the API returns up to{" "}
-            <code className="font-mono">50k</code> passport rows (server cap); the
-            larger number is the total passport count from the KB.
+            Same <code className="font-mono">GET</code> as this tab. Up to{" "}
+            <code className="font-mono">50k</code> rows per response; total in KB
+            may be higher.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <code className="max-w-full break-all rounded bg-white px-1.5 py-1 font-mono text-[10px] text-zinc-800 dark:bg-zinc-900 dark:text-zinc-100">
@@ -298,11 +296,6 @@ export default function BimPassportWorkspace(props: Props) {
                     <code className="font-mono">{loadedElementCountInKb}</code>
                   </>
                 ) : null}
-              </p>
-              <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
-                Passports in UI:{" "}
-                <code className="font-mono">{passportsOrdered.length}</code> of{" "}
-                <code className="font-mono">{passportTotal}</code>
               </p>
             </div>
           ) : null}

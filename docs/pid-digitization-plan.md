@@ -42,7 +42,7 @@ Related internal docs: `docs/bim-to-kg-journey.md`, `docs/sources-contract.md`, 
 | **Normalized fire / reaction-to-fire from EPD** | B-EPD TTL must be profiled for fields; may need mapping from free text to `EI1 30` / Euroclass-style enums. |
 | **KB Basisnormen (or subset) as executable rules** | Not in repo; needs legal/product ownership + test cases. Start with **hand-authored JSON rules** + unit tests, not full PDF automation. |
 | **Leveringsbon → element** | OCR/intake is out of band; **linking model** must map delivery lines to `bim:element-*` / `globalId` / human labels. Schependomlaan naming is **project-specific**. |
-| **Audit timeline events** | No `timeline.ttl` or `/api/events` in this repo; append-only events are a **new** subsystem (prefer `data/` not `public/`). |
+| **Audit timeline events** | **Shipped:** `data/<projectId>-timeline.ttl`, `GET/POST /api/timeline`, `/timeline` (EPCIS, deliveries, manual notes, **MS Project schedule**, **BCF** imports). See [`docs/timeline-schedule-integration.md`](timeline-schedule-integration.md). |
 | **Federated SPARQL (Comunica)** | **Not** a dependency today (`package.json`); federation is optional if we keep reasoning in TypeScript + `rdflib`. |
 | **IFC ↔ same viewer as compliance heatmap** | Building view lacks expressId highlight tied to passport filters; Passports view is fast for **isolate / colour** prototypes. |
 
@@ -79,6 +79,8 @@ Related internal docs: `docs/bim-to-kg-journey.md`, `docs/sources-contract.md`, 
 ### Phase C — **Audit timeline (parallel or after B)**
 
 **Objective:** Append-only **timeline events** (actor, action, `bim:` refs, confidence) in `data/<projectId>-timeline.ttl` or per-project files.
+
+**Status (2026-04):** Core TTL + `/api/timeline` + `/timeline` UI are in place. Schedule ingest: `npm run import:schependomlaan-schedule`; BCF: `npm run import:schependomlaan-bcf`. Spec: [`docs/timeline-schedule-integration.md`](timeline-schedule-integration.md).
 
 1. Align predicates with **`https://tabulas.eu/`** namespaces used elsewhere; avoid `pages/api` — use **`src/app/api/`**.  
 2. If SPARQL is required, add **one** query dependency explicitly (e.g. Comunica) and CI; otherwise **query in TS** for MVP.

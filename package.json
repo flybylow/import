@@ -15,7 +15,9 @@
     "build:kb": "tsx --tsconfig tsconfig.json scripts/build-kb.ts",
     "report:epd": "tsx --tsconfig tsconfig.json scripts/report-epd-coverage.ts",
     "test:2050": "node --env-file=.env scripts/test-2050-api.mjs",
-    "import:schependomlaan-timeline": "tsx --tsconfig tsconfig.json scripts/import-schependomlaan-timeline-audit.ts"
+    "import:schependomlaan-timeline": "tsx --tsconfig tsconfig.json scripts/import-schependomlaan-timeline-audit.ts",
+    "import:schependomlaan-schedule": "tsx --tsconfig tsconfig.json scripts/import-schependomlaan-msproject-timeline.ts",
+    "import:schependomlaan-bcf": "tsx --tsconfig tsconfig.json scripts/import-schependomlaan-bcf-timeline.ts"
   },
   "dependencies": {
     "@thatopen/components": "^3.3.3",
@@ -34,12 +36,15 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/adm-zip": "^0.5.8",
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "adm-zip": "^0.5.17",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
+    "fast-xml-parser": "^5.5.10",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",

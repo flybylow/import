@@ -5,7 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 import type { KGNode, KGLink } from "@/components/KgForceGraph";
 import KgForceGraph3D from "@/components/KgForceGraph3D";
 import { EPCIS_JSON_SEPARATOR, getEpcisHumanNotesForRow } from "@/lib/timeline/epcis";
-import type { TimelineEpcisFields } from "@/lib/timeline-events";
+import type {
+  TimelineBcfFields,
+  TimelineEpcisFields,
+  TimelineScheduleFields,
+} from "@/lib/timeline-events";
+import { materialSlugFromReference } from "@/lib/timeline/construction-buildup";
 import {
   TIMELINE_EVENT_LABELS,
   type TimelineEventAction,
@@ -23,6 +28,8 @@ export type TimelineGraphEventRow = {
   confidence?: number;
   materialReference?: string;
   epcisFields?: TimelineEpcisFields;
+  scheduleFields?: TimelineScheduleFields;
+  bcfFields?: TimelineBcfFields;
 };
 
 /** Hard upper bound to protect WebGL / layout from pathological TTL files. */
@@ -554,18 +561,18 @@ export default function TimelineKbGraph(props: {
   }
 
   const graphOuter = fillViewport
-    ? "relative min-h-0 w-full min-h-[min(280px,35dvh)] flex-1 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/40 dark:bg-zinc-950/60"
+    ? "relative h-full min-h-0 w-full flex-1 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100/40 dark:bg-zinc-950/60"
     : undefined;
 
   return (
     <div
       className={
         fillViewport
-          ? "flex min-h-0 flex-1 flex-col gap-2 sm:gap-3"
+          ? "flex min-h-0 flex-1 flex-col gap-2 overflow-hidden sm:gap-3"
           : "flex flex-col gap-3"
       }
     >
-      <div className="flex flex-col gap-2 text-xs text-zinc-600 dark:text-zinc-400 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2">
+      <div className="flex shrink-0 flex-col gap-2 text-xs text-zinc-600 dark:text-zinc-400 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2">
         <div className="min-w-0 shrink">
           <span className="font-medium text-zinc-800 dark:text-zinc-200">Timeline KB</span>
           {" · "}
@@ -697,7 +704,7 @@ export default function TimelineKbGraph(props: {
       {showGraphHelp ? (
         <div
           id="timeline-kb-graph-help"
-          className="rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-400"
+          className="max-h-[min(40dvh,22rem)] shrink-0 overflow-y-auto overscroll-contain rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2.5 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-400"
           role="region"
           aria-label="Timeline KB graph help"
         >
@@ -804,11 +811,15 @@ export default function TimelineKbGraph(props: {
       <div
         className={
           fillViewport
-            ? "flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:items-stretch"
+            ? "flex min-h-0 flex-1 flex-col gap-3 overflow-hidden lg:flex-row lg:items-stretch"
             : "flex flex-col gap-4 lg:flex-row lg:items-start"
         }
       >
-        <div className={fillViewport ? "min-h-0 min-w-0 flex-1" : "min-w-0 flex-1"}>
+        <div
+          className={
+            fillViewport ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" : "min-w-0 flex-1"
+          }
+        >
           <KgForceGraph3D
             nodes={nodes}
             links={links}
@@ -829,19 +840,35 @@ export default function TimelineKbGraph(props: {
         <div
           className={
             fillViewport
-              ? "flex w-full shrink-0 flex-col lg:w-[260px] lg:max-h-full lg:overflow-y-auto"
+              ? "flex min-h-0 w-full shrink-0 flex-col lg:max-h-full lg:w-[min(100%,280px)] lg:flex-shrink-0"
               : "w-full shrink-0 lg:w-[280px]"
           }
         >
-          <div className="text-sm font-medium text-zinc-900 dark:text-zinc-50">Inspector</div>
-          <div className="mt-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-3">
-            {selectedNode ? (
-              <TimelineNodeInspector node={selectedNode} projectId={projectId} />
-            ) : (
-              <div className="text-xs text-zinc-600 dark:text-zinc-300">
-                Select a node for full fields.
-              </div>
-            )}
+          <div className="shrink-0 text-sm font-medium text-zinc-900 dark:text-zinc-50">
+            Inspector
+          </div>
+          <div
+            className={
+              fillViewport
+                ? "mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+                : "mt-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950"
+            }
+          >
+            <div
+              className={
+                fillViewport
+                  ? "min-h-0 flex-1 overflow-y-auto overscroll-contain p-3"
+                  : "p-3"
+              }
+            >
+              {selectedNode ? (
+                <TimelineNodeInspector node={selectedNode} projectId={projectId} />
+              ) : (
+                <div className="text-xs text-zinc-600 dark:text-zinc-300">
+                  Select a node for full fields.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -958,6 +985,41 @@ function InspectorBimElementLinks(props: { projectId: string; expressId: number 
   );
 }
 
+/** DPP material slug → BIM 3D sample group + raw KB inspect (same project). */
+function InspectorBimMaterialReferenceLinks(props: { projectId: string; materialReference: string }) {
+  const slug = materialSlugFromReference(props.materialReference);
+  const pid = encodeURIComponent(props.projectId.trim() || "example");
+  if (!slug) return null;
+  const encSlug = encodeURIComponent(slug);
+  const sampleHref = `/bim?projectId=${pid}&view=3dtest&materialSlug=${encSlug}`;
+  const inspectHref = `/bim?projectId=${pid}&view=inspect`;
+  return (
+    <div className="space-y-1 border-t border-zinc-200 pt-2 dark:border-zinc-700">
+      <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        Open in BIM
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        <Link
+          href={sampleHref}
+          className="text-[11px] font-medium text-cyan-700 underline underline-offset-2 hover:text-cyan-900 dark:text-cyan-400 dark:hover:text-cyan-300"
+        >
+          Highlight material in 3D sample
+        </Link>
+        <Link
+          href={inspectHref}
+          className="text-[11px] font-medium text-sky-700 underline underline-offset-2 hover:text-sky-900 dark:text-sky-400 dark:hover:text-sky-300"
+        >
+          Inspect API (KB)
+        </Link>
+      </div>
+      <p className="text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+        3D sample loads passport materials and highlights every IFC instance whose material name matches
+        this slug (same heuristic as timeline construction buildup).
+      </p>
+    </div>
+  );
+}
+
 function TimelineNodeInspector(props: { node: any; projectId: string }) {
   const { projectId } = props;
   const meta = props.node?.meta ?? {};
@@ -1010,6 +1072,10 @@ function TimelineNodeInspector(props: { node: any; projectId: string }) {
           <span className="font-mono text-zinc-500">events linked (cap window)</span>{" "}
           <span className="tabular-nums">{meta.linkCount ?? "—"}</span>
         </div>
+        <InspectorBimMaterialReferenceLinks
+          projectId={projectId}
+          materialReference={String(meta.materialReference ?? "")}
+        />
       </div>
     );
   }

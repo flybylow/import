@@ -13,8 +13,11 @@ export const TIMELINE_DEFAULT_TARGET_EXPRESS_ID = 33028;
 
 /** Dropdown options for target express id (value "" = omit in API). */
 export const TIMELINE_TARGET_EXPRESS_OPTIONS: readonly { value: string; label: string }[] = [
-  { value: String(TIMELINE_DEFAULT_TARGET_EXPRESS_ID), label: `Default (${TIMELINE_DEFAULT_TARGET_EXPRESS_ID})` },
-  { value: "", label: "No target element" },
+  { value: "", label: "No element link" },
+  {
+    value: String(TIMELINE_DEFAULT_TARGET_EXPRESS_ID),
+    label: `Example id (${TIMELINE_DEFAULT_TARGET_EXPRESS_ID})`,
+  },
 ];
 
 /** Stable action ids stored as `timeline:eventAction` literals in TTL. */
@@ -31,6 +34,10 @@ export const TIMELINE_EVENT_ACTIONS = [
   "data_exported",
   /** Ingested GS1 EPCIS (supply-chain) events via POST /api/timeline/epcis */
   "epcis_supply_chain_event",
+  /** MS Project / planning XML → construction schedule task (see scripts/import-*-msproject-timeline) */
+  "construction_schedule_task",
+  /** BCF 2.0 markup import (coordination / clash follow-up) */
+  "bcf_coordination_event",
 ] as const;
 
 export type TimelineEventAction = (typeof TIMELINE_EVENT_ACTIONS)[number];
@@ -47,6 +54,8 @@ export const TIMELINE_EVENT_LABELS: Record<TimelineEventAction, string> = {
   manual_note: "Manual note",
   data_exported: "Data exported",
   epcis_supply_chain_event: "EPCIS supply-chain event",
+  construction_schedule_task: "Construction schedule task",
+  bcf_coordination_event: "BCF coordination issue",
 };
 
 const ACTION_SET = new Set<string>(TIMELINE_EVENT_ACTIONS);

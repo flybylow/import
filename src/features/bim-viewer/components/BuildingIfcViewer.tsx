@@ -6,6 +6,7 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
   type MutableRefObject,
@@ -411,6 +412,23 @@ async function resetIfcHighlightOnly(ctx: FocusCtx) {
       /* noop */
     }
   }
+}
+
+/** Timeline buildup: invisible base, only listed ids opaque (no bimFocus highlight / camera fly). */
+async function applyConstructionVisibleExpressIds(ctx: FocusCtx, expressIds: number[]) {
+  await resetIfcHighlightOnly(ctx);
+  ctx.lastFocusElevateExpressIdsRef.current = null;
+  if (ctx.fragmentsOpacityStressRef.current || typeof ctx.model.setOpacity !== "function") {
+    await pumpFragmentsVisual(ctx);
+    return;
+  }
+  ctx.fragmentOpacityIntentRef.current = { kind: "uniform", opacity: 0 };
+  await syncFragmentOpacityFromIntent(ctx);
+  if (expressIds.length > 0) {
+    await elevateFocusedExpressIdsOpacity(ctx, expressIds);
+  }
+  await pumpFragmentsVisual(ctx);
+  recordAlphaDiag(ctx, "constructionVisibleExpressIds applied");
 }
 
 /** `fragments.core.update` / `model.update` / Highlighter often restore opaque IFC materials. */
@@ -917,6 +935,12 @@ type Props = {
    */
   focusExpressIds?: number[] | null;
   /**
+   * Timeline construction mode: show only these expressIds at opacity 1; everything else opacity 0.
+   * `null` disables (normal focus / ghost behaviour). When set, `focusExpressId` / `focusExpressIds`
+   * are ignored until this is cleared.
+   */
+  constructionVisibleExpressIds?: number[] | null;
+  /**
    * Extra persistent highlight layers (That Open `Highlighter` styles). Shown together with
    * focus ghosting when both are set. Cleared by **Reset alpha** / full visual reset.
    */
@@ -934,6 +958,7 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
     ifcSource,
     focusExpressId = null,
     focusExpressIds = null,
+    constructionVisibleExpressIds = null,
     visualGroups = null,
     onStatusChange,
     onCanvasSelectionChange,
@@ -1047,8 +1072,18 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
         ifcSource,
       });
       try {
-        const container = containerRef.current;
-        if (!container) return;
+        let container = containerRef.current;
+        if (!container) {
+          await new Promise<void>((resolve) => {
+            requestAnimationFrame(() => resolve());
+          });
+          container = containerRef.current;
+        }
+        if (!container) {
+          throw new Error(
+            "IFC viewer container is not mounted yet. If this persists, refresh the page."
+          );
+        }
         // Prevent duplicate canvases after Fast Refresh / effect remounts.
         container.replaceChildren();
         const origin = window.location.origin;
@@ -1645,12 +1680,51 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
     focusExpressIds != null && focusExpressIds.length > 0 ? focusExpressIds.join(",") : "";
   const overlayVisualGroupsKey = visualGroupsDependencyKey(visualGroups ?? null);
 
+  const constructionVisibleExpressIdsKey = useMemo(() => {
+    if (constructionVisibleExpressIds === null) return "";
+    return `on:${[...constructionVisibleExpressIds].sort((a, b) => a - b).join(",")}`;
+  }, [constructionVisibleExpressIds]);
+
+  const constructionModeGenRef = useRef(0);
+
+  useEffect(() => {
+    const ctx = focusCtxRef.current;
+    const enq = ghostQueueRef.current;
+    if (!ctx || status !== "ready" || !enq || !sceneReadyForNavFocus) return;
+
+    if (constructionVisibleExpressIds === null) {
+      constructionModeGenRef.current += 1;
+      const gen = constructionModeGenRef.current;
+      void enq(async () => {
+        if (gen !== constructionModeGenRef.current) return;
+        await resetIfcFocusTargetVisuals(ctx);
+      });
+      return () => {
+        constructionModeGenRef.current += 1;
+      };
+    }
+
+    constructionModeGenRef.current += 1;
+    const gen = constructionModeGenRef.current;
+    const ids = [...constructionVisibleExpressIds].sort((a, b) => a - b);
+    void enq(async () => {
+      if (gen !== constructionModeGenRef.current) return;
+      await applyConstructionVisibleExpressIds(ctx, ids);
+    });
+    return () => {
+      constructionModeGenRef.current += 1;
+    };
+  }, [constructionVisibleExpressIdsKey, status, sceneReadyForNavFocus]);
+
   useEffect(() => {
     const ctx = focusCtxRef.current;
     if (!ctx || status !== "ready") {
       if (status === "ready" && !ctx) {
         console.log("[BuildingIfcViewer][focus-pipeline] focus effect skip: no focus ctx");
       }
+      return;
+    }
+    if (constructionVisibleExpressIds !== null) {
       return;
     }
     if (!sceneReadyForNavFocus) {
@@ -1693,7 +1767,13 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
     return () => {
       focusGenerationRef.current += 1;
     };
-  }, [focusExpressId, focusExpressIdsKey, status, sceneReadyForNavFocus]);
+  }, [
+    focusExpressId,
+    focusExpressIdsKey,
+    status,
+    sceneReadyForNavFocus,
+    constructionVisibleExpressIds,
+  ]);
 
   useEffect(() => {
     const ctx = focusCtxRef.current;
