@@ -130,12 +130,19 @@ The production IFC path is **`BuildingIfcViewer`**:
 
 **Fix:** Temporary **`console.warn` filter** for that specific message in `BuildingIfcViewer` (narrow; restore on cleanup).
 
+### 4.9 Uniform ghost, worker stress, and Highlighter (Building tab)
+
+**Problem:** Large models + **`setOpacity`** / highlight churn can hit **fragments worker memory overflow**; uniform transparency fights **Highlighter** material updates; camera motion + focus must not race first paint.
+
+**Fix / behavior:** Documented in **`docs/building-ifc-viewer-opacity-highlighting.md`** (internal): opacity **intent** (default vs uniform ghost), **`fragmentsOpacityStressRef`** until reload, **chunked `setOpacity`**, **`ghostQueueRef`** + nav-focus gate, **`bimFocus`** vs **`select`** vs overlay styles, construction-only-visible mode, and why **BCF snapshots ≠ instant mesh**.
+
 ---
 
 ## 5. Related documentation in `docs/`
 
 | Doc | Relevance to 3D / IFC |
 |-----|------------------------|
+| `building-ifc-viewer-opacity-highlighting.md` | **Building** tab: **ghost / opacity stress / Highlighter** / focus queue — complements §4.9 above |
 | `bim-to-kg-journey.md` | **Pipeline** Phases 1–3, artifacts, **`/api/pipeline/trace`** — not viewer-specific but explains **where `data/<projectId>.ifc` fits** in the product |
 | `codebase-health-2026-03-24.md` | **Camera `change` listener** typing fix |
 | `PRD-SUMMARY.md` | Older PRD: **server-side parse** with web-ifc; current **browser** viewer is **additional** to that story |
@@ -196,7 +203,7 @@ This repo **does not** enable **`renderer.xr`** or immersive sessions. To **test
 
 | File | Purpose |
 |------|---------|
-| `src/features/bim-viewer/components/BuildingIfcViewer.tsx` | Full IFC + That Open + fragments + framing |
+| `src/features/bim-viewer/components/BuildingIfcViewer.tsx` | Full IFC + That Open + fragments + framing + ghost / highlight (see **`building-ifc-viewer-opacity-highlighting.md`**) |
 | `src/components/BimViewer3D.tsx` | Abstract boxes (passport UI), pure Three |
 | `src/features/bim-viewer/components/PassportModelView.tsx` | Passports layout: list + 3D + **`ElementPassportPanel`** |
 | `src/components/PassportElementList.tsx` | Clickable element list (same **`expressId`** selection as boxes) |
@@ -207,4 +214,4 @@ This repo **does not** enable **`renderer.xr`** or immersive sessions. To **test
 
 ---
 
-*Last updated: 2026-04-03 — abstract passport UI documents list ↔ 3D ↔ panel selection; VR section is advisory for external projects.*
+*Last updated: 2026-04-06 — §4.9 + link to **`building-ifc-viewer-opacity-highlighting.md`** for ghost/stress/Highlighter. Earlier: 2026-04-03 abstract passport UI; VR section is advisory for external projects.*
