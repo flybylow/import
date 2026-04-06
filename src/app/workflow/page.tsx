@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Button from "@/components/Button";
@@ -12,6 +13,11 @@ import {
   type Phase1LibrarySampleKey,
 } from "@/lib/phase1-library-samples";
 import { useProjectId } from "@/lib/useProjectId";
+import { bimPassportsElementHref } from "@/lib/passport-navigation-links";
+import {
+  passportTypeGroupKeyFromRow,
+  type Phase4ElementPassport,
+} from "@/lib/phase4-passports";
 import {
   WORKFLOW_PIPELINE_PHASE_ESTIMATED_MS,
   WORKFLOW_PIPELINE_PHASE_WEIGHT,
@@ -27,15 +33,78 @@ function bimBuildingViewerHref(projectId: string) {
   return `/bim?${q.toString()}`;
 }
 
-type WizardStep = "model" | "run";
+function bimPassportsHref(projectId: string) {
+  const q = new URLSearchParams();
+  q.set("projectId", projectId);
+  q.set("view", "passports");
+  q.set("from", "workflow");
+  return `/bim?${q.toString()}`;
+}
+
+function formatBytes(n: number | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "—";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function fileBasename(relativePath: string): string {
+  const seg = relativePath.replace(/\\/g, "/").split("/").pop()?.trim();
+  return seg && seg.length > 0 ? seg : relativePath;
+}
+
+/** Keep the start of the basename; ellipsis at the end (long UUID-prefixed names). */
+function truncateBasenameFromStart(name: string, maxChars = 32): string {
+  if (name.length <= maxChars) return name;
+  const ellipsis = "…";
+  const take = maxChars - ellipsis.length;
+  if (take < 4) return `${name.slice(0, maxChars - 1)}${ellipsis}`;
+  return `${name.slice(0, take)}${ellipsis}`;
+}
+
+type WizardStep = "model" | "run" | "dashboard";
+
+type PipelineTraceJson = {
+  projectId: string;
+  generatedAt: string;
+  phases: Array<{
+    id: string;
+    title: string;
+    description: string;
+    files: Array<{
+      label: string;
+      relativePath: string;
+      exists: boolean;
+      byteSize?: number;
+      mtimeIso?: string;
+    }>;
+  }>;
+};
+
+/** Matches `GET /api/pipeline/trace` phase ids — not produced by Dynamic run (`/workflow`). */
+const OPTIONAL_TRACE_PHASE_IDS = new Set<string>(["phase2-translate"]);
+
+function maxMtimeFromTrace(trace: PipelineTraceJson | null): string | null {
+  if (!trace?.phases) return null;
+  let max = 0;
+  for (const ph of trace.phases) {
+    for (const f of ph.files) {
+      if (!f.exists || !f.mtimeIso) continue;
+      const t = Date.parse(f.mtimeIso);
+      if (Number.isFinite(t) && t > max) max = t;
+    }
+  }
+  return max > 0 ? new Date(max).toISOString() : null;
+}
 
 function StepIndicator(props: {
   current: WizardStep;
 }) {
-  const order: WizardStep[] = ["model", "run"];
+  const order: WizardStep[] = ["model", "run", "dashboard"];
   const labels: Record<WizardStep, string> = {
-    model: "1 · Model",
+    model: "1 · Setup",
     run: "2 · Run",
+    dashboard: "3 · Dashboard",
   };
   const idx = order.indexOf(props.current);
   return (
@@ -80,6 +149,25 @@ function WorkflowPageInner() {
   const [pipelineProgressPct, setPipelineProgressPct] = useState(0);
   const pipelineCompletedFracRef = useRef(0);
   const pipelineRafRef = useRef(0);
+
+  const [dashboardTrace, setDashboardTrace] = useState<PipelineTraceJson | null>(null);
+  const [dashboardKb, setDashboardKb] = useState<{
+    elementCount: number;
+    passportPreviewTotal: number;
+    passports: Array<{
+      elementName?: string;
+      expressId?: number;
+      ifcType?: string;
+      /** Same as Passports finder `?group=` (e.g. `IfcBeam`, `IfcCovering · CEILING`). */
+      groupKey: string;
+    }>;
+  } | null>(null);
+  const [dashboardKbError, setDashboardKbError] = useState<string | null>(null);
+  const [dashboardFetchedAt, setDashboardFetchedAt] = useState<string | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dashboardTraceError, setDashboardTraceError] = useState<string | null>(null);
+  const [lastCalcGwp, setLastCalcGwp] = useState<string | null>(null);
+  const [calcSkipped, setCalcSkipped] = useState(false);
 
   const cancelPipelineProgressAnim = useCallback(() => {
     if (pipelineRafRef.current) cancelAnimationFrame(pipelineRafRef.current);
@@ -127,9 +215,100 @@ function WorkflowPageInner() {
     router.replace(`/workflow?${q.toString()}`, { scroll: false });
   }, [projectId, router, searchParams]);
 
+  const syncWorkflowUrl = useCallback(
+    (nextStep: WizardStep) => {
+      const pid = projectId.trim() || "example";
+      const q = new URLSearchParams(searchParams.toString());
+      q.set("projectId", pid);
+      if (nextStep === "dashboard") q.set("step", "dashboard");
+      else q.delete("step");
+      router.replace(`/workflow?${q.toString()}`, { scroll: false });
+    },
+    [projectId, router, searchParams]
+  );
+
+  const resetDashboardSnapshot = useCallback(() => {
+    setDashboardTrace(null);
+    setDashboardKb(null);
+    setDashboardKbError(null);
+    setDashboardTraceError(null);
+    setDashboardFetchedAt(null);
+    setLastCalcGwp(null);
+    setCalcSkipped(false);
+  }, []);
+
+  const loadDashboard = useCallback(async (pid: string) => {
+    setDashboardLoading(true);
+    setDashboardKbError(null);
+    setDashboardTraceError(null);
+    try {
+      const tr = await fetch(
+        `/api/pipeline/trace?projectId=${encodeURIComponent(pid)}`
+      );
+      if (!tr.ok) {
+        setDashboardTrace(null);
+        setDashboardTraceError((await tr.text()) || tr.statusText || "Trace request failed");
+      } else {
+        setDashboardTrace((await tr.json()) as PipelineTraceJson);
+      }
+
+      const kbRes = await fetch(
+        `/api/kb/status?projectId=${encodeURIComponent(pid)}` +
+          `&includeElementPassports=true&elementPassportsLimit=50&elementPassportsUniqueName=true`
+      );
+      if (kbRes.ok) {
+        const j = (await kbRes.json()) as {
+          elementCount?: number;
+          elementPassportTotal?: number;
+          elementPassports?: Phase4ElementPassport[];
+        };
+        setDashboardKb({
+          elementCount: typeof j.elementCount === "number" ? j.elementCount : 0,
+          passportPreviewTotal:
+            typeof j.elementPassportTotal === "number" ? j.elementPassportTotal : 0,
+          passports: Array.isArray(j.elementPassports)
+            ? j.elementPassports.map((row) => ({
+                elementName: row.elementName,
+                expressId: row.expressId,
+                ifcType: row.ifcType,
+                groupKey: passportTypeGroupKeyFromRow(row),
+              }))
+            : [],
+        });
+      } else {
+        setDashboardKb(null);
+        const t = await kbRes.text().catch(() => "");
+        setDashboardKbError(t || kbRes.statusText || "KB status unavailable");
+      }
+    } catch (e) {
+      setDashboardTrace(null);
+      setDashboardKb(null);
+      const msg = e instanceof Error ? e.message : String(e);
+      setDashboardTraceError(msg);
+      setDashboardKbError(msg);
+    } finally {
+      setDashboardFetchedAt(new Date().toISOString());
+      setDashboardLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (searchParams.get("step") === "dashboard") {
+      setStep("dashboard");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (step !== "dashboard") return;
+    const pid = projectId.trim() || "example";
+    void loadDashboard(pid);
+  }, [step, projectId, loadDashboard]);
+
   const runFullPipeline = useCallback(async () => {
     setRunError(null);
+    resetDashboardSnapshot();
     setStep("run");
+    syncWorkflowUrl("run");
     setPipelineDetailsOpen(true);
     setRunning(true);
     cancelPipelineProgressAnim();
@@ -206,12 +385,15 @@ function WorkflowPageInner() {
         pipelineCompletedFracRef.current += WORKFLOW_PIPELINE_PHASE_WEIGHT.calculate;
         setPipelineProgressPct(100);
         setRunning(false);
+        setCalcSkipped(true);
+        setLastCalcGwp(null);
         showToast({
           type: "error",
           message:
-            "Nothing to calculate (quantities / LCA-ready EPD). Opening BIM viewer — use Phase 3 for details.",
+            "Nothing to calculate (quantities / LCA-ready EPD). Open Calculate or KB to fix matching — dashboard lists what is on disk.",
         });
-        router.replace(bimBuildingViewerHref(pid));
+        setStep("dashboard");
+        syncWorkflowUrl("dashboard");
         return;
       }
 
@@ -243,11 +425,14 @@ function WorkflowPageInner() {
         calcJson && typeof calcJson.totalKgCO2e === "number"
           ? calcJson.totalKgCO2e.toFixed(4)
           : "done";
+      setCalcSkipped(false);
+      setLastCalcGwp(typeof total === "string" && total !== "done" ? total : null);
       showToast({
         type: "success",
-        message: `Pipeline finished (GWP ≈ ${total} kg CO₂e). Opening BIM viewer…`,
+        message: `Pipeline finished (GWP ≈ ${total} kg CO₂e). Dashboard shows artifacts and package elements.`,
       });
-      router.replace(bimBuildingViewerHref(pid));
+      setStep("dashboard");
+      syncWorkflowUrl("dashboard");
     } catch (e) {
       fail(e instanceof Error ? e.message : String(e));
     }
@@ -257,15 +442,293 @@ function WorkflowPageInner() {
     endPipelinePhaseVisual,
     librarySample,
     projectId,
-    router,
+    resetDashboardSnapshot,
     showToast,
+    syncWorkflowUrl,
   ]);
 
+  const pidDisplay = projectId.trim() || "example";
+  const dataArtifactsFresh = maxMtimeFromTrace(dashboardTrace);
+
   return (
-    <div className="mx-auto max-w-2xl px-6 py-10">
-      <h1 className="mb-6 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+    <div className="mx-auto max-w-3xl px-6 py-10">
+      <h1 className="mb-4 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
         Dynamic run
       </h1>
+      <div className="mb-6">
+        <StepIndicator current={step} />
+      </div>
+
+      {step === "dashboard" ? (
+        <section
+          className="mb-6 rounded-3xl border border-violet-200/80 bg-gradient-to-b from-violet-50/50 to-white p-6 shadow-sm dark:border-violet-900/40 dark:from-violet-950/20 dark:to-zinc-950/80"
+          aria-label="Project overview"
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-violet-700 dark:text-violet-300">
+                Project overview
+              </p>
+              <p className="mt-1 font-mono text-sm text-zinc-900 dark:text-zinc-50">{pidDisplay}</p>
+              <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
+                Overview refreshed{" "}
+                <time dateTime={dashboardFetchedAt ?? undefined}>
+                  {dashboardFetchedAt
+                    ? new Date(dashboardFetchedAt).toLocaleString()
+                    : "—"}
+                </time>
+                {dataArtifactsFresh ? (
+                  <>
+                    {" "}
+                    · newest <span className="font-mono">data/</span> artifact{" "}
+                    <time dateTime={dataArtifactsFresh}>{new Date(dataArtifactsFresh).toLocaleString()}</time>
+                  </>
+                ) : null}
+              </p>
+              {lastCalcGwp ? (
+                <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  Last run GWP ≈ <span className="font-mono">{lastCalcGwp}</span> kg CO₂e
+                </p>
+              ) : null}
+              {calcSkipped ? (
+                <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
+                  Calculate was skipped (no LCA-ready rows). Fix matching in KB, then use Calculate.
+                </p>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={dashboardLoading || running}
+                onClick={() => void loadDashboard(pidDisplay)}
+              >
+                {dashboardLoading ? "Refreshing…" : "Refresh overview"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={running}
+                onClick={() => {
+                  setStep("model");
+                  syncWorkflowUrl("model");
+                }}
+              >
+                Back to setup
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                disabled={running}
+                onClick={() => {
+                  syncProjectToUrl();
+                  void runFullPipeline();
+                }}
+              >
+                Run pipeline again
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                Pipeline artifacts
+              </h3>
+              {dashboardTraceError ? (
+                <p className="mt-2 text-sm text-red-700 dark:text-red-300">{dashboardTraceError}</p>
+              ) : null}
+              {!dashboardTrace ? (
+                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                  {dashboardLoading ? "Loading trace…" : dashboardTraceError ? "" : "No trace loaded."}
+                </p>
+              ) : (
+                <div>
+                  <ul className="mt-2 divide-y divide-zinc-100 text-sm dark:divide-zinc-800">
+                    {dashboardTrace.phases.flatMap((ph) =>
+                      ph.files.map((f) => {
+                        const optionalPhase = OPTIONAL_TRACE_PHASE_IDS.has(ph.id);
+                        return (
+                          <li
+                            key={`${ph.id}-${f.relativePath}`}
+                            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-2"
+                          >
+                            <div className="min-w-0">
+                              <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                                {f.label || ph.title}
+                              </span>
+                              <span
+                                className="mt-0.5 block max-w-full font-mono text-[11px] text-zinc-500 dark:text-zinc-400"
+                                title={fileBasename(f.relativePath)}
+                              >
+                                {truncateBasenameFromStart(fileBasename(f.relativePath))}
+                              </span>
+                            </div>
+                            <div className="shrink-0 text-right font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                              {f.exists ? (
+                                <>
+                                  {f.mtimeIso ? new Date(f.mtimeIso).toLocaleString() : "ok"}
+                                  {f.byteSize != null ? ` · ${formatBytes(f.byteSize)}` : ""}
+                                </>
+                              ) : optionalPhase ? (
+                                <span className="text-zinc-400 dark:text-zinc-500" title={ph.description}>
+                                  not written (optional)
+                                </span>
+                              ) : (
+                                <span className="text-zinc-400">missing</span>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })
+                    )}
+                  </ul>
+                  <p className="mt-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+                    Dynamic run: IFC → parse → enrich → KB → calculate.{" "}
+                    <span className="font-mono">-translated.ttl</span> is only from the separate Translate
+                    step (<code className="font-mono text-[10px]">POST /api/translate</code>); material→EPD
+                    linking for this app is in <span className="font-mono">-kb.ttl</span>.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                Elements in this package (KB)
+              </h3>
+              {dashboardKbError ? (
+                <p className="mt-2 text-sm text-amber-800 dark:text-amber-200">{dashboardKbError}</p>
+              ) : dashboardKb ? (
+                <>
+                  <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                    <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                      {dashboardKb.elementCount}
+                    </span>{" "}
+                    elements in the linked graph.                     Preview lists up to {dashboardKb.passports.length} row
+                    {dashboardKb.passports.length === 1 ? "" : "s"} (unique element names). Index holds{" "}
+                    {dashboardKb.passportPreviewTotal || dashboardKb.passports.length} passport name
+                    {dashboardKb.passportPreviewTotal === 1 ? "" : "s"}.
+                  </p>
+                  <div className="mt-2 max-h-56 overflow-auto rounded-md border border-zinc-200 dark:border-zinc-700">
+                    <table className="w-full text-left text-xs">
+                      <thead className="sticky top-0 bg-zinc-50 dark:bg-zinc-900">
+                        <tr>
+                          <th className="px-2 py-1.5 font-medium text-zinc-600 dark:text-zinc-400">
+                            Element
+                          </th>
+                          <th className="px-2 py-1.5 font-medium text-zinc-600 dark:text-zinc-400">
+                            Type
+                          </th>
+                          <th className="px-2 py-1.5 font-medium text-zinc-600 dark:text-zinc-400">
+                            Open
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dashboardKb.passports.map((p, i) => (
+                          <tr
+                            key={`${p.expressId ?? i}-${i}`}
+                            className="border-t border-zinc-100 dark:border-zinc-800"
+                          >
+                            <td className="max-w-[10rem] truncate px-2 py-1 text-zinc-800 dark:text-zinc-200">
+                              {p.elementName ?? "—"}
+                            </td>
+                            <td className="whitespace-nowrap px-2 py-1 font-mono text-[10px] text-zinc-500">
+                              {p.ifcType ?? "—"}
+                            </td>
+                            <td className="px-2 py-1">
+                              {typeof p.expressId === "number" && Number.isFinite(p.expressId) ? (
+                                <Link
+                                  href={bimPassportsElementHref(pidDisplay, p.expressId, p.groupKey, {
+                                    from: "workflow",
+                                  })}
+                                  className="text-violet-600 underline decoration-violet-400/60 underline-offset-2 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
+                                >
+                                  Passports
+                                </Link>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                  {dashboardLoading ? "Loading KB…" : "No element list."}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">Deep links</h3>
+            <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+              <li>
+                <Link
+                  href={bimBuildingViewerHref(pidDisplay)}
+                  className="text-violet-600 underline decoration-violet-400/60 underline-offset-2 hover:text-violet-700 dark:text-violet-400"
+                >
+                  3D · Building
+                </Link>
+                <span className="ml-1 text-xs text-zinc-400">(mesh + orbit)</span>
+              </li>
+              <li>
+                <Link
+                  href={bimPassportsHref(pidDisplay)}
+                  className="text-violet-600 underline decoration-violet-400/60 underline-offset-2 hover:text-violet-700 dark:text-violet-400"
+                >
+                  Passports
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href={`/kb?projectId=${encodeURIComponent(pidDisplay)}`}
+                  className="text-violet-600 underline decoration-violet-400/60 underline-offset-2 hover:text-violet-700 dark:text-violet-400"
+                >
+                  KB
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href={`/calculate?projectId=${encodeURIComponent(pidDisplay)}`}
+                  className="text-violet-600 underline decoration-violet-400/60 underline-offset-2 hover:text-violet-700 dark:text-violet-400"
+                >
+                  Calculate
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href={`/timeline?projectId=${encodeURIComponent(pidDisplay)}`}
+                  className="text-violet-600 underline decoration-violet-400/60 underline-offset-2 hover:text-violet-700 dark:text-violet-400"
+                >
+                  Timeline
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href={`/deliveries?projectId=${encodeURIComponent(pidDisplay)}`}
+                  className="text-violet-600 underline decoration-violet-400/60 underline-offset-2 hover:text-violet-700 dark:text-violet-400"
+                >
+                  Deliveries
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/timeline/provenance"
+                  className="text-violet-600 underline decoration-violet-400/60 underline-offset-2 hover:text-violet-700 dark:text-violet-400"
+                >
+                  Timeline provenance
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </section>
+      ) : null}
 
       <section
         className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80"
@@ -296,6 +759,11 @@ function WorkflowPageInner() {
             {running ? "Running…" : "Run pipeline"}
           </Button>
         </div>
+        <p className="mt-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+          Not a dry run: for this <span className="font-mono">projectId</span> it overwrites pipeline
+          outputs under <span className="font-mono">data/</span> (IFC copy, base and enriched TTL, KB
+          TTL, carbon JSON/TTL as each step produces them). Other project ids are left alone.
+        </p>
       </section>
 
       <details
@@ -392,9 +860,6 @@ function WorkflowPageInner() {
           </span>
         </summary>
         <div className="border-t border-zinc-100 px-4 py-3 dark:border-zinc-800">
-          <div className="mb-3">
-            <StepIndicator current={step} />
-          </div>
           <div aria-live="polite" aria-busy={running}>
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
               Running pipeline
@@ -437,6 +902,7 @@ function WorkflowPageInner() {
                   onClick={() => {
                     setStep("model");
                     setRunError(null);
+                    syncWorkflowUrl("model");
                   }}
                 >
                   Back

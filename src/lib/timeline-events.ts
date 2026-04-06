@@ -33,6 +33,8 @@ export type TimelineBcfFields = {
 
 /** Bestek UI — one named IFC-type group. */
 export type TimelineBestekBindingFields = {
+  /** Shared UUID for all rows from one Save bindings (same as milestone `bestekBindingSaveBatchId`). */
+  bindingBatchId?: string;
   groupId?: string;
   architectName?: string;
   /** EPD slug from material dictionary when architect selected a row */
@@ -43,6 +45,8 @@ export type TimelineBestekBindingFields = {
   /** e.g. m², m³, st, kg — opmetingsstaat unit */
   articleUnit?: string;
   articleQuantity?: string;
+  /** Architect EUR unit price (same string as saved in bindings JSON). */
+  articleUnitPriceEur?: string;
   approvedBrandsJson?: string;
   orEquivalent?: string;
 };
@@ -105,6 +109,8 @@ export type TimelineEventPayload = {
   scheduleFields?: TimelineScheduleFields;
   bcfFields?: TimelineBcfFields;
   bestekBindingFields?: TimelineBestekBindingFields;
+  /** Present on `bestek_bindings_milestone` — same id as `bindingBatchId` on row events. */
+  bestekBindingSaveBatchId?: string;
   productCouplingFields?: TimelineProductCouplingFields;
 };
 
@@ -124,6 +130,7 @@ export type ParsedTimelineEvent = {
   scheduleFields?: TimelineScheduleFields;
   bcfFields?: TimelineBcfFields;
   bestekBindingFields?: TimelineBestekBindingFields;
+  bestekBindingSaveBatchId?: string;
   productCouplingFields?: TimelineProductCouplingFields;
 };
 
@@ -239,8 +246,16 @@ export function timelineEventToTurtle(p: TimelineEventPayload): string {
     addBk("bestekArticleNumber", bk.articleNumber);
     addBk("bestekArticleUnit", bk.articleUnit);
     addBk("bestekArticleQuantity", bk.articleQuantity);
+    addBk("bestekArticleUnitPriceEur", bk.articleUnitPriceEur);
     addBk("bestekApprovedBrandsJson", bk.approvedBrandsJson);
     addBk("bestekOrEquivalent", bk.orEquivalent);
+    addBk("bestekBindingBatchId", bk.bindingBatchId);
+  }
+  if (p.bestekBindingSaveBatchId !== undefined && p.bestekBindingSaveBatchId.trim()) {
+    lines[lines.length - 1] += " ;";
+    lines.push(
+      `    timeline:bestekBindingSaveBatchId ${turtleString(p.bestekBindingSaveBatchId.trim())}`
+    );
   }
   if (p.productCouplingFields) {
     const pc = p.productCouplingFields;
@@ -386,6 +401,7 @@ function parseBestekBindingFieldsFromStore(
   store: $rdf.Store,
   subj: unknown
 ): TimelineBestekBindingFields | undefined {
+  const bindingBatchId = lit(store, subj, TL("bestekBindingBatchId"));
   const groupId = lit(store, subj, TL("bestekGroupId"));
   const architectName = lit(store, subj, TL("bestekArchitectName"));
   const bestekMaterialSlug = lit(store, subj, TL("bestekMaterialSlug"));
@@ -394,9 +410,11 @@ function parseBestekBindingFieldsFromStore(
   const articleNumber = lit(store, subj, TL("bestekArticleNumber"));
   const articleUnit = lit(store, subj, TL("bestekArticleUnit"));
   const articleQuantity = lit(store, subj, TL("bestekArticleQuantity"));
+  const articleUnitPriceEur = lit(store, subj, TL("bestekArticleUnitPriceEur"));
   const approvedBrandsJson = lit(store, subj, TL("bestekApprovedBrandsJson"));
   const orEquivalent = lit(store, subj, TL("bestekOrEquivalent"));
   if (
+    !bindingBatchId &&
     !groupId &&
     !architectName &&
     !bestekMaterialSlug &&
@@ -405,12 +423,14 @@ function parseBestekBindingFieldsFromStore(
     !articleNumber &&
     !articleUnit &&
     !articleQuantity &&
+    !articleUnitPriceEur &&
     !approvedBrandsJson &&
     !orEquivalent
   ) {
     return undefined;
   }
   const o: TimelineBestekBindingFields = {};
+  if (bindingBatchId) o.bindingBatchId = bindingBatchId;
   if (groupId) o.groupId = groupId;
   if (architectName) o.architectName = architectName;
   if (bestekMaterialSlug) o.bestekMaterialSlug = bestekMaterialSlug;
@@ -419,6 +439,7 @@ function parseBestekBindingFieldsFromStore(
   if (articleNumber) o.articleNumber = articleNumber;
   if (articleUnit) o.articleUnit = articleUnit;
   if (articleQuantity) o.articleQuantity = articleQuantity;
+  if (articleUnitPriceEur) o.articleUnitPriceEur = articleUnitPriceEur;
   if (approvedBrandsJson) o.approvedBrandsJson = approvedBrandsJson;
   if (orEquivalent) o.orEquivalent = orEquivalent;
   return o;
@@ -479,6 +500,7 @@ export function parseTimelineTtl(ttl: string): ParsedTimelineEvent[] {
     const bcfFields = parseBcfFieldsFromStore(store, subj);
     const bestekBindingFields = parseBestekBindingFieldsFromStore(store, subj);
     const productCouplingFields = parseProductCouplingFieldsFromStore(store, subj);
+    const bestekBindingSaveBatchId = lit(store, subj, TL("bestekBindingSaveBatchId"));
 
     out.push({
       uri: key,
@@ -496,6 +518,7 @@ export function parseTimelineTtl(ttl: string): ParsedTimelineEvent[] {
       ...(scheduleFields ? { scheduleFields } : {}),
       ...(bcfFields ? { bcfFields } : {}),
       ...(bestekBindingFields ? { bestekBindingFields } : {}),
+      ...(bestekBindingSaveBatchId ? { bestekBindingSaveBatchId } : {}),
       ...(productCouplingFields ? { productCouplingFields } : {}),
     });
   }

@@ -6,10 +6,37 @@ import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/Button";
 import ProjectIdField from "@/components/ProjectIdField";
 import PipelineTraceDebugButton from "@/components/PipelineTraceDebugButton";
+import { useToast } from "@/components/ToastProvider";
 import { useProjectId } from "@/lib/useProjectId";
 
 function isValidFilesystemProjectId(value: string): boolean {
   return /^[-a-zA-Z0-9_]{1,80}$/.test(value.trim());
+}
+
+function formatDataBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+type AdminProjectRow = {
+  id: string;
+  fileCount: number;
+  hasCalcHistoryDir: boolean;
+  totalBytes: number;
+  samplePaths: string[];
+};
+
+function parseKbAuditProjectsResponse(j: unknown): string[] | null {
+  if (
+    j &&
+    typeof j === "object" &&
+    "projects" in j &&
+    Array.isArray((j as { projects: unknown }).projects)
+  ) {
+    return (j as { projects: string[] }).projects.filter((p) => typeof p === "string");
+  }
+  return null;
 }
 
 type DashCard = {
@@ -153,6 +180,7 @@ type KbAuditUiState =
 
 export default function AdminPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const { projectId, setProjectId } = useProjectId();
   const [newProjectLabel, setNewProjectLabel] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
@@ -160,6 +188,47 @@ export default function AdminPage() {
   const [kbProjects, setKbProjects] = useState<string[] | null>(null);
   const [kbProjectsErr, setKbProjectsErr] = useState<string | null>(null);
   const [kbAudit, setKbAudit] = useState<KbAuditUiState>({ status: "idle" });
+  const [diskProjects, setDiskProjects] = useState<AdminProjectRow[] | null>(null);
+  const [diskProjectsErr, setDiskProjectsErr] = useState<string | null>(null);
+  const [diskProjectsLoading, setDiskProjectsLoading] = useState(false);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+  const [emptyingTimelineId, setEmptyingTimelineId] = useState<string | null>(null);
+
+  const refreshDiskProjects = useCallback(async () => {
+    setDiskProjectsLoading(true);
+    setDiskProjectsErr(null);
+    try {
+      const r = await fetch("/api/admin/projects");
+      const j = (await r.json()) as { projects?: AdminProjectRow[]; error?: string };
+      if (!r.ok) {
+        setDiskProjectsErr(j.error ?? r.statusText);
+        setDiskProjects([]);
+        return;
+      }
+      setDiskProjects(Array.isArray(j.projects) ? j.projects : []);
+    } catch (e: unknown) {
+      setDiskProjectsErr(e instanceof Error ? e.message : String(e));
+      setDiskProjects([]);
+    } finally {
+      setDiskProjectsLoading(false);
+    }
+  }, []);
+
+  const refreshKbProjectIds = useCallback(async () => {
+    try {
+      const r = await fetch("/api/admin/kb-audit");
+      const j: unknown = await r.json();
+      const list = parseKbAuditProjectsResponse(j);
+      if (list) {
+        setKbProjects(list);
+        setKbProjectsErr(null);
+      } else {
+        setKbProjectsErr("Could not load project list");
+      }
+    } catch (e: unknown) {
+      setKbProjectsErr(e instanceof Error ? e.message : String(e));
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -167,15 +236,9 @@ export default function AdminPage() {
       .then((r) => r.json())
       .then((j: unknown) => {
         if (cancelled) return;
-        if (
-          j &&
-          typeof j === "object" &&
-          "projects" in j &&
-          Array.isArray((j as { projects: unknown }).projects)
-        ) {
-          setKbProjects(
-            (j as { projects: string[] }).projects.filter((p) => typeof p === "string")
-          );
+        const list = parseKbAuditProjectsResponse(j);
+        if (list) {
+          setKbProjects(list);
           setKbProjectsErr(null);
         } else {
           setKbProjectsErr("Could not load project list");
@@ -190,6 +253,80 @@ export default function AdminPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    void refreshDiskProjects();
+  }, [refreshDiskProjects]);
+
+  const deleteDiskProject = useCallback(
+    async (id: string) => {
+      const ok = window.confirm(
+        `Delete project “${id}”?\n\nThis removes IFC, TTL, enriched/KB/calc outputs, timeline, deliveries, bestek, and related files under data/ for this id. Cannot be undone.`
+      );
+      if (!ok) return;
+      setDeletingProjectId(id);
+      try {
+        const r = await fetch(`/api/admin/projects?projectId=${encodeURIComponent(id)}`, {
+          method: "DELETE",
+        });
+        const j = (await r.json().catch(() => ({}))) as {
+          error?: string;
+          removedFiles?: string[];
+          removedDirs?: string[];
+        };
+        if (!r.ok) {
+          showToast({ type: "error", message: j.error ?? r.statusText });
+          return;
+        }
+        const n = (j.removedFiles?.length ?? 0) + (j.removedDirs?.length ?? 0);
+        showToast({
+          type: "success",
+          message: n > 0 ? `Removed workspace ${id} (${n} path(s))` : `Removed workspace ${id}`,
+        });
+        if (projectId.trim() === id) setProjectId("example");
+        await refreshDiskProjects();
+        await refreshKbProjectIds();
+      } finally {
+        setDeletingProjectId(null);
+      }
+    },
+    [projectId, refreshDiskProjects, refreshKbProjectIds, setProjectId, showToast]
+  );
+
+  const emptyTimelineForProject = useCallback(
+    async (id: string) => {
+      const pid = id.trim();
+      if (!pid || !isValidFilesystemProjectId(pid)) {
+        showToast({ type: "error", message: "Invalid project id for timeline clear" });
+        return;
+      }
+      const ok = window.confirm(
+        `Empty the timeline for “${pid}”?\n\nAll events will be removed from data/${pid}-timeline.ttl (only prefix headers remain). Cannot be undone.`
+      );
+      if (!ok) return;
+      setEmptyingTimelineId(pid);
+      try {
+        const r = await fetch("/api/timeline/clear", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId: pid }),
+        });
+        const j = (await r.json().catch(() => ({}))) as { error?: string; path?: string };
+        if (!r.ok) {
+          showToast({ type: "error", message: j.error ?? r.statusText });
+          return;
+        }
+        showToast({
+          type: "success",
+          message: `Timeline emptied — ${typeof j.path === "string" ? j.path : pid}`,
+        });
+        await refreshDiskProjects();
+      } finally {
+        setEmptyingTimelineId(null);
+      }
+    },
+    [refreshDiskProjects, showToast]
+  );
 
   const runKbAudit = useCallback((pid: string) => {
     setKbAudit({ status: "loading", projectId: pid });
@@ -263,12 +400,13 @@ export default function AdminPage() {
         }
         setProjectId(pid);
         if (mode === "fromLabel") setNewProjectLabel("");
+        await refreshDiskProjects();
         router.push(`/timeline?projectId=${encodeURIComponent(pid)}`);
       } finally {
         setCreatingProject(false);
       }
     },
-    [newProjectLabel, projectId, router, setProjectId]
+    [newProjectLabel, projectId, refreshDiskProjects, router, setProjectId]
   );
 
   const traceApiHref = `/api/pipeline/trace?projectId=${encodeURIComponent(projectId)}`;
@@ -295,6 +433,141 @@ export default function AdminPage() {
           where the app supports it.
         </p>
       </header>
+
+      <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/80">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+              Projects on disk
+            </h2>
+            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+              Workspaces detected under <code className="font-mono">data/</code> from known filename
+              patterns (IFC, TTL, KB, calc, timeline, bestek, …). Deleting removes all listed artifacts
+              for that id — not a dry run. <strong>Empty timeline</strong> only resets{" "}
+              <code className="font-mono">*-timeline.ttl</code> via{" "}
+              <code className="font-mono">POST /api/timeline/clear</code>.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="shrink-0 text-sm"
+            disabled={diskProjectsLoading}
+            onClick={() => void refreshDiskProjects()}
+          >
+            {diskProjectsLoading ? "Refreshing…" : "Refresh"}
+          </Button>
+        </div>
+        {diskProjectsErr ? (
+          <p className="mt-3 text-xs text-red-600 dark:text-red-400" role="alert">
+            {diskProjectsErr}
+          </p>
+        ) : null}
+        <div className="mt-3 overflow-x-auto rounded-md border border-zinc-200 dark:border-zinc-700">
+          {diskProjects === null ? (
+            <p className="p-4 text-xs text-zinc-500 dark:text-zinc-400">Loading…</p>
+          ) : diskProjects.length === 0 ? (
+            <p className="p-4 text-xs text-zinc-500 dark:text-zinc-400">
+              No project workspaces found (or only files that don&apos;t match safe id patterns).
+            </p>
+          ) : (
+            <table className="min-w-full border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 bg-zinc-50 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-400">
+                  <th className="px-3 py-2">Project id</th>
+                  <th className="px-3 py-2">Files</th>
+                  <th className="px-3 py-2">Size</th>
+                  <th className="px-3 py-2">KB</th>
+                  <th className="px-3 py-2 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {diskProjects.map((row) => {
+                  const active = projectId.trim() === row.id;
+                  const hasKb = kbProjects?.includes(row.id) ?? false;
+                  return (
+                    <tr
+                      key={row.id}
+                      className={`border-b border-zinc-100 dark:border-zinc-800 ${
+                        active ? "bg-violet-50/80 dark:bg-violet-950/25" : ""
+                      }`}
+                    >
+                      <td className="px-3 py-2 font-mono text-[13px] text-zinc-900 dark:text-zinc-100">
+                        {row.id}
+                        {active ? (
+                          <span className="ml-2 text-[10px] font-sans font-normal uppercase text-violet-700 dark:text-violet-300">
+                            active
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums text-zinc-700 dark:text-zinc-300">
+                        {row.fileCount}
+                        {row.hasCalcHistoryDir ? (
+                          <span className="ml-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                            + history
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums text-zinc-700 dark:text-zinc-300">
+                        {formatDataBytes(row.totalBytes)}
+                      </td>
+                      <td className="px-3 py-2 text-zinc-600 dark:text-zinc-400">
+                        {hasKb ? (
+                          <span className="text-emerald-700 dark:text-emerald-400">yes</span>
+                        ) : (
+                          <span className="text-zinc-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            className="!px-2 !py-0.5 text-xs"
+                            onClick={() => setProjectId(row.id)}
+                          >
+                            Set active
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="!px-2 !py-0.5 text-xs text-amber-900 hover:bg-amber-50 dark:text-amber-200 dark:hover:bg-amber-950/40"
+                            disabled={deletingProjectId !== null || emptyingTimelineId !== null}
+                            onClick={() => void emptyTimelineForProject(row.id)}
+                          >
+                            {emptyingTimelineId === row.id ? "Clearing…" : "Empty timeline"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="!border-red-300 !px-2 !py-0.5 text-xs text-red-800 hover:bg-red-50 dark:!border-red-800 dark:text-red-200 dark:hover:bg-red-950/50"
+                            disabled={deletingProjectId !== null || emptyingTimelineId !== null}
+                            onClick={() => void deleteDiskProject(row.id)}
+                          >
+                            {deletingProjectId === row.id ? "Deleting…" : "Delete"}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+        {diskProjects && diskProjects.some((r) => r.samplePaths.length > 0) ? (
+          <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-500">
+            Sample paths (first files):{" "}
+            <span className="font-mono">
+              {diskProjects
+                .filter((r) => r.samplePaths.length)
+                .slice(0, 3)
+                .map((r) => `${r.id}: ${r.samplePaths.join(", ")}`)
+                .join(" · ")}
+            </span>
+          </p>
+        ) : null}
+      </section>
 
       <section className="rounded-lg border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
@@ -381,6 +654,22 @@ export default function AdminPage() {
             compactLabel="Pipeline debug trace (modal)"
             className="inline-flex items-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
           />
+          <Button
+            type="button"
+            variant="outline"
+            className="border-amber-300 text-sm text-amber-950 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-100 dark:hover:bg-amber-950/40"
+            disabled={
+              !isValidFilesystemProjectId(projectId) ||
+              emptyingTimelineId !== null ||
+              deletingProjectId !== null
+            }
+            title="Removes all timeline events for the active project id (prefix-only Turtle file)"
+            onClick={() => void emptyTimelineForProject(projectId)}
+          >
+            {emptyingTimelineId === projectId.trim()
+              ? "Clearing timeline…"
+              : "Empty timeline (active project)"}
+          </Button>
         </div>
       </section>
 

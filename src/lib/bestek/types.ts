@@ -26,6 +26,8 @@ export type BestekBinding = {
   article_unit?: string;
   /** Opmetingsstaat quantity (string so values like `124,5` stay as typed). */
   article_quantity?: string;
+  /** Architect unit price in EUR (string so values like `185,50` stay as typed). */
+  article_unit_price_eur?: string;
   created_by: string;
   created_at: string;
 };

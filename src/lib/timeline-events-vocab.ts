@@ -40,6 +40,8 @@ export const TIMELINE_EVENT_ACTIONS = [
   "bcf_coordination_event",
   /** Bestek: architect named an auto IFC-type group (/deliveries bestek UI) */
   "bestek_element_group_binding",
+  /** One milestone per Save bindings — links many row events via shared batch id */
+  "bestek_bindings_milestone",
   /** Contractor / procurement linked real products to bestek groups */
   "product_coupling_updated",
 ] as const;
@@ -61,6 +63,7 @@ export const TIMELINE_EVENT_LABELS: Record<TimelineEventAction, string> = {
   construction_schedule_task: "Construction schedule task",
   bcf_coordination_event: "BCF coordination issue",
   bestek_element_group_binding: "Bestek — element group named",
+  bestek_bindings_milestone: "Bestek — bindings saved (milestone)",
   product_coupling_updated: "Product coupling updated (contractor)",
 };
 

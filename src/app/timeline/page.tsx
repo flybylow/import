@@ -6,9 +6,10 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import ProjectIdField from "@/components/ProjectIdField";
+import { useToast } from "@/components/ToastProvider";
 import { useProjectId } from "@/lib/useProjectId";
 import { EPCIS_JSON_SEPARATOR, getEpcisHumanNotesForRow } from "@/lib/timeline/epcis";
-import type { TimelineEpcisFields } from "@/lib/timeline-events";
+import type { TimelineBestekBindingFields, TimelineEpcisFields } from "@/lib/timeline-events";
 import {
   extractIfcCategoryFromTitle,
   formatUtcMonthRail,
@@ -57,6 +58,10 @@ const TIMELINE_PROJECT_PRESETS: readonly { id: string; label: string }[] = [
     id: "lca-stakeholder-review",
     label: "LCA stakeholder review (demo thread)",
   },
+  {
+    id: "f01adaf1-a660-46d2-aecd-8ad95505207f",
+    label: "f01adaf1… (UUID)",
+  },
 ];
 
 /** `?view=graph` opens the Timeline KB graph; default is normal timeline + strip. */
@@ -94,6 +99,8 @@ type ParsedRow = {
   materialReference?: string;
   epcisFields?: TimelineEpcisFields;
   bcfFields?: { ifcGuid?: string; bcfIfcGuidsJson?: string };
+  bestekBindingFields?: TimelineBestekBindingFields;
+  bestekBindingSaveBatchId?: string;
 };
 
 function formatTimelineStamp(iso: string): string {
@@ -161,6 +168,24 @@ function eventTitleAndSummary(ev: ParsedRow): { title: string; summary: string }
   const human = humanRaw.trim();
   const notes = getEpcisHumanNotesForRow(ev);
   const notesJoined = notes.join(" · ");
+
+  if (ev.eventAction === "bestek_bindings_milestone") {
+    const lines = human.split(/\n/).map((s) => s.trim()).filter(Boolean);
+    const title = lines[0] ?? TIMELINE_EVENT_LABELS[ev.eventAction];
+    const summary = lines.slice(1).join(" · ") || notesJoined;
+    return { title, summary };
+  }
+
+  if (ev.eventAction === "bestek_element_group_binding" && ev.bestekBindingFields) {
+    const bk = ev.bestekBindingFields;
+    const head = [bk.groupId, bk.ifcType, bk.articleNumber?.trim() ? `Art. ${bk.articleNumber}` : ""]
+      .filter(Boolean)
+      .join(" · ");
+    const title = head || (human ? human.split(/\n/)[0]!.trim() : "") || TIMELINE_EVENT_LABELS[ev.eventAction];
+    const batchShort = bk.bindingBatchId ? `save-batch ${bk.bindingBatchId.slice(0, 8)}…` : "";
+    const summary = [batchShort, human, notesJoined].filter(Boolean).join(" · ");
+    return { title, summary };
+  }
 
   if (human) {
     const lines = human.split(/\n/).map((s) => s.trim()).filter(Boolean);
@@ -310,6 +335,40 @@ function EventLogRowMetadataDl({ ev, projectId }: { ev: ParsedRow; projectId: st
           />
         </dd>
       </div>
+      {ev.bestekBindingSaveBatchId ? (
+        <div className="min-w-0">
+          <dt className={metaLabelClass()}>Bestek save batch</dt>
+          <dd className={`${metaValueClass()} font-mono text-[10px]`}>
+            <EllipsisText text={ev.bestekBindingSaveBatchId} className="block" as="span" />
+          </dd>
+        </div>
+      ) : null}
+      {ev.bestekBindingFields?.bindingBatchId ? (
+        <div className="min-w-0">
+          <dt className={metaLabelClass()}>Binding batch (same save)</dt>
+          <dd className={`${metaValueClass()} font-mono text-[10px]`}>
+            <EllipsisText
+              text={ev.bestekBindingFields.bindingBatchId}
+              className="block"
+              as="span"
+            />
+          </dd>
+        </div>
+      ) : null}
+      {ev.eventAction === "bestek_bindings_milestone" && projectId.trim() ? (
+        <div className="min-w-0">
+          <dt className={metaLabelClass()}>Bestek in app</dt>
+          <dd className={metaValueClass()}>
+            <Link
+              href={`/deliveries?tab=bestek&bestekFiche=1&projectId=${encodeURIComponent(projectId.trim())}`}
+              className={provenanceUiLinkClass}
+              onClick={(e) => e.stopPropagation()}
+            >
+              Deliveries → Bestek tab →
+            </Link>
+          </dd>
+        </div>
+      ) : null}
       <div className="min-w-0">
         <dt className={metaLabelClass()}>Timestamp</dt>
         <dd
@@ -720,6 +779,16 @@ function TimelineEventDetailPanel(props: {
                   {displaySummary}
                 </p>
               ) : null}
+              {ev.eventAction === "bestek_bindings_milestone" && projectId.trim() ? (
+                <p className="mt-1.5">
+                  <Link
+                    href={`/deliveries?tab=bestek&bestekFiche=1&projectId=${encodeURIComponent(projectId.trim())}`}
+                    className="text-[11px] font-medium text-violet-700 underline underline-offset-2 hover:no-underline dark:text-violet-300"
+                  >
+                    Open saved bestek document (Deliveries) →
+                  </Link>
+                </p>
+              ) : null}
               {ev.eventAction === "bcf_coordination_event" ? (
                 <div
                   role="status"
@@ -1035,6 +1104,7 @@ function TimelineEventDetailPanel(props: {
 }
 
 export default function TimelinePage() {
+  const { showToast } = useToast();
   const { projectId, setProjectId } = useProjectId();
   const pathname = usePathname();
   const router = useRouter();
@@ -1260,6 +1330,40 @@ export default function TimelinePage() {
       setLoading(false);
     }
   }, [projectId]);
+
+  const [clearingTimeline, setClearingTimeline] = useState(false);
+
+  const clearTimelineToEmpty = useCallback(async () => {
+    const id = projectId.trim();
+    if (!id) return;
+    const ok = window.confirm(
+      `Empty the timeline for “${id}”?\n\nAll events will be removed from data/${id}-timeline.ttl (only prefix headers remain). This cannot be undone.`
+    );
+    if (!ok) return;
+    setClearingTimeline(true);
+    try {
+      const res = await fetch("/api/timeline/clear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: id }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { error?: string; path?: string };
+      if (!res.ok) {
+        showToast({
+          type: "error",
+          message: typeof j.error === "string" ? j.error : res.statusText,
+        });
+        return;
+      }
+      showToast({
+        type: "success",
+        message: `Timeline emptied — ${typeof j.path === "string" ? j.path : "data/…-timeline.ttl"}`,
+      });
+      await refresh();
+    } finally {
+      setClearingTimeline(false);
+    }
+  }, [projectId, refresh, showToast]);
 
   useEffect(() => {
     void refresh();
@@ -1839,6 +1943,20 @@ export default function TimelinePage() {
                 (see New event for curl).
               </p>
               <p className="font-mono text-[11px] text-zinc-600 dark:text-zinc-400">{timelineFileLine}</p>
+              <div className="flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+                <button
+                  type="button"
+                  disabled={clearingTimeline || !projectId.trim()}
+                  onClick={() => void clearTimelineToEmpty()}
+                  className="rounded-md border border-red-300 bg-white px-2.5 py-1.5 text-xs font-medium text-red-800 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:bg-zinc-950 dark:text-red-200 dark:hover:bg-red-950/40"
+                >
+                  {clearingTimeline ? "Clearing…" : "Empty timeline (remove all events)"}
+                </button>
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  Uses <code className="rounded bg-zinc-100 px-1 font-mono dark:bg-zinc-800">POST /api/timeline/clear</code>{" "}
+                  — same as Admin → Projects on disk.
+                </span>
+              </div>
             </div>
           </details>
           {loadError ? (

@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { suggestBestekUnitAndQuantity } from "@/lib/bestek/bestek-autofill-units";
 
-test("Masonry → m²", () => {
+test("Masonry → m², qty = element count placeholder", () => {
   const r = suggestBestekUnitAndQuantity({
     ifcType: "IfcWall",
     elementCount: 12,
@@ -11,10 +11,10 @@ test("Masonry → m²", () => {
     epdSlug: "masonry_brick",
   });
   assert.equal(r.unit, "m²");
-  assert.equal(r.quantity, "");
+  assert.equal(r.quantity, "12");
 });
 
-test("Concrete beam → m³", () => {
+test("Concrete beam → m³, qty = element count placeholder", () => {
   const r = suggestBestekUnitAndQuantity({
     ifcType: "IfcBeam",
     elementCount: 4,
@@ -22,9 +22,10 @@ test("Concrete beam → m³", () => {
     epdSlug: "concrete_general",
   });
   assert.equal(r.unit, "m³");
+  assert.equal(r.quantity, "4");
 });
 
-test("Concrete wall → m²", () => {
+test("Concrete wall → m², qty placeholder", () => {
   const r = suggestBestekUnitAndQuantity({
     ifcType: "IfcWall",
     elementCount: 8,
@@ -32,6 +33,7 @@ test("Concrete wall → m²", () => {
     epdSlug: "concrete_general",
   });
   assert.equal(r.unit, "m²");
+  assert.equal(r.quantity, "8");
 });
 
 test("Window → stuks × count", () => {
@@ -45,7 +47,7 @@ test("Window → stuks × count", () => {
   assert.equal(r.quantity, "16");
 });
 
-test("Zinc work → m²", () => {
+test("Zinc work → m², qty placeholder", () => {
   const r = suggestBestekUnitAndQuantity({
     ifcType: "IfcRoof",
     elementCount: 1,
@@ -53,9 +55,10 @@ test("Zinc work → m²", () => {
     epdSlug: "zinc_work",
   });
   assert.equal(r.unit, "m²");
+  assert.equal(r.quantity, "1");
 });
 
-test("Insulation → m² (boards)", () => {
+test("Insulation → m² (boards), qty placeholder", () => {
   const r = suggestBestekUnitAndQuantity({
     ifcType: "IfcCovering",
     elementCount: 40,
@@ -64,6 +67,7 @@ test("Insulation → m² (boards)", () => {
     declaredUnit: "kg",
   });
   assert.equal(r.unit, "m²");
+  assert.equal(r.quantity, "40");
 });
 
 test("Steel railing → stuks", () => {

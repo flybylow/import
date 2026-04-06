@@ -1,15 +1,21 @@
 import type { Phase4PassportMaterial } from "@/lib/phase4-passports";
 
-/** Passports tab with this element selected (full passport UI). Optional `group` = IFC type key (`?group=`). */
+/** Passports tab with this element selected (full passport UI). Optional `group` = finder bucket (`?group=`, e.g. `IfcBeam` or `IfcCovering · CEILING`). */
 export function bimPassportsElementHref(
   projectId: string,
   expressId: number,
-  groupKey?: string
+  groupKey?: string,
+  opts?: { from?: string }
 ): string {
+  const q = new URLSearchParams();
+  q.set("projectId", projectId);
+  q.set("view", "passports");
+  q.set("expressId", String(expressId));
   const g = groupKey?.trim();
-  const groupQs =
-    g && g.length > 0 ? `&group=${encodeURIComponent(g)}` : "";
-  return `/bim?projectId=${encodeURIComponent(projectId)}&view=passports&expressId=${encodeURIComponent(String(expressId))}${groupQs}`;
+  if (g) q.set("group", g);
+  const from = opts?.from?.trim();
+  if (from) q.set("from", from);
+  return `/bim?${q.toString()}`;
 }
 
 /** Passports tab: group (IFC type) only, no element — 3D highlights the whole group. */

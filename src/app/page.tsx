@@ -235,31 +235,6 @@ export default function Home() {
   return (
     <div className="min-h-screen p-6 bg-zinc-50 dark:bg-black">
       <div className="max-w-3xl mx-auto flex flex-col gap-4">
-        <section
-          className="rounded-xl border border-violet-200/90 bg-gradient-to-b from-violet-50/90 to-white p-4 shadow-sm dark:border-violet-900/50 dark:from-violet-950/40 dark:to-zinc-950"
-          aria-label="Quick path: 3D viewer only"
-        >
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-            Just want to see the model?
-          </h2>
-          <p className="mt-1.5 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-            Use the simple viewer: choose a library sample, upload an IFC, or open the built-in test
-            model. You go straight to 3D — no project name, import, or TTL steps.
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Link
-              href="/view"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-            >
-              Open 3D viewer
-            </Link>
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              Same as <span className="font-medium text-zinc-700 dark:text-zinc-300">View model</span>{" "}
-              in the top nav.
-            </span>
-          </div>
-        </section>
-
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">bimimport - Phase 1</h1>

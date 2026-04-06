@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Button from "@/components/Button";
 import ProjectIdField from "@/components/ProjectIdField";
 import { useToast } from "@/components/ToastProvider";
+import { bestekCategoryDisplayLabel } from "@/lib/bestek/bestek-category-ui";
 import { defaultMaterialSlugForIfcType } from "@/lib/bestek/ifc-type-material-defaults";
 import { filterBestekFormGroupsByIfcType } from "@/lib/bestek/phase0-excluded-ifc-types";
 import { passportDisplayTypeGroupKey } from "@/lib/ifc-passport-type-group";
@@ -359,7 +360,7 @@ export default function MatchMaterialsClient() {
                             {isSpace ? "— not applicable (spatial) —" : "— select —"}
                           </option>
                           {materialCategories.map((cat) => (
-                            <optgroup key={cat} label={cat}>
+                            <optgroup key={cat} label={bestekCategoryDisplayLabel(cat)}>
                               {(materials[cat] ?? []).map((m) => (
                                 <option
                                   key={`${cat}:${m.epdSlug}:${m.standardName}`}

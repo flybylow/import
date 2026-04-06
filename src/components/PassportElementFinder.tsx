@@ -168,14 +168,6 @@ export default function PassportElementFinder(props: Props) {
     return { byType: m, sortedTypeKeys: keys };
   }, [filteredItems]);
 
-  /** Keep type column aligned with URL / parent selection. */
-  useEffect(() => {
-    if (selectedExpressId == null) return;
-    const row = items.find((i) => i.expressId === selectedExpressId);
-    if (!row) return;
-    setSelectedTypeKey(row.typeGroupKey);
-  }, [selectedExpressId, items]);
-
   /** If filter removes the selected type bucket, clear type or pick first remaining. */
   useEffect(() => {
     if (selectedTypeKey != null && !byType.has(selectedTypeKey)) {
@@ -202,14 +194,33 @@ export default function PassportElementFinder(props: Props) {
 
   const typeKeysSig = sortedTypeKeys.join("\0");
 
-  /** URL `group=` → type column when no element is selected. */
+  /**
+   * URL `group=` selects the finder bucket. With `expressId`, still honor `group` when that element
+   * appears in that bucket (deep links from workflow / KB); otherwise fall back to the row’s type.
+   */
   useEffect(() => {
-    if (selectedExpressId != null) return;
     const g = urlGroupKey.trim();
-    if (!g) return;
-    if (!sortedTypeKeys.includes(g)) return;
-    setSelectedTypeKey(g);
-  }, [urlGroupKey, selectedExpressId, typeKeysSig]);
+    const hasGroup = g.length > 0 && sortedTypeKeys.includes(g);
+
+    if (selectedExpressId != null) {
+      if (hasGroup) {
+        const inGroup = byType.get(g)?.some((i) => i.expressId === selectedExpressId) === true;
+        if (inGroup) {
+          setSelectedTypeKey(g);
+          return;
+        }
+      }
+      const row = items.find((i) => i.expressId === selectedExpressId);
+      if (row) {
+        setSelectedTypeKey(row.typeGroupKey);
+      }
+      return;
+    }
+
+    if (hasGroup) {
+      setSelectedTypeKey(g);
+    }
+  }, [urlGroupKey, selectedExpressId, items, sortedTypeKeys, typeKeysSig, byType]);
 
   /** Keep the selected IFC type and element row visible inside their columns only (no page scroll). */
   useEffect(() => {

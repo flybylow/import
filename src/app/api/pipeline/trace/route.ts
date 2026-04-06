@@ -54,7 +54,10 @@ export async function GET(request: Request) {
       id: "phase1-parse",
       title: "Phase 1 — Parse",
       description: "IFC → triples (BOT elements, ontology materials).",
-      files: [statDataFile(dataDir, `${projectId}.ttl`, "Parsed graph")],
+      files: [
+        statDataFile(dataDir, `${projectId}.ifc`, "IFC model"),
+        statDataFile(dataDir, `${projectId}.ttl`, "Parsed graph"),
+      ],
     },
     {
       id: "phase1-enrich",

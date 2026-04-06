@@ -263,6 +263,7 @@ export default function KgForceGraph3D(props: {
   const graph = useMemo(() => {
     const linkData = cloneGraphLinks(links);
     if (forceDirected) {
+      // No x/y/z/fx/fy/fz — let d3-force-3d assign positions (see react-force-graph README).
       return {
         nodes: nodes.map((n) => ({
           id: n.id,
@@ -279,10 +280,16 @@ export default function KgForceGraph3D(props: {
       nodes: nodes.map((n) => {
         const z =
           typeof n.z === "number" && Number.isFinite(n.z) ? n.z : 0;
+        // Set x/y/z as well as fx/fy/fz: link rendering checks `start.hasOwnProperty('x')` before
+        // drawing; with cooldownTicks=0 the first tickFrame may not run d3.tick(), so coordinates
+        // must exist on the node objects from the start.
         return {
           id: n.id,
           label: n.label,
           kind: n.kind,
+          x: n.x,
+          y: n.y,
+          z,
           fx: n.x,
           fy: n.y,
           fz: z,
@@ -353,12 +360,18 @@ export default function KgForceGraph3D(props: {
               : "Drag to rotate · scroll to zoom"}
         </p>
       </div>
+      {/*
+        Remount when switching timeline-fixed vs force-3d. Otherwise three-forcegraph keeps prior
+        node positions / fixed coords and the graph looks like a flat 2D spine inside the 3D canvas.
+      */}
       <ForceGraph3D
+        key={forceDirected ? "mode-force-3d" : "mode-timeline-fixed"}
         ref={fgMethodsRef}
         width={size.width}
         height={size.height}
         backgroundColor="rgba(0,0,0,0)"
         graphData={graph as any}
+        numDimensions={3}
         nodeLabel={(n: any) => n.label}
         nodeVal={(n: any) => n.val}
         nodeColor={(n: any) => n.color}
@@ -399,14 +412,30 @@ export default function KgForceGraph3D(props: {
         onBackgroundClick={() => props.onBackgroundClick?.()}
         onEngineStop={() => {
           if (didInitialFitRef.current) return;
-          didInitialFitRef.current = true;
-          if (props.focusNodeId?.trim()) return;
-          const fg = fgMethodsRef.current as ForceGraphRef | null;
-          if (forceDirected) {
-            fg?.zoomToFit?.(0, 48);
+          const focus = props.focusNodeId?.trim();
+          if (focus) {
+            didInitialFitRef.current = true;
             return;
           }
-          fitCameraToNodeLayout(fg, props.nodes, size.width, size.height, 48, 0);
+          // Engine can stop on the first frame (cooldownTicks=0 for timeline). Ref to the kapsule
+          // instance is not always ready in that same tick — wait until we can actually move camera.
+          let attempts = 20;
+          const runInitialFit = () => {
+            if (didInitialFitRef.current) return;
+            const fg = fgMethodsRef.current as ForceGraphRef | null;
+            const ready = fg != null;
+            if (!ready && attempts-- > 0) {
+              requestAnimationFrame(runInitialFit);
+              return;
+            }
+            didInitialFitRef.current = true;
+            if (forceDirected) {
+              fg?.zoomToFit?.(0, 48);
+              return;
+            }
+            fitCameraToNodeLayout(fg, props.nodes, size.width, size.height, 48, 0);
+          };
+          runInitialFit();
         }}
       />
     </div>

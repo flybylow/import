@@ -44,10 +44,22 @@ export type BestekAutofillUnitInput = {
 };
 
 /**
- * Returns display unit (m², m³, kg, stuks) and suggested quantity string.
- * Quantity is only prefilled when the unit is `stuks` (element count in group).
+ * When the architect unit is m² / m³ / kg we still need a non-empty quantity to save bindings.
+ * Uses **element count in the IFC group** as a **reference placeholder** (not measured geometry).
+ * Replace with real opmeting when available.
  */
-export function suggestBestekUnitAndQuantity(input: BestekAutofillUnitInput): {
+function ensureSubmittableQuantity(
+  unit: string,
+  quantity: string,
+  elementCount: number
+): { unit: string; quantity: string } {
+  const q = quantity.trim();
+  if (q.length > 0) return { unit, quantity: q };
+  const n = Math.max(0, Math.floor(Number(elementCount)));
+  return { unit, quantity: Number.isFinite(n) ? String(n) : "0" };
+}
+
+function suggestBestekUnitAndQuantityCore(input: BestekAutofillUnitInput): {
   unit: string;
   quantity: string;
 } {
@@ -149,4 +161,17 @@ export function suggestBestekUnitAndQuantity(input: BestekAutofillUnitInput): {
   }
 
   return { unit: "m²", quantity: "" };
+}
+
+/**
+ * Returns display unit (m², m³, kg, stuks) and quantity string.
+ * `stuks` uses element count as real quantity. For m²/m³/kg, when geometry is unknown, quantity defaults
+ * to **element count** so rows stay submittable — treat as reference until replaced with measured values.
+ */
+export function suggestBestekUnitAndQuantity(input: BestekAutofillUnitInput): {
+  unit: string;
+  quantity: string;
+} {
+  const r = suggestBestekUnitAndQuantityCore(input);
+  return ensureSubmittableQuantity(r.unit, r.quantity, input.elementCount);
 }

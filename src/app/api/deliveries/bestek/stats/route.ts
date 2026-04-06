@@ -92,6 +92,7 @@ export async function GET(request: Request) {
         article_number: b?.article_number ?? null,
         article_unit: b?.article_unit ?? null,
         article_quantity: b?.article_quantity ?? null,
+        article_unit_price_eur: b?.article_unit_price_eur ?? null,
         material_slug: slug ?? null,
         material_name: dict?.standardName ?? null,
         gwp_kg_co2e_per_tonne: dict?.gwpKgCo2ePerTonne ?? null,

@@ -26,7 +26,7 @@ export default function MainNavHeader() {
           <Link
             href="/workflow"
             className="shrink-0 text-sm font-medium text-violet-800 hover:underline dark:text-violet-200"
-            title="Source + project name → run full pipeline → opens BIM viewer"
+            title="Full pipeline for this project id (writes under data/ for that id — not a dry run) → opens BIM viewer"
           >
             Dynamic run
           </Link>

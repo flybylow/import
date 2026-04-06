@@ -45,6 +45,32 @@ export type IfcParsedPhase1 = {
   building: IfcBuildingNode;
 };
 
+/** Small payload for APIs — avoid JSON-encoding full `IfcParsedPhase1` on large models. */
+export type IfcParsedPhase1Summary = {
+  ifcSchema?: string;
+  elementCount: number;
+  storeyCount: number;
+  spaceCount: number;
+};
+
+export function summarizeIfcParsedPhase1(parsed: IfcParsedPhase1): IfcParsedPhase1Summary {
+  let spaceCount = 0;
+  let elementCount = 0;
+  for (const st of parsed.building.storeys) {
+    spaceCount += st.spaces.length;
+    elementCount += st.elements.length;
+    for (const sp of st.spaces) {
+      elementCount += sp.elements.length;
+    }
+  }
+  return {
+    ifcSchema: parsed.ifcSchema,
+    elementCount,
+    storeyCount: parsed.building.storeys.length,
+    spaceCount,
+  };
+}
+
 function readIfcString(v: unknown): string | undefined {
   if (typeof v === "string") return v;
   if (v && typeof v === "object" && "value" in v) {

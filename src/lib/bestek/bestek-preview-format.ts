@@ -1,5 +1,6 @@
 /**
- * Draft “bestek-style” text for the Deliveries panel. Money is placeholder only.
+ * Draft “bestek-style” text for the Deliveries panel.
+ * €/unit uses architect input when set; otherwise unit-based placeholder rates.
  */
 
 export type BestekPreviewCatalog = { category: string; entries: { epdSlug: string }[] }[];
@@ -36,6 +37,25 @@ export function parseQtyLoose(q: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** EUR / unit from architect input (allows €, spaces, comma decimals). */
+export function parseUnitPriceLoose(raw: string): number | null {
+  const t = raw
+    .trim()
+    .replace(/€/gu, "")
+    .replace(/\s/g, "")
+    .replace(",", ".");
+  if (!t) return null;
+  const n = Number(t);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+/** Architect price when parseable; otherwise placeholder rates from unit. */
+export function resolvePreviewUnitPriceEur(articleUnit: string, articleUnitPriceEur: string): number {
+  const p = parseUnitPriceLoose(articleUnitPriceEur);
+  if (p != null) return p;
+  return hardcodedUnitPriceEur(articleUnit);
+}
+
 export function formatEuroNl(n: number): string {
   return new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(n);
 }
@@ -45,6 +65,8 @@ export type BestekPreviewRowInput = {
   article_number: string;
   article_unit: string;
   article_quantity: string;
+  /** Architect EUR / unit (empty → preview uses unit-based placeholder). */
+  article_unit_price_eur: string;
   architect_name: string;
   material_slug: string;
   or_equivalent: boolean;
@@ -82,9 +104,9 @@ function opmetingsstaatParts(input: {
   const q = input.qty.trim() || "—";
   const u = input.unit.trim() || "—";
   const pu = formatEuroNl(input.unitPrice);
-  const total =
-    input.lineTotal != null ? formatEuroNl(input.lineTotal) : "— (geen hoeveelheid)";
-  return `Opmetingsstaat: Art. ${art} | ${label} | ${q} ${u} | ${pu}/${u === "—" ? "eenheid" : u} | = ${total}`;
+  const total = input.lineTotal != null ? formatEuroNl(input.lineTotal) : "—";
+  const eenh = u === "—" ? "eenh." : u;
+  return `Opm.: Art. ${art} | ${label} | ${q} ${u} | ${pu}/${eenh} | = ${total}`;
 }
 
 /**
@@ -112,10 +134,10 @@ export function buildBestekPreviewChapters(
     const firstSlug = chapterRows[0]?.material_slug ?? "";
     const catLabel = categoryLabelForSlug(catalog, firstSlug);
     const chapterTitle =
-      chapterKey === "_" ? `Overige — ${catLabel}` : `ARTIKEL ${chapterKey} — ${catLabel.toUpperCase()}`;
+      chapterKey === "_" ? `Overige — ${catLabel}` : `Art. ${chapterKey} — ${catLabel}`;
 
     const lines: BestekPreviewLine[] = chapterRows.map((r) => {
-      const unitPriceEur = hardcodedUnitPriceEur(r.article_unit);
+      const unitPriceEur = resolvePreviewUnitPriceEur(r.article_unit, r.article_unit_price_eur);
       const qtyN = parseQtyLoose(r.article_quantity);
       const lineTotalEur = qtyN != null ? qtyN * unitPriceEur : null;
       const opmetingsstaatLine = opmetingsstaatParts({

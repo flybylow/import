@@ -74,38 +74,9 @@ const DEEP_DOCS: { path: string; label: string }[] = [
   { path: "docs/bim-to-kg-journey.md", label: "IFC → knowledge graph journey" },
 ];
 
-const FLOW_STEPS = [
-  {
-    id: "parse",
-    title: "Parse leveringsbon",
-    detail:
-      "Valid JSON with an items array. Each line needs a description (Belgian supplier text).",
-  },
-  {
-    id: "normalize",
-    title: "Normalize descriptions",
-    detail:
-      "Same rules as IFC material matching: NFKD, lowercase, NL/BE tokens mapped to English match tokens (see material-norm).",
-  },
-  {
-    id: "match",
-    title: "Dictionary match",
-    detail:
-      "Substring match against matchPatterns in src/data/material-dictionary.json (first hit wins).",
-  },
-  {
-    id: "gwp",
-    title: "GWP (MVP)",
-    detail:
-      "Optional gwpKgCo2ePerTonne on dictionary rows until Phase 2 hydrates from KB / sources.",
-  },
-  {
-    id: "turtle",
-    title: "Turtle output",
-    detail:
-      "dpp: delivery note + lines; bim:epd-* IRIs for matched slugs. Ready for graph ingest.",
-  },
-] as const;
+/** Single-line summary of the leveringsbon ingest path (replaces the old numbered step rail). */
+const LEVERINGSBON_SUMMARY_LINE =
+  "JSON with an items[] of supplier lines → normalize (material-norm) → dictionary match (material-dictionary.json, first hit) → optional MVP GWP → Turtle (dpp delivery note + bim:epd-*); use the checkboxes for a timeline event and/or append to deliveries TTL.";
 
 const TECH_FILES = [
   { path: "src/lib/deliveries-importer.ts", label: "Core ingest + Turtle" },
@@ -114,35 +85,10 @@ const TECH_FILES = [
   { path: "src/lib/material-norm.ts", label: "Normalization" },
 ];
 
-function StepRail() {
-  return (
-    <ol className="relative ml-2 space-y-0 border-l border-zinc-200 pl-0 dark:border-zinc-700">
-      {FLOW_STEPS.map((step, i) => (
-        <li key={step.id} className="mb-3 ml-4 last:mb-0">
-          <span
-            className="absolute -left-2 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-700 text-[8px] font-bold text-white dark:bg-emerald-600"
-            aria-hidden
-          >
-            {i + 1}
-          </span>
-          <div className="pl-3">
-            <h3 className="text-[11px] font-semibold text-zinc-900 dark:text-zinc-50">
-              {step.title}
-            </h3>
-            <p className="mt-0.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
-              {step.detail}
-            </p>
-          </div>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
 function TechnicalFilesPanel() {
   return (
     <div className="rounded border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900/40">
-      <ul className="space-y-1 text-[10px] font-mono text-zinc-700 dark:text-zinc-300">
+      <ul className="space-y-1 text-[13px] font-mono text-zinc-700 dark:text-zinc-300">
         {TECH_FILES.map((f) => (
           <li key={f.path}>
             <span className="text-zinc-500 dark:text-zinc-500">{f.label}: </span>
@@ -157,11 +103,11 @@ function TechnicalFilesPanel() {
 function DeepDocumentationPanel() {
   return (
     <div className="rounded border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-950">
-      <ul className="space-y-1.5 text-[11px] leading-snug">
+      <ul className="space-y-1.5 text-[13px] leading-snug">
         {DEEP_DOCS.map((d) => (
           <li key={d.path}>
             <span className="text-zinc-700 dark:text-zinc-300">{d.label}</span>{" "}
-            <code className="font-mono text-[10px] text-emerald-800 dark:text-emerald-400">
+            <code className="font-mono text-[13px] text-emerald-800 dark:text-emerald-400">
               {d.path}
             </code>
           </li>
@@ -171,12 +117,12 @@ function DeepDocumentationPanel() {
   );
 }
 
-type DeliveriesTabId = "flow" | "ingest" | "bestek";
+type DeliveriesTabId = "leveringsbon" | "bestek";
 
+/** Order matters: Leveringsbon is always the first tab (left in LTR; `dir="ltr"` on the tablist keeps that in RTL too). */
 const TAB_DEFS: { id: DeliveriesTabId; label: string; title: string }[] = [
-  { id: "flow", label: "Flow", title: "What happens (in order)" },
-  { id: "ingest", label: "Ingest", title: "Ingest leveringsbon JSON" },
-  { id: "bestek", label: "Bestek", title: "Bestek dictionary & bindings" },
+  { id: "leveringsbon", label: "Leveringsbon", title: "Flow, JSON ingest, matches & Turtle" },
+  { id: "bestek", label: "Bestek", title: "Bestek dictionary, bindings & preview" },
 ];
 
 function leveringsbonFicheFromParsed(parsed: unknown): LeveringsbonFicheData | null {
@@ -217,14 +163,15 @@ function DeliveriesPageInner() {
 
   const activeTab = useMemo((): DeliveriesTabId => {
     const t = searchParams.get("tab")?.trim().toLowerCase();
-    if (t === "ingest" || t === "bestek" || t === "flow") return t;
-    return "flow";
+    if (t === "bestek") return "bestek";
+    /** Legacy ?tab=flow|ingest and default: one leveringsbon workspace */
+    return "leveringsbon";
   }, [searchParams]);
 
   const setActiveTab = useCallback(
     (id: DeliveriesTabId) => {
       const q = new URLSearchParams(searchParams.toString());
-      if (id === "flow") q.delete("tab");
+      if (id === "leveringsbon") q.delete("tab");
       else q.set("tab", id);
       const qs = q.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
@@ -235,6 +182,8 @@ function DeliveriesPageInner() {
   /** Bestek table filter: absent sp/pr = hide those IFC buckets; sp=1 / pr=1 = show them (survives reload). */
   const hideSpatialTypes = searchParams.get("sp") !== "1";
   const hideMetaTypes = searchParams.get("pr") !== "1";
+  /** Expand read-only bestek fiche (timeline deep link uses `bestekFiche=1`). */
+  const openSavedBestekFiche = searchParams.get("bestekFiche") === "1";
 
   const onHideSpatialTypesChange = useCallback(
     (hide: boolean) => {
@@ -325,7 +274,6 @@ function DeliveriesPageInner() {
         return;
       }
       setResult(data);
-      setActiveTab("ingest");
       const p = data.persistence;
       const persisted =
         p &&
@@ -361,27 +309,27 @@ function DeliveriesPageInner() {
   }, [result?.turtle, showToast]);
 
   return (
-    <div className="mx-auto box-border w-full min-w-0 max-w-[1024px] px-4 py-4 space-y-3">
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 pb-2 dark:border-zinc-800">
-        <div className="flex min-w-0 items-center gap-2">
-          <h1 className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-50">
-            Deliveries
-          </h1>
-          <InfoDetails label="About deliveries importer">
-            <p className="mb-2">
-              Match delivery-note lines to the material dictionary, confidence and MVP GWP, copy
-              Turtle. Same contract as{" "}
-              <code className="font-mono text-[10px]">POST /api/deliveries/ingest</code>. Ingest tab:
-              optional timeline entry and/or RDF append under{" "}
-              <code className="font-mono text-[10px]">data/&lt;projectId&gt;</code>.
-            </p>
-          </InfoDetails>
-          <span className="hidden text-[10px] text-zinc-500 sm:inline dark:text-zinc-400">
-            Leveringsbon
-          </span>
-        </div>
+    <div className="mx-auto box-border w-full min-w-0 max-w-[1100px] px-4 py-4 space-y-3">
+      <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 space-y-0.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="truncate text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+                Deliveries
+              </h1>
+              <InfoDetails label="About deliveries importer">
+                <p className="mb-2">
+                  Match delivery-note lines to the material dictionary, confidence and MVP GWP, copy
+                  Turtle. Same contract as{" "}
+                  <code className="font-mono text-[12px]">POST /api/deliveries/ingest</code>. Optional
+                  timeline entry and/or RDF append under{" "}
+                  <code className="font-mono text-[12px]">data/&lt;projectId&gt;</code>.
+                </p>
+              </InfoDetails>
+            </div>
+          </div>
         <nav
-          className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]"
+          className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px]"
           aria-label="Related pages"
         >
           <Link href="/pipeline" className="text-emerald-700 hover:underline dark:text-emerald-400">
@@ -412,12 +360,14 @@ function DeliveriesPageInner() {
             Match materials
           </Link>
         </nav>
+        </div>
       </header>
 
       <div className="border-b border-zinc-200 dark:border-zinc-800">
         <div
           role="tablist"
           aria-label="Deliveries sections"
+          dir="ltr"
           className="flex flex-wrap gap-1 -mb-px"
         >
           {TAB_DEFS.map((t) => {
@@ -434,7 +384,7 @@ function DeliveriesPageInner() {
                 tabIndex={selected ? 0 : -1}
                 onClick={() => setActiveTab(t.id)}
                 className={[
-                  "shrink-0 rounded-t border px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-zinc-950",
+                  "shrink-0 rounded-t border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-zinc-950",
                   selected
                     ? "border-zinc-200 border-b-white bg-white text-zinc-900 dark:border-zinc-700 dark:border-b-zinc-950 dark:bg-zinc-950 dark:text-zinc-50"
                     : "border-transparent text-zinc-600 hover:border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:border-zinc-800 dark:hover:bg-zinc-900/50 dark:hover:text-zinc-100",
@@ -449,95 +399,72 @@ function DeliveriesPageInner() {
 
       <div
         role="tabpanel"
-        id="deliveries-panel-flow"
-        aria-labelledby="deliveries-tab-flow"
-        hidden={activeTab !== "flow"}
-        className="space-y-2 pt-3"
+        id="deliveries-panel-leveringsbon"
+        aria-labelledby="deliveries-tab-leveringsbon"
+        hidden={activeTab !== "leveringsbon"}
+        className="space-y-4 pt-3"
       >
-        <CollapseSection title="Sample fiche (visual)">
-          <p className="mb-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-            Paper-style preview; Ingest tab holds the JSON.
+        <section aria-label="Leveringsbon ingest" className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">
+            Leveringsbon
+          </h2>
+          <p className="max-w-3xl text-sm leading-snug text-zinc-600 dark:text-zinc-400">
+            {LEVERINGSBON_SUMMARY_LINE}
           </p>
-          <LeveringsbonFicheVisual data={ficheData} variant="full" />
-        </CollapseSection>
-        <CollapseSection title="Pipeline steps (detail)">
-          <div className="max-w-2xl">
-            <StepRail />
+          <div className="flex max-w-md flex-wrap items-center gap-2 rounded border border-zinc-200 bg-zinc-50/80 px-2 py-2 dark:border-zinc-800 dark:bg-zinc-900/30">
+            <ProjectIdField value={projectId} onChange={setProjectId} label="Project" />
+            <InfoDetails label="Persistence (data folder)">
+              <p>
+                No SQL server — state under <code className="font-mono">data/</code>. See{" "}
+                <code className="font-mono text-[12px]">docs/deliveries-importer-integration.md</code>{" "}
+                for external DB notes.
+              </p>
+            </InfoDetails>
+            <div className="flex w-full flex-col gap-1.5 text-[13px] text-zinc-800 dark:text-zinc-200">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="rounded border-zinc-300 dark:border-zinc-600"
+                  checked={recordTimelineEvent}
+                  onChange={(e) => setRecordTimelineEvent(e.target.checked)}
+                />
+                <span>Append timeline event</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="rounded border-zinc-300 dark:border-zinc-600"
+                  checked={appendDeliveriesTurtle}
+                  onChange={(e) => setAppendDeliveriesTurtle(e.target.checked)}
+                />
+                <span>Append Turtle to deliveries TTL</span>
+              </label>
+            </div>
           </div>
-        </CollapseSection>
-        <CollapseSection title="Technical files">
-          <TechnicalFilesPanel />
-        </CollapseSection>
-        <CollapseSection title="Repo documentation links">
-          <DeepDocumentationPanel />
-        </CollapseSection>
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-          <button
-            type="button"
-            onClick={() => setActiveTab("ingest")}
-            className="font-medium text-emerald-700 underline underline-offset-2 dark:text-emerald-400"
-          >
-            Ingest tab
-          </button>
-          — JSON, run, matches, Turtle.
-        </p>
-      </div>
 
-      <div
-        role="tabpanel"
-        id="deliveries-panel-ingest"
-        aria-labelledby="deliveries-tab-ingest"
-        hidden={activeTab !== "ingest"}
-        className="space-y-3 pt-3"
-      >
-        <div className="flex max-w-md flex-wrap items-center gap-2 rounded border border-zinc-200 bg-zinc-50/80 px-2 py-2 dark:border-zinc-800 dark:bg-zinc-900/30">
-          <ProjectIdField value={projectId} onChange={setProjectId} label="Project" />
-          <InfoDetails label="Persistence (data folder)">
-            <p>
-              No SQL server — state under <code className="font-mono">data/</code>. See{" "}
-              <code className="font-mono text-[10px]">docs/deliveries-importer-integration.md</code>{" "}
-              for external DB notes.
-            </p>
-          </InfoDetails>
-          <div className="flex w-full flex-col gap-1.5 text-[11px] text-zinc-800 dark:text-zinc-200">
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                className="rounded border-zinc-300 dark:border-zinc-600"
-                checked={recordTimelineEvent}
-                onChange={(e) => setRecordTimelineEvent(e.target.checked)}
-              />
-              <span>Append timeline event</span>
+          <CollapseSection title="Live preview (JSON)" defaultOpen={false}>
+            <LeveringsbonFicheVisual data={ficheData} variant="compact" />
+          </CollapseSection>
+
+          <CollapseSection title="JSON" defaultOpen={false}>
+            <label htmlFor="deliveries-json" className="sr-only">
+              Leveringsbon JSON body
             </label>
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                className="rounded border-zinc-300 dark:border-zinc-600"
-                checked={appendDeliveriesTurtle}
-                onChange={(e) => setAppendDeliveriesTurtle(e.target.checked)}
-              />
-              <span>Append Turtle to deliveries TTL</span>
-            </label>
-          </div>
-        </div>
-        <CollapseSection title="Live preview (JSON)" defaultOpen>
-          <LeveringsbonFicheVisual data={ficheData} variant="compact" />
-        </CollapseSection>
-        <div>
-          <label
-            htmlFor="deliveries-json"
-            className="mb-1 block text-xs font-medium text-zinc-800 dark:text-zinc-100"
-          >
-            JSON
-          </label>
-          <textarea
-            id="deliveries-json"
-            value={jsonText}
-            onChange={(e) => setJsonText(e.target.value)}
-            spellCheck={false}
-            className="w-full min-h-[160px] rounded border border-zinc-300 bg-white p-2 font-mono text-[11px] text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
-          />
-          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <textarea
+              id="deliveries-json"
+              value={jsonText}
+              onChange={(e) => setJsonText(e.target.value)}
+              spellCheck={false}
+              className="w-full min-h-[160px] rounded border border-zinc-300 bg-white p-2 font-mono text-[13px] text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+            />
+            <div className="mt-2">
+              <Button type="button" variant="outline" onClick={() => setJsonText(SAMPLE_JSON)}>
+                Reset sample
+              </Button>
+            </div>
+          </CollapseSection>
+
+          <div className="flex flex-wrap items-center gap-3">
             <Button
               type="button"
               variant="primary"
@@ -546,35 +473,28 @@ function DeliveriesPageInner() {
             >
               {loading ? "Running…" : "Run ingest"}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setJsonText(SAMPLE_JSON)}
-            >
-              Reset sample
-            </Button>
             {itemCount != null ? (
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">
                 {itemCount} line{itemCount === 1 ? "" : "s"} in JSON
               </span>
             ) : null}
           </div>
           {parseError ? (
-            <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
               JSON: {parseError}
             </p>
           ) : null}
           {fetchError ? (
-            <p className="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
               {fetchError}
             </p>
           ) : null}
-        </div>
+        </section>
 
         {result ? (
-          <div className="space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+          <div className="space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800" id="deliveries-ingest-results">
               {result.persistence ? (
-                <section className="rounded border border-emerald-200 bg-emerald-50/60 px-2 py-2 text-[11px] dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                <section className="rounded border border-emerald-200 bg-emerald-50/60 px-2 py-2 text-[13px] dark:border-emerald-900/50 dark:bg-emerald-950/20">
                   <h2 className="mb-1 font-semibold text-emerald-900 dark:text-emerald-200">
                     Saved
                   </h2>
@@ -611,7 +531,7 @@ function DeliveriesPageInner() {
                 </section>
               ) : null}
               <section>
-                <h2 className="mb-2 text-xs font-semibold text-zinc-900 dark:text-zinc-50">
+                <h2 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
                   Summary
                 </h2>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -625,10 +545,10 @@ function DeliveriesPageInner() {
                       key={String(label)}
                       className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950"
                     >
-                      <p className="text-[9px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                      <p className="text-[13px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                         {label}
                       </p>
-                      <p className="text-base font-semibold tabular-nums text-zinc-900 dark:text-zinc-50">
+                      <p className="text-lg font-semibold tabular-nums text-zinc-900 dark:text-zinc-50">
                         {typeof val === "number" && label === "Avg confidence"
                           ? val.toFixed(2)
                           : val}
@@ -646,23 +566,23 @@ function DeliveriesPageInner() {
                       className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/30 overflow-hidden"
                     >
                       <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-zinc-200/80 dark:border-zinc-800">
-                        <span className="text-[10px] font-mono text-zinc-500">#{i + 1}</span>
+                        <span className="text-[13px] font-mono text-zinc-500">#{i + 1}</span>
                         {m.match ? (
-                          <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200">
+                          <span className="text-[13px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200">
                             Matched
                           </span>
                         ) : (
-                          <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+                          <span className="text-[13px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
                             Unmatched
                           </span>
                         )}
                         {m.match ? (
-                          <span className="text-xs text-zinc-600 dark:text-zinc-400 ml-auto tabular-nums">
+                          <span className="text-base text-zinc-600 dark:text-zinc-400 ml-auto tabular-nums">
                             {(m.match.confidence * 100).toFixed(0)}% confidence
                           </span>
                         ) : null}
                       </div>
-                      <div className="px-3 py-2 space-y-2 text-xs">
+                      <div className="px-3 py-2 space-y-2 text-base">
                         <div>
                           <span className="text-zinc-500 dark:text-zinc-500">Raw: </span>
                           <span className="text-zinc-900 dark:text-zinc-100">{m.description}</span>
@@ -719,16 +639,31 @@ function DeliveriesPageInner() {
                     Copy
                   </Button>
                 </div>
-                <pre className="max-h-[min(320px,45vh)] overflow-auto rounded border border-zinc-200 bg-zinc-950 p-2 font-mono text-[10px] leading-snug text-zinc-100 dark:border-zinc-800">
+                <pre className="max-h-[min(320px,45vh)] overflow-auto rounded border border-zinc-200 bg-zinc-950 p-2 font-mono text-[13px] leading-snug text-zinc-100 dark:border-zinc-800">
                   {result.turtle}
                 </pre>
               </CollapseSection>
             </div>
         ) : (
-          <p className="border-t border-dashed border-zinc-200 pt-3 text-[11px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+          <p className="border-t border-dashed border-zinc-200 pt-3 text-[13px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
             Run ingest for matches &amp; Turtle.
           </p>
         )}
+
+        <CollapseSection title="Reference · sample fiche, files & docs" defaultOpen={false}>
+          <p className="mb-2 text-[13px] text-zinc-500 dark:text-zinc-400">
+            Paper-style fiche preview (full layout). Edit the payload in the collapsible{" "}
+            <strong className="font-medium text-zinc-600 dark:text-zinc-300">JSON</strong> section
+            above.
+          </p>
+          <LeveringsbonFicheVisual data={ficheData} variant="full" />
+          <div className="mt-3 space-y-2">
+            <p className="text-[13px] font-medium text-zinc-600 dark:text-zinc-400">Technical files</p>
+            <TechnicalFilesPanel />
+            <p className="text-[13px] font-medium text-zinc-600 dark:text-zinc-400">Documentation</p>
+            <DeepDocumentationPanel />
+          </div>
+        </CollapseSection>
       </div>
 
       <div
@@ -741,6 +676,7 @@ function DeliveriesPageInner() {
         <DeliveriesBestekPanel
           projectId={projectId}
           setProjectId={setProjectId}
+          initialOpenSavedBestekFiche={openSavedBestekFiche}
           hideSpatialTypes={hideSpatialTypes}
           hideMetaTypes={hideMetaTypes}
           onHideSpatialTypesChange={onHideSpatialTypesChange}
@@ -755,7 +691,7 @@ export default function DeliveriesPage() {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto box-border w-full min-w-0 max-w-[1024px] px-4 py-10 text-sm text-zinc-500 dark:text-zinc-400">
+        <div className="mx-auto box-border w-full min-w-0 max-w-[1100px] px-4 py-10 text-base text-zinc-500 dark:text-zinc-400">
           Loading…
         </div>
       }

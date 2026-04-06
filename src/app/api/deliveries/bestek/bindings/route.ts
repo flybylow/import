@@ -7,10 +7,7 @@ import {
   bestekBindingsPath,
   phase0ElementGroupsPath,
 } from "@/lib/bestek/artifacts";
-import {
-  getDictionaryEntryBySlug,
-  isValidMaterialDictionarySlug,
-} from "@/lib/bestek/material-dictionary-catalog";
+import { isValidMaterialDictionarySlug } from "@/lib/bestek/material-dictionary-catalog";
 import { readPhase0GroupsFromDisk } from "@/lib/bestek/phase0-element-groups-json";
 import type { BestekBinding, ElementGroup } from "@/lib/bestek/types";
 import { appendTimelineAuditEvent } from "@/lib/timeline/append-event";
@@ -48,6 +45,7 @@ type BindingInput = {
   article_number?: string;
   article_unit?: string;
   article_quantity?: string;
+  article_unit_price_eur?: string;
 };
 
 export async function POST(request: Request) {
@@ -92,9 +90,6 @@ export async function POST(request: Request) {
     if (!valid.has(b.group_id)) {
       return NextResponse.json({ error: `Invalid group_id: ${b.group_id}` }, { status: 400 });
     }
-    if (!String(b.architect_name ?? "").trim()) {
-      return NextResponse.json({ error: `Missing architect_name for ${b.group_id}` }, { status: 400 });
-    }
     const slug = String(b.material_slug ?? "").trim();
     if (slug && !isValidMaterialDictionarySlug(slug)) {
       return NextResponse.json(
@@ -109,13 +104,14 @@ export async function POST(request: Request) {
     const slug = String(b.material_slug ?? "").trim();
     return {
       group_id: b.group_id,
-      architect_name: String(b.architect_name).trim(),
+      architect_name: String(b.architect_name ?? "").trim(),
       ...(slug ? { material_slug: slug } : {}),
       approved_brands: b.approved_brands,
       or_equivalent: b.or_equivalent !== false,
       article_number: b.article_number,
       article_unit: b.article_unit,
       article_quantity: b.article_quantity,
+      article_unit_price_eur: b.article_unit_price_eur,
       created_by: createdBy,
       created_at: now,
     };
@@ -145,43 +141,23 @@ export async function POST(request: Request) {
   ];
   fs.writeFileSync(prevPath, JSON.stringify(merged, null, 2), "utf-8");
 
-  let timelineEvents = 0;
-  for (const b of timestamped) {
-    const g = groups.find((x) => x.group_id === b.group_id);
-    const mat = b.material_slug ? getDictionaryEntryBySlug(b.material_slug) : undefined;
-    appendTimelineAuditEvent(projectId, {
-      eventId: randomUUID(),
-      timestampIso: now,
-      actorSystem: false,
-      actorLabel: createdBy,
-      eventAction: "bestek_element_group_binding",
-      source: "deliveries-bestek",
-      bestekBindingFields: {
-        groupId: b.group_id,
-        architectName: b.architect_name,
-        bestekMaterialSlug: b.material_slug,
-        ifcType: g?.ifc_type,
-        elementCount: g != null ? String(g.element_count) : undefined,
-        articleNumber: b.article_number,
-        articleUnit: b.article_unit,
-        articleQuantity: b.article_quantity,
-        approvedBrandsJson:
-          b.approved_brands && b.approved_brands.length
-            ? JSON.stringify(b.approved_brands)
-            : undefined,
-        orEquivalent: b.or_equivalent !== false ? "true" : "false",
-      },
-      message: mat
-        ? `Bestek dictionary: ${mat.standardName} (${mat.category})`
-        : undefined,
-    });
-    timelineEvents += 1;
-  }
+  const bindingBatchId = randomUUID();
+  appendTimelineAuditEvent(projectId, {
+    eventId: randomUUID(),
+    timestampIso: now,
+    actorSystem: false,
+    actorLabel: createdBy,
+    eventAction: "bestek_bindings_milestone",
+    source: "deliveries-bestek",
+    bestekBindingSaveBatchId: bindingBatchId,
+    message: `Bestek document opgeslagen — ${timestamped.length} groep(en)\ndata/${projectId}-bestek-bindings.json\nbatch ${bindingBatchId}`,
+  });
 
   return NextResponse.json({
     projectId,
+    binding_batch_id: bindingBatchId,
     bindings_saved: timestamped.length,
-    timeline_events_created: timelineEvents,
+    timeline_events_created: 1,
     status: "success",
   });
 }

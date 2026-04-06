@@ -82,7 +82,7 @@ function ViewTopBar(props: {
         <Link
           href="/workflow"
           className="shrink-0 text-sm font-medium text-violet-800 hover:underline dark:text-violet-200"
-          title="Source + project name → run full pipeline → opens BIM viewer"
+          title="Full pipeline for this project id (writes under data/ for that id — not a dry run) → opens BIM viewer"
         >
           Dynamic run
         </Link>
@@ -179,11 +179,18 @@ function ModelListSidebar(props: {
           const t = await res.text();
           throw new Error(t || res.statusText);
         }
-        const data = (await res.json()) as { projectId?: string };
+        const data = (await res.json()) as {
+          projectId?: string;
+          summary?: { elementCount?: number };
+        };
         if (!data.projectId?.trim()) throw new Error("No projectId returned from server.");
+        const n = data.summary?.elementCount;
         showToast({
           type: "success",
-          message: "Model saved. Opening viewer…",
+          message:
+            typeof n === "number" && Number.isFinite(n)
+              ? `Model saved (${n} elements). Opening viewer…`
+              : "Model saved. Opening viewer…",
         });
         router.replace(`/view?projectId=${encodeURIComponent(data.projectId.trim())}`);
       } catch (e) {
