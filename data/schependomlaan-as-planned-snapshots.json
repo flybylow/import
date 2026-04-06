@@ -1,0 +1,56 @@
+{
+  "datasetId": "schependomlaan-as-planned-ifc",
+  "description": "As-planned IFC exports from DataSetArch (Synchro); see docs/DataSetArch/README.md. API allowlist only — do not add paths outside docs/DataSetArch.",
+  "defaultSnapshotId": "week26",
+  "snapshots": [
+    {
+      "id": "full",
+      "label": "Full incl. planningsdata",
+      "fileName": "IFC Schependomlaan incl planningsdata.ifc",
+      "repoPath": "docs/DataSetArch/As Planned models/IFC Schependomlaan incl planningsdata.ifc",
+      "approxIsoDate": null
+    },
+    {
+      "id": "week26",
+      "label": "Week 26 · 26 June",
+      "fileName": "Week 26 26 june IFC Schependomlaan incl planningsdata.ifc",
+      "repoPath": "docs/DataSetArch/As Planned models/Week 26 26 june IFC Schependomlaan incl planningsdata.ifc",
+      "approxIsoDate": "2015-06-26"
+    },
+    {
+      "id": "week27",
+      "label": "Week 27 · 3 July",
+      "fileName": "Week 27 3 july IFC Schependomlaan incl planningsdata.ifc",
+      "repoPath": "docs/DataSetArch/As Planned models/Week 27 3 july IFC Schependomlaan incl planningsdata.ifc",
+      "approxIsoDate": "2015-07-03"
+    },
+    {
+      "id": "week28",
+      "label": "Week 28 · 10 July",
+      "fileName": "Week 28 10 july IFC Schependomlaan incl planningsdata.ifc",
+      "repoPath": "docs/DataSetArch/As Planned models/Week 28 10 july IFC Schependomlaan incl planningsdata.ifc",
+      "approxIsoDate": "2015-07-10"
+    },
+    {
+      "id": "week29",
+      "label": "Week 29 · 17 July",
+      "fileName": "Week 29 17 july IFC Schependomlaan incl planningsdata.ifc",
+      "repoPath": "docs/DataSetArch/As Planned models/Week 29 17 july IFC Schependomlaan incl planningsdata.ifc",
+      "approxIsoDate": "2015-07-17"
+    },
+    {
+      "id": "week30",
+      "label": "Week 30 · 24 July",
+      "fileName": "Week 30 24 july IFC Schependomlaan incl planningsdata.ifc",
+      "repoPath": "docs/DataSetArch/As Planned models/Week 30 24 july IFC Schependomlaan incl planningsdata.ifc",
+      "approxIsoDate": "2015-07-24"
+    },
+    {
+      "id": "week37",
+      "label": "Week 37 · 11 September",
+      "fileName": "Week 37 11 sept IFC Schependomlaan incl planningsdata.ifc",
+      "repoPath": "docs/DataSetArch/As Planned models/Week 37 11 sept IFC Schependomlaan incl planningsdata.ifc",
+      "approxIsoDate": "2015-09-11"
+    }
+  ]
+}

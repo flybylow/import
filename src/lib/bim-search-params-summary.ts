@@ -1,5 +1,5 @@
 /**
- * Turn a BIM page query string into sorted, labeled rows for UI (3D sample strip, etc.).
+ * Turn a BIM page query string into sorted, labeled rows for UI (e.g. URL debug strip).
  */
 
 export type BimSearchParamRow = {
@@ -21,7 +21,8 @@ const VIEW_DISPLAY: Record<string, string> = {
   building: "Building",
   passports: "Passports",
   inspect: "Inspect",
-  "3dtest": "3D sample",
+  /** Legacy; normalized to Building in the BIM page. */
+  "3dtest": "Building",
 };
 
 function displayValueForParam(key: string, raw: string): string {

@@ -157,7 +157,19 @@ type FocusCtx = {
   /** After focus apply: ids lifted to opacity 1; orbit `rest` re-dims all then re-elevates these. */
   lastFocusElevateExpressIdsRef: MutableRefObject<number[] | null>;
   alphaDiagRef: MutableRefObject<BuildingIfcAlphaDiagSnapshot>;
+  /**
+   * When false, keep full-opacity IFC (no uniform dim); URL/canvas focus uses Highlighter only.
+   * Mirrors parent prop; updated every render so queued ops see the latest value.
+   */
+  uniformGhostEnabledRef: MutableRefObject<boolean>;
 };
+
+/** Baseline mesh opacity when not in timeline construction mode (stress → always default). */
+function baselineOpacityIntent(ctx: FocusCtx): FragmentOpacityIntent {
+  if (ctx.fragmentsOpacityStressRef.current) return { kind: "default" };
+  if (!ctx.uniformGhostEnabledRef.current) return { kind: "default" };
+  return { kind: "uniform", opacity: IFC_GHOST_OPACITY };
+}
 
 function recordAlphaDiag(ctx: FocusCtx, label: string) {
   const intent = ctx.fragmentOpacityIntentRef.current;
@@ -333,21 +345,14 @@ async function syncFragmentOpacityFromIntent(
   }
 }
 
-/** Clear highlights; MVP keeps the same uniform low opacity (no full-opaque reset). */
+/** Clear highlights; restore baseline opacity (ghost or solid per `uniformGhostEnabledRef`). */
 async function resetIfcFocusVisualsFull(
   ctx: FocusCtx,
   overlayStyleKeysRef?: MutableRefObject<string[]>
 ) {
   ctx.lastFocusElevateExpressIdsRef.current = null;
   ctx.lastSyncedOpacityIntentRef.current = null;
-  if (ctx.fragmentsOpacityStressRef.current) {
-    ctx.fragmentOpacityIntentRef.current = { kind: "default" };
-  } else {
-    ctx.fragmentOpacityIntentRef.current = {
-      kind: "uniform",
-      opacity: IFC_GHOST_OPACITY,
-    };
-  }
+  ctx.fragmentOpacityIntentRef.current = baselineOpacityIntent(ctx);
   const { fragments, highlighter } = ctx;
   if (highlighter) {
     try {
@@ -378,14 +383,7 @@ async function resetIfcFocusVisualsFull(
  */
 async function resetIfcFocusTargetVisuals(ctx: FocusCtx) {
   ctx.lastFocusElevateExpressIdsRef.current = null;
-  if (ctx.fragmentsOpacityStressRef.current) {
-    ctx.fragmentOpacityIntentRef.current = { kind: "default" };
-  } else {
-    ctx.fragmentOpacityIntentRef.current = {
-      kind: "uniform",
-      opacity: IFC_GHOST_OPACITY,
-    };
-  }
+  ctx.fragmentOpacityIntentRef.current = baselineOpacityIntent(ctx);
   await resetIfcHighlightOnly(ctx);
   await syncFragmentOpacityFromIntent(ctx);
   await new Promise<void>((r) => {
@@ -434,12 +432,13 @@ async function applyConstructionVisibleExpressIds(ctx: FocusCtx, expressIds: num
 /** `fragments.core.update` / `model.update` / Highlighter often restore opaque IFC materials. */
 async function reapplyUniformGhost(ctx: FocusCtx): Promise<void> {
   if (ctx.fragmentsOpacityStressRef.current || typeof ctx.model.setOpacity !== "function") return;
-  ctx.fragmentOpacityIntentRef.current = {
-    kind: "uniform",
-    opacity: IFC_GHOST_OPACITY,
-  };
+  ctx.fragmentOpacityIntentRef.current = baselineOpacityIntent(ctx);
   await syncFragmentOpacityFromIntent(ctx);
-  await reElevateFocusedIdsIfStored(ctx);
+  if (ctx.fragmentOpacityIntentRef.current.kind === "uniform") {
+    await reElevateFocusedIdsIfStored(ctx);
+  } else {
+    ctx.lastFocusElevateExpressIdsRef.current = null;
+  }
   await pumpFragmentsVisual(ctx);
 }
 
@@ -560,10 +559,7 @@ async function applyFocusGhostHighlightOnly(
     ctx.fragmentOpacityIntentRef.current = { kind: "default" };
     await syncFragmentOpacityFromIntent(ctx);
   } else {
-    ctx.fragmentOpacityIntentRef.current = {
-      kind: "uniform",
-      opacity: IFC_GHOST_OPACITY,
-    };
+    ctx.fragmentOpacityIntentRef.current = baselineOpacityIntent(ctx);
     await syncFragmentOpacityFromIntent(ctx);
   }
 
@@ -597,7 +593,12 @@ async function applyFocusGhostHighlightOnly(
     }
   }
 
-  if (!skipAllOpacity && typeof model.setOpacity === "function" && !ctx.fragmentsOpacityStressRef.current) {
+  if (
+    !skipAllOpacity &&
+    typeof model.setOpacity === "function" &&
+    !ctx.fragmentsOpacityStressRef.current &&
+    ctx.uniformGhostEnabledRef.current
+  ) {
     const toElevate = [...focusSet].sort((a, b) => a - b);
     await elevateFocusedExpressIdsOpacity(ctx, toElevate);
   } else {
@@ -927,6 +928,11 @@ async function focusCameraOnExpressIds(
 type Props = {
   projectId: string;
   ifcSource: "project" | "test";
+  /**
+   * When set, IFC bytes are loaded from this URL (same-origin path recommended).
+   * Ignores `ifcSource` for the fetch — for labs / demos (e.g. as-planned exports under `public/ifc/`).
+   */
+  ifcFetchUrl?: string | null;
   /** IFC local id (same as web-ifc express id) — zoom + highlight when set. */
   focusExpressId?: number | null;
   /**
@@ -949,6 +955,11 @@ type Props = {
   onStatusChange?: (payload: BuildingIfcViewerStatusPayload) => void;
   /** Fired when click selection changes (Highlighter `select`, incl. Ctrl multi-pick). */
   onCanvasSelectionChange?: (selection: BuildingIfcCanvasSelection) => void;
+  /**
+   * When true (default), non-focused mesh uses uniform low opacity so selection reads clearly.
+   * When false, full-opacity materials (Highlighter still shows picks / nav focus).
+   */
+  uniformGhost?: boolean;
   className?: string;
 };
 
@@ -956,16 +967,21 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
   {
     projectId,
     ifcSource,
+    ifcFetchUrl = null,
     focusExpressId = null,
     focusExpressIds = null,
     constructionVisibleExpressIds = null,
     visualGroups = null,
     onStatusChange,
     onCanvasSelectionChange,
+    uniformGhost = true,
     className = "",
   }: Props,
   ref
 ) {
+  const uniformGhostEnabledRef = useRef(uniformGhost);
+  uniformGhostEnabledRef.current = uniformGhost;
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const loadRunRef = useRef(0);
   const focusCtxRef = useRef<FocusCtx | null>(null);
@@ -1232,6 +1248,7 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
                   const c = focusCtxRef.current;
                   if (
                     !c ||
+                    !c.uniformGhostEnabledRef.current ||
                     c.fragmentOpacityIntentRef.current.kind === "default" ||
                     c.fragmentsOpacityStressRef.current
                   ) {
@@ -1322,7 +1339,16 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
 
         setMessage("Downloading IFC...");
         let fileRes: Response;
-        if (ifcSource === "test") {
+        const fetchOverride = typeof ifcFetchUrl === "string" ? ifcFetchUrl.trim() : "";
+        if (fetchOverride) {
+          fileRes = await fetch(fetchOverride);
+          debug("ifc fetch (override)", { url: fetchOverride, status: fileRes.status });
+          if (!fileRes.ok) {
+            throw new Error(
+              `IFC fetch failed (${fileRes.status}): ${fetchOverride}. Place the file under public/ or fix the path.`
+            );
+          }
+        } else if (ifcSource === "test") {
           const testIfcUrl = "/ifc/test.ifc";
           fileRes = await fetch(testIfcUrl);
           debug("ifc fetch (test)", { url: testIfcUrl, status: fileRes.status });
@@ -1559,22 +1585,20 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
           programmaticAlphaOnRef,
           lastFocusElevateExpressIdsRef,
           alphaDiagRef,
+          uniformGhostEnabledRef,
         };
 
         if (!fragmentsOpacityStressRef.current) {
-          fragmentOpacityIntentRef.current = {
-            kind: "uniform",
-            opacity: IFC_GHOST_OPACITY,
-          };
+          fragmentOpacityIntentRef.current = baselineOpacityIntent(focusCtxRef.current);
           try {
             await syncFragmentOpacityFromIntent(focusCtxRef.current);
           } catch (e) {
-            console.warn("[BuildingIfcViewer][alpha] initial uniform ghost failed", e);
+            console.warn("[BuildingIfcViewer][alpha] initial mesh opacity sync failed", e);
             fragmentOpacityIntentRef.current = { kind: "default" };
             lastSyncedOpacityIntentRef.current = null;
             if (focusCtxRef.current) {
-              commitProgrammaticAlphaOn(focusCtxRef.current, "initial uniform ghost failed → default");
-              recordAlphaDiag(focusCtxRef.current, "initial uniform ghost failed → normal mode");
+              commitProgrammaticAlphaOn(focusCtxRef.current, "initial opacity sync failed → default");
+              recordAlphaDiag(focusCtxRef.current, "initial opacity sync failed → normal mode");
             }
           }
         }
@@ -1602,10 +1626,11 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
         }
 
         console.log(
-          "[BuildingIfcViewer][focus-pipeline] load: initial uniform ghost applied → status ready → nav-focus gate in 2× rAF",
+          "[BuildingIfcViewer][focus-pipeline] load: initial mesh opacity applied → status ready → nav-focus gate in 2× rAF",
           {
             runId,
             opacityStress: fragmentsOpacityStressRef.current,
+            uniformGhost: uniformGhostEnabledRef.current,
           }
         );
         setStatus("ready");
@@ -1674,7 +1699,7 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
       console.log("[BuildingIfcViewer]", `run#${runId}`, "effect cleanup");
       if (cleanup) cleanup();
     };
-  }, [projectId, ifcSource]);
+  }, [projectId, ifcSource, ifcFetchUrl]);
 
   const focusExpressIdsKey =
     focusExpressIds != null && focusExpressIds.length > 0 ? focusExpressIds.join(",") : "";
@@ -1773,6 +1798,7 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
     status,
     sceneReadyForNavFocus,
     constructionVisibleExpressIds,
+    uniformGhost,
   ]);
 
   useEffect(() => {
@@ -1838,6 +1864,7 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
         alphaDiag: { ...alphaDiagRef.current },
         overlayStyleKeys: [...lastOverlayStyleKeysRef.current],
         debugWholeGraphAlphaMode: debugManualWholeAlphaRef.current,
+        uniformGhostEnabled: uniformGhostEnabledRef.current,
         geomIdsCacheLength: geomIdsCacheRef.current.length,
         focusExpressId: focusExpressIdRef.current,
         focusExpressIdsHead:

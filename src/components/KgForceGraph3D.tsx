@@ -377,7 +377,13 @@ export default function KgForceGraph3D(props: {
         }
         linkCurvature={forceDirected ? 0 : (l: { source?: unknown; target?: unknown }) => fixedLayoutLinkCurvature(l)}
         cooldownTicks={forceDirected ? Number.POSITIVE_INFINITY : 0}
-        warmupTicks={forceDirected ? 160 : 0}
+        /**
+         * Timeline / fixed-layout: `cooldownTicks={0}` stops the engine on the first frame, so the
+         * per-frame `tick()` branch never runs. d3-force still needs at least a few warmup ticks here
+         * so `forceLink` replaces string `source`/`target` with node objects — otherwise
+         * three-forcegraph skips every link (`!start.hasOwnProperty('x')`) and edges disappear.
+         */
+        warmupTicks={forceDirected ? 160 : 64}
         {...(forceDirected ? {} : { d3AlphaDecay: 0.02, d3VelocityDecay: 0.35 })}
         enableNodeDrag={forceDirected ? true : hasDraggableSatellites}
         showNavInfo={false}

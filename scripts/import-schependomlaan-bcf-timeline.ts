@@ -11,8 +11,11 @@ import fs from "fs";
 import path from "path";
 import { createHash } from "crypto";
 import AdmZip from "adm-zip";
-import { XMLParser } from "fast-xml-parser";
 
+import {
+  allIfcGuidsFromViewpointXml,
+  parseBcfMarkupXml,
+} from "@/lib/bcfzip/extract-topics";
 import {
   timelineEventToTurtle,
   timelineFilePrefixes,
@@ -27,50 +30,6 @@ function argValue(flag: string): string | undefined {
 
 function hasFlag(flag: string): boolean {
   return process.argv.includes(flag);
-}
-
-function text(v: unknown): string {
-  if (v === undefined || v === null) return "";
-  if (typeof v === "string") return v.trim();
-  if (typeof v === "number" || typeof v === "boolean") return String(v);
-  return "";
-}
-
-function firstIfcGuidFromViewpoint(xml: string): string | undefined {
-  const m = xml.match(/<Component[^>]*\bIfcGuid="([^"]+)"/);
-  return m?.[1]?.trim();
-}
-
-type MarkupTopic = { "@_Guid"?: string; Title?: string };
-type MarkupComment = {
-  "@_Guid"?: string;
-  Date?: string;
-  Author?: string;
-  Comment?: string;
-  VerbalStatus?: string;
-  Topic?: { "@_Guid"?: string };
-};
-
-function normalizeList<T>(x: T | T[] | undefined): T[] {
-  if (x === undefined) return [];
-  return Array.isArray(x) ? x : [x];
-}
-
-function parseMarkupXml(xml: string): {
-  topics: Map<string, string>;
-  comments: MarkupComment[];
-} {
-  const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
-  const root = parser.parse(xml) as { Markup?: { Topic?: MarkupTopic | MarkupTopic[]; Comment?: MarkupComment | MarkupComment[] } };
-  const topics = new Map<string, string>();
-  for (const t of normalizeList(root.Markup?.Topic)) {
-    const g = text(t["@_Guid"]);
-    if (g) topics.set(g, text(t.Title) || "BCF topic");
-  }
-  return {
-    topics,
-    comments: normalizeList(root.Markup?.Comment),
-  };
 }
 
 function main() {
@@ -124,8 +83,8 @@ function main() {
       } catch {
         continue;
       }
-      const { topics, comments } = parseMarkupXml(xml);
-      let ifcGuid: string | undefined;
+      const { topicTitles, comments } = parseBcfMarkupXml(xml);
+      let ifcGuids: string[] = [];
       if (folder) {
         const vp = entries.find(
           (e: { entryName: string }) =>
@@ -133,7 +92,7 @@ function main() {
         );
         if (vp) {
           try {
-            ifcGuid = firstIfcGuidFromViewpoint(vp.getData().toString("utf-8"));
+            ifcGuids = allIfcGuidsFromViewpointXml(vp.getData().toString("utf-8"));
           } catch {
             /* ignore */
           }
@@ -143,16 +102,15 @@ function main() {
       let commentIndex = 0;
       for (const c of comments) {
         commentIndex += 1;
-        const commentGuid = text(c["@_Guid"]) || `no-guid-${commentIndex}`;
-        const topicRef = text(c.Topic?.["@_Guid"]);
-        const topicGuid = topicRef || commentGuid;
-        const title = topics.get(topicGuid) ?? "BCF issue";
-        const dateRaw = text(c.Date);
+        const commentGuid = c.commentGuid || `no-guid-${commentIndex}`;
+        const topicGuid = c.topicGuid || commentGuid;
+        const title = topicTitles.get(topicGuid) ?? "BCF issue";
+        const dateRaw = c.dateRaw;
         const ms = dateRaw ? Date.parse(dateRaw) : NaN;
         const timestampIso = Number.isFinite(ms) ? new Date(ms).toISOString() : new Date().toISOString();
-        const author = text(c.Author) || "unknown";
-        const body = text(c.Comment);
-        const verbal = text(c.VerbalStatus);
+        const author = c.author || "unknown";
+        const body = c.comment;
+        const verbal = c.verbalStatus;
         const idKey = `${archiveLabel}|${commentGuid}|${timestampIso}|${author}`;
         const idHash = createHash("sha256").update(idKey).digest("hex").slice(0, 14);
         const eventId = `evt-bcf-${projectId}-${idHash}`;
@@ -163,6 +121,18 @@ function main() {
         if (verbal) msgParts.push(`Status: ${verbal}`);
         msgParts.push(`Archive: ${archiveLabel}`);
 
+        const bcfFields: NonNullable<TimelineEventPayload["bcfFields"]> = {
+          topicGuid,
+          sourceArchive: archiveLabel,
+          ...(verbal ? { verbalStatus: verbal } : {}),
+        };
+        if (ifcGuids.length > 0) {
+          bcfFields.ifcGuid = ifcGuids[0];
+          if (ifcGuids.length > 1) {
+            bcfFields.bcfIfcGuidsJson = JSON.stringify(ifcGuids);
+          }
+        }
+
         payloads.push({
           eventId,
           timestampIso,
@@ -172,12 +142,7 @@ function main() {
           message: msgParts.join("\n"),
           source: "bcfzip-import",
           confidence: 0.88,
-          bcfFields: {
-            topicGuid,
-            ...(ifcGuid ? { ifcGuid } : {}),
-            sourceArchive: archiveLabel,
-            ...(verbal ? { verbalStatus: verbal } : {}),
-          },
+          bcfFields,
         });
       }
     }

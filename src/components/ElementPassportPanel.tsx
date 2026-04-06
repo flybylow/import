@@ -134,17 +134,14 @@ function MaterialBlock(props: { m: Phase4PassportMaterial; projectId?: string })
             )
           )}
           {m.hasEPD && epdLinks.length === 0 ? (
-            <span className="text-zinc-500 dark:text-zinc-400" title="No http(s) product URI on this row yet">
-              No EPD URI in KB
+            <span
+              className="text-zinc-500 dark:text-zinc-400"
+              title="No ont:sourceProductUri (http) or ont:sourceFileName on this EPD node — re-import source TTL or check dictionary-only routing"
+            >
+              No source document link in KB
             </span>
           ) : null}
         </div>
-      ) : null}
-
-      {m.sourceFileName?.trim() ? (
-        <p className="text-[10px] text-zinc-500 dark:text-zinc-400" title={m.sourceFileName}>
-          Source file: <span className="font-mono">{m.sourceFileName.trim()}</span>
-        </p>
       ) : null}
 
       <PassportEpdRecordBlock m={m} />
@@ -164,30 +161,30 @@ export default function ElementPassportPanel(props: Props) {
   } = props;
 
   if (!selectedExpressId) {
+    if (!showIdentity) {
+      return null;
+    }
     return (
       <div className={panelClass(embedded, className)}>
-        <h2 className="text-sm font-semibold">
-          {showIdentity ? "Element details" : "Materials and carbon factors"}
-        </h2>
+        <h2 className="text-sm font-semibold">Element details</h2>
         <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
-          {showIdentity ? (
-            <>
-              Use the finder to pick an element. Identity, materials, EPD factors (GWP), and IFC quantities
-              (adjacent card) come from the KB passport slice.
-            </>
-          ) : (
-            <>
-              Pick an element in the finder. Identity and preview are in the finder; use{" "}
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">View fire snapshot</span> there
-              for KB fire provenance. Materials and quantities load in the sidebar{embedded ? " below" : ""}.
-            </>
-          )}
+          Pick an element in the finder. Identity, materials, GWP, and IFC quantities come from the KB
+          passport slice.
         </p>
       </div>
     );
   }
 
   if (!passport) {
+    if (embedded && !showIdentity) {
+      return (
+        <div className={panelClass(embedded, className)}>
+          <p className="py-2 text-[10px] leading-snug text-amber-800 dark:text-amber-200">
+            No passport row for expressId <code className="font-mono">{selectedExpressId}</code>.
+          </p>
+        </div>
+      );
+    }
     return (
       <div className={panelClass(embedded, className)}>
         <div className="flex items-center justify-between gap-2">
@@ -225,7 +222,7 @@ export default function ElementPassportPanel(props: Props) {
         }
       >
         GWP values are per declared EPD unit from the KB (not multiplied by element quantities — see IFC
-        quantities {embedded ? "section below" : "card"} for takeoff).
+        quantities {embedded ? "section above" : "card"} for takeoff).
       </p>
       {p.materials.length ? (
         <ul className="mt-2 space-y-2 text-xs">
@@ -239,43 +236,21 @@ export default function ElementPassportPanel(props: Props) {
     </div>
   );
 
-  /** Passports sidebar: collapsed to one tiny title row; expand for full materials + links. */
+  /** Passports sidebar: material cards only (no chrome, no empty copy). */
   if (embedded && !showIdentity && passport) {
+    if (p.materials.length === 0) {
+      return null;
+    }
     return (
       <div className={panelClass(embedded, className)}>
-        <details className="group min-w-0 w-full py-0.5 open:pb-1.5">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-0 [&::-webkit-details-marker]:hidden">
-            <h2 className="text-[10px] font-semibold leading-none text-zinc-600 dark:text-zinc-400">
-              Materials and carbon factors
-            </h2>
-            <span className="shrink-0 text-[9px] tabular-nums text-zinc-400 group-open:hidden dark:text-zinc-500">
-              Show
-            </span>
-            <span className="hidden shrink-0 text-[9px] tabular-nums text-zinc-400 group-open:inline dark:text-zinc-500">
-              Hide
-            </span>
-          </summary>
-          <div className="mt-1.5 border-t border-zinc-200/80 pt-2 dark:border-zinc-800">
-            <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
-              {kbHref ? (
-                <Link
-                  href={kbHref}
-                  className="text-[10px] font-medium text-violet-700 underline hover:no-underline dark:text-violet-300"
-                >
-                  KB graph
-                </Link>
-              ) : null}
-              <button
-                type="button"
-                className="text-[10px] underline"
-                onClick={onClearSelection}
-              >
-                Clear
-              </button>
-            </div>
-            {materialsSection}
-          </div>
-        </details>
+        <p className="pt-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+          Materials &amp; carbon
+        </p>
+        <ul className="space-y-2 py-1.5 text-xs">
+          {p.materials.map((m) => (
+            <MaterialBlock key={`${p.elementId}-${m.materialId}`} m={m} projectId={projectId} />
+          ))}
+        </ul>
       </div>
     );
   }

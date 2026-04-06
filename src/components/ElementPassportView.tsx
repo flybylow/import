@@ -1,7 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
+import {
+  partitionIfcQuantitiesByLcaMapper,
+  pickIfcQuantitiesForLcaCompact,
+} from "@/lib/ifc-quantity-compact";
 import { parsePrimaryQuantity } from "@/lib/phase3-carbon-calc";
+import { passportMaterialEpdLinks } from "@/lib/passport-navigation-links";
 
 export type ElementPassportMaterial = {
   materialId: number;
@@ -29,6 +35,7 @@ export type ElementPassport = {
   elementId: number;
   elementName?: string;
   ifcType?: string;
+  ifcPredefinedType?: string;
   globalId?: string;
   expressId?: number;
   /** From IFC Pset (`ont:fireRating` on `bim:element-*` in KB), when present. */
@@ -55,6 +62,14 @@ type Props = {
   /** Optional CO2 results keyed by materialId after calculation. */
   co2ByMaterialId?: Record<number, number>;
 };
+
+function formatLcaPrimaryLine(parsed: ReturnType<typeof parsePrimaryQuantity>): string {
+  if (parsed.kind === "none") return "— none (no Mass / NetVolume / GrossVolume / NetArea / … in the LCA pick)";
+  if (parsed.kind === "mass") return `${parsed.value} kg (mass)`;
+  if (parsed.kind === "volume") return `${parsed.value} m³ (volume)`;
+  if (parsed.kind === "area") return `${parsed.value} m² (area)`;
+  return `${parsed.value} m (length — not multiplied into per-kg GWP in this app)`;
+}
 
 /** Per IFC element: identity + IFC quantities + material/EPD “product passport” in one card. */
 export default function ElementPassportView(props: Props) {
@@ -91,33 +106,8 @@ export default function ElementPassportView(props: Props) {
     // Step 4/5 request:
     // Sort by quantity magnitude (biggest first) and multiply by multiplicity
     // when the API dedupes identical element names (`sameNameElementCount`).
-    const PREFERRED_QTY_ORDER = [
-      "NetVolume",
-      "GrossVolume",
-      "NetArea",
-      "Mass",
-      "GrossArea",
-      "NetSideArea",
-      "GrossSideArea",
-      "NetFootprintArea",
-      "GrossFootprintArea",
-      "Length",
-      "Width",
-      "Height",
-    ] as const;
-
     const scoreForPassport = (p: ElementPassport) => {
-      const preferred = PREFERRED_QTY_ORDER.map((name) =>
-        p.ifcQuantities.find((q) => q.quantityName === name)
-      )
-        .filter(Boolean)
-        .slice(0, 3) as Array<{ quantityName: string; unit?: string; value: number }>;
-
-      const compactParts = preferred.length
-        ? preferred
-        : p.ifcQuantities.length
-          ? [p.ifcQuantities[0]]
-          : [];
+      const compactParts = pickIfcQuantitiesForLcaCompact(p.ifcQuantities, 3);
 
       const compactQuantities = compactParts.length
         ? compactParts
@@ -199,6 +189,17 @@ export default function ElementPassportView(props: Props) {
               return Number.isFinite(v) ? sum + v : sum;
             }, 0);
             const hasElementCo2 = elementKgCO2e > 0;
+            const { recognized, other } = partitionIfcQuantitiesByLcaMapper(p.ifcQuantities);
+            const compactParts = pickIfcQuantitiesForLcaCompact(p.ifcQuantities, 3);
+            const compactQuantities = compactParts.length
+              ? compactParts
+                  .map((q) => {
+                    const unit = q.unit ? ` ${q.unit}` : "";
+                    return `${q.quantityName}: ${q.value}${unit}`;
+                  })
+                  .join(" | ")
+              : "";
+            const lcaPrimary = parsePrimaryQuantity(compactQuantities);
             return (
           <details
             key={p.elementId}
@@ -253,19 +254,62 @@ export default function ElementPassportView(props: Props) {
               </div>
               <div>
                 <div className="font-medium text-zinc-800 dark:text-zinc-200 mb-1">
-                  IFC quantities (this element)
+                  Quantities for LCA (this app)
                 </div>
                 {p.ifcQuantities.length ? (
-                  <ul className="space-y-0.5 font-mono text-zinc-700 dark:text-zinc-300">
-                    {p.ifcQuantities.map((q, i) => (
-                      <li key={`${q.quantityName}-${i}`}>
-                        {q.quantityName}: {q.value}
-                        {q.unit ? ` ${q.unit}` : ""}
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="space-y-2">
+                    <p className="text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+                      Carbon uses a short list of IFC names (
+                      <span className="font-mono">NetVolume</span>,{" "}
+                      <span className="font-mono">GrossVolume</span>,{" "}
+                      <span className="font-mono">NetArea</span>, <span className="font-mono">Mass</span>, … — not{" "}
+                      <span className="font-mono">GrossFloorArea</span> or BOMA fields). Up to three positive
+                      values feed <span className="font-mono">parsePrimaryQuantity</span> (mass → volume → area →
+                      length).
+                    </p>
+                    <p className="text-[11px] text-zinc-700 dark:text-zinc-200">
+                      <span className="font-medium text-zinc-600 dark:text-zinc-300">Primary for calc: </span>
+                      <span className="font-mono">{formatLcaPrimaryLine(lcaPrimary)}</span>
+                    </p>
+                    {compactQuantities ? (
+                      <p className="text-[10px] leading-snug text-zinc-500 dark:text-zinc-400 break-all">
+                        <span className="font-medium text-zinc-600 dark:text-zinc-300">LCA pick (≤3): </span>
+                        <span className="font-mono">{compactQuantities}</span>
+                      </p>
+                    ) : null}
+                    {recognized.length ? (
+                      <ul className="space-y-0.5 font-mono text-[11px] text-zinc-700 dark:text-zinc-300">
+                        {recognized.map((q, i) => (
+                          <li key={`${q.quantityName}-rec-${i}`}>
+                            {q.quantityName}: {q.value}
+                            {q.unit ? ` ${q.unit}` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-[11px] text-amber-800 dark:text-amber-200">
+                        No recognized LCA quantity names on this element. The pipeline may fall back to the first
+                        raw row — floor/ceiling/wall area labels are ignored until mapped.
+                      </p>
+                    )}
+                    {other.length ? (
+                      <details className="rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-100/50 dark:bg-zinc-900/40">
+                        <summary className="cursor-pointer px-2 py-1.5 text-[10px] font-medium text-zinc-600 dark:text-zinc-300">
+                          Other IFC quantities ({other.length}) — not used by this mapper
+                        </summary>
+                        <ul className="space-y-0.5 px-2 pb-2 font-mono text-[10px] text-zinc-500 dark:text-zinc-400">
+                          {other.map((q, i) => (
+                            <li key={`${q.quantityName}-oth-${i}`}>
+                              {q.quantityName}: {q.value}
+                              {q.unit ? ` ${q.unit}` : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : null}
+                  </div>
                 ) : (
-                  <p className="text-zinc-500 italic">No BaseQuantities on this element.</p>
+                  <p className="text-zinc-500 italic">No IFC quantities on this element.</p>
                 )}
               </div>
             </div>
@@ -275,7 +319,9 @@ export default function ElementPassportView(props: Props) {
               </div>
               {p.materials.length ? (
                 <div className="space-y-2">
-                  {p.materials.map((m) => (
+                  {p.materials.map((m) => {
+                    const sourceLinks = passportMaterialEpdLinks(m);
+                    return (
                     <div
                       key={`${p.elementId}-${m.materialId}`}
                       className="rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/80 p-2 space-y-1.5"
@@ -313,6 +359,43 @@ export default function ElementPassportView(props: Props) {
                               ? ` · ρ ${m.densityKgPerM3} kg/m³`
                               : ""}
                           </div>
+                          {sourceLinks.length > 0 ? (
+                            <div className="mt-1.5 rounded border border-sky-200/80 bg-sky-50/60 px-2 py-1.5 text-[10px] dark:border-sky-900/50 dark:bg-sky-950/35">
+                              <div className="font-medium text-sky-900 dark:text-sky-100">
+                                Source document (where this EPD data was taken from)
+                              </div>
+                              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                                {sourceLinks.map((L) =>
+                                  L.external ? (
+                                    <a
+                                      key={L.href}
+                                      href={L.href}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="font-medium text-sky-800 underline-offset-2 hover:underline dark:text-sky-200"
+                                    >
+                                      {L.label}
+                                    </a>
+                                  ) : (
+                                    <Link
+                                      key={L.href}
+                                      href={L.href}
+                                      className="font-medium text-sky-800 underline-offset-2 hover:underline dark:text-sky-200"
+                                    >
+                                      {L.label}
+                                    </Link>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          ) : m.hasEPD && m.epdSlug ? (
+                            <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+                              No programme URI or imported file on this EPD node — GWP/density may be
+                              dictionary-only until a source TTL hydrates{" "}
+                              <code className="font-mono">ont:sourceProductUri</code> /{" "}
+                              <code className="font-mono">ont:sourceFileName</code>.
+                            </p>
+                          ) : null}
                           {m.matchType ? (
                             <div className="text-[11px]">
                               Match: {m.matchType}
@@ -372,7 +455,8 @@ export default function ElementPassportView(props: Props) {
                         </p>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-zinc-500 italic text-xs">No ont:madeOf material on this element.</p>

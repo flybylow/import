@@ -1,3 +1,7 @@
+import {
+  passportDisplayTypeGroupKey,
+  passportPartitionFromPassportRow,
+} from "@/lib/ifc-passport-type-group";
 import { passportMaterialMatchesSlug } from "@/lib/material-slug-match";
 
 export type Phase4PassportMaterial = {
@@ -29,9 +33,14 @@ export type Phase4ElementPassport = {
   elementId: number;
   elementName?: string;
   ifcType?: string;
+  ifcPredefinedType?: string;
   globalId?: string;
   expressId?: number;
   ifcFireRating?: string;
+  /** From `Pset_ManufacturerTypeInformation` in Phase 1 enrich (`ont:ifcManufacturer`). */
+  ifcManufacturer?: string;
+  ifcModelLabel?: string;
+  ifcModelReference?: string;
   /** Set when API dedupes by name — how many IFC elements share this `schema:name`. */
   sameNameElementCount?: number;
   materials: Phase4PassportMaterial[];
@@ -41,6 +50,16 @@ export type Phase4ElementPassport = {
     value: number;
   }>;
 };
+
+/** Passport finder / `?group=` — includes `IfcCovering · …` when partitioned. */
+export function passportTypeGroupKeyFromRow(p: Phase4ElementPassport): string {
+  const part = passportPartitionFromPassportRow({
+    ifcType: p.ifcType,
+    ifcPredefinedType: p.ifcPredefinedType,
+    elementName: p.elementName,
+  });
+  return passportDisplayTypeGroupKey(p.ifcType, part);
+}
 
 type KbStatusResponse = {
   error?: string;

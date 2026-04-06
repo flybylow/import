@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 type KbStatusLite = {
   kbPath?: string;
@@ -21,7 +22,7 @@ type MaterialRow = {
 
 const SOURCE_HELP: Record<string, string> = {
   "dictionary-no-lca":
-    "IFC material names matched the material dictionary (routing), but Phase 2 did not find a strong enough overlap in enabled TTL sources (KBOB / ICE / B-EPD / …) to hydrate real LCA numbers onto that EPD node. The link still exists for traceability; Phase 3 may block calculation until GWP exists.",
+    "This is not a fifth TTL source you forgot to turn off — it is an outcome bucket. The dictionary still linked an EPD slug, but with only your enabled snapshots (e.g. just KBOB), Phase 2 did not find a strong enough text overlap to copy real GWP/units onto that EPD node. So you can have only KBOB on and still see hundreds here: those materials need a better KBOB row, a different source order, or a fresher TTL. The link stays for traceability; Calculate may block until GWP exists.",
   "dictionary-routed":
     "Dictionary chose a slug and a source row scored high enough to attach or hydrate LCA data from a snapshot.",
   "b-epd-be":
@@ -35,13 +36,32 @@ type Props = {
   projectId: string;
   dictionaryVersion: string;
   dictionaryPath: string;
+  /**
+   * When true (e.g. `/kb`), bucket selection syncs with `?matchedSource=` so the sticky bar can
+   * drive the same drill-down. On `/sources`, leave false — URL stays clean.
+   */
+  matchedSourceUrlSync?: boolean;
 };
+
+function matchedBucketChipClass(active: boolean): string {
+  const base =
+    "rounded border px-2 py-1 font-mono text-[11px] transition-colors cursor-pointer disabled:opacity-60";
+  return active
+    ? `${base} border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200`
+    : `${base} border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/80 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800`;
+}
 
 export default function SourcesMatchingPanel({
   projectId,
   dictionaryVersion,
   dictionaryPath,
+  matchedSourceUrlSync = false,
 }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const matchedSourceParam = searchParams.get("matchedSource")?.trim() || null;
+
   const [status, setStatus] = useState<KbStatusLite | null>(null);
   const [statusErr, setStatusErr] = useState<string | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
@@ -120,6 +140,35 @@ export default function SourcesMatchingPanel({
     [pid]
   );
 
+  const clearRows = useCallback(() => {
+    setSelectedKey(null);
+    setRows(null);
+    setRowsMeta(null);
+    setRowsErr(null);
+    setLoadingRows(false);
+  }, []);
+
+  useEffect(() => {
+    if (!matchedSourceUrlSync) return;
+    if (!matchedSourceParam) {
+      clearRows();
+      return;
+    }
+    void loadRows(matchedSourceParam);
+  }, [matchedSourceUrlSync, matchedSourceParam, loadRows, clearRows]);
+
+  const onBucketClick = (key: string) => {
+    if (matchedSourceUrlSync) {
+      const p = new URLSearchParams(searchParams.toString());
+      if (p.get("matchedSource") === key) p.delete("matchedSource");
+      else p.set("matchedSource", key);
+      router.replace(`${pathname}?${p.toString()}`, { scroll: false });
+      return;
+    }
+    if (selectedKey === key) clearRows();
+    else void loadRows(key);
+  };
+
   return (
     <div className="rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 space-y-3 text-xs text-zinc-700 dark:text-zinc-200">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -156,26 +205,33 @@ export default function SourcesMatchingPanel({
       ) : breakdownEntries.length ? (
         <>
           <div>
-            <div className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 mb-1.5">
-              Matched by source (materials with EPD, {status?.epdCoverage?.materialsWithEPD ?? "—"}{" "}
+            <div className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 mb-1">
+              LCA attribution (materials with EPD, {status?.epdCoverage?.materialsWithEPD ?? "—"}{" "}
               total linked)
             </div>
+            <p className="mb-1.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400 max-w-prose">
+              Buckets show where real LCA came from on the EPD node, or{" "}
+              <code className="font-mono text-[10px]">dictionary-no-lca</code> when the dictionary linked a
+              slug but <span className="font-medium">no enabled TTL snapshot</span> hydrated it — not an
+              extra source left on beside KBOB / ICE / …
+            </p>
             <div className="flex flex-wrap gap-2">
-              {breakdownEntries.map(([key, count]) => (
-                <button
-                  key={key}
-                  type="button"
-                  title={SOURCE_HELP[key] ?? `Bucket: ${key}`}
-                  onClick={() => void loadRows(key)}
-                  className={
-                    selectedKey === key
-                      ? "rounded border border-blue-400 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/40 px-2 py-1 font-mono text-[11px] text-blue-900 dark:text-blue-100"
-                      : "rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/80 px-2 py-1 font-mono text-[11px] hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  }
-                >
-                  {key} <span className="text-zinc-500">{count}</span>
-                </button>
-              ))}
+              {breakdownEntries.map(([key, count]) => {
+                const active = matchedSourceUrlSync
+                  ? matchedSourceParam === key
+                  : selectedKey === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    title={SOURCE_HELP[key] ?? `Bucket: ${key}. Click again to turn off.`}
+                    onClick={() => onBucketClick(key)}
+                    className={matchedBucketChipClass(active)}
+                  >
+                    {key} <span className="text-zinc-500 dark:text-zinc-400">{count}</span>
+                  </button>
+                );
+              })}
             </div>
             {selectedKey && SOURCE_HELP[selectedKey] ? (
               <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
@@ -213,7 +269,7 @@ export default function SourcesMatchingPanel({
                           <th className="px-2 py-1.5 font-medium">ID</th>
                           <th className="px-2 py-1.5 font-medium">Material</th>
                           <th className="px-2 py-1.5 font-medium">EPD slug</th>
-                          <th className="px-2 py-1.5 font-medium">Fix</th>
+                          <th className="px-2 py-1.5 font-medium">Open</th>
                         </tr>
                       </thead>
                       <tbody className="text-zinc-700 dark:text-zinc-300">
@@ -226,12 +282,20 @@ export default function SourcesMatchingPanel({
                             <td className="px-2 py-1 max-w-[14rem] break-words">{r.materialLabel}</td>
                             <td className="px-2 py-1 font-mono text-[10px]">{r.epdSlug ?? "—"}</td>
                             <td className="px-2 py-1 whitespace-nowrap">
-                              <Link
-                                href={`/kb?projectId=${pid}&focusMaterialId=${encodeURIComponent(String(r.materialId))}`}
-                                className="underline text-blue-800 dark:text-blue-300"
-                              >
-                                KB
-                              </Link>
+                              <span className="inline-flex flex-wrap gap-x-2 gap-y-0.5">
+                                <Link
+                                  href={`/kb?projectId=${pid}&focusMaterialId=${encodeURIComponent(String(r.materialId))}`}
+                                  className="underline text-blue-800 dark:text-blue-300"
+                                >
+                                  Reader
+                                </Link>
+                                <Link
+                                  href={`/sources?from=kb&projectId=${pid}&materialId=${encodeURIComponent(String(r.materialId))}${r.epdSlug ? `&epdSlug=${encodeURIComponent(r.epdSlug)}` : ""}`}
+                                  className="underline text-zinc-700 dark:text-zinc-300"
+                                >
+                                  Sources
+                                </Link>
+                              </span>
                             </td>
                           </tr>
                         ))}
@@ -243,7 +307,9 @@ export default function SourcesMatchingPanel({
             </div>
           ) : (
             <p className="text-[11px] text-zinc-500">
-              Click a bucket above to list IFC materials counted in that slice.
+              {matchedSourceUrlSync
+                ? "Click a bucket in the sticky bar or here to list materials; click again to turn off."
+                : "Click a bucket above to list IFC materials counted in that slice."}
             </p>
           )}
         </>

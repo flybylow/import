@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import PassportModelView from "@/features/bim-viewer/components/PassportModelView";
+import PassportModelView, {
+  type PassportNavigatePatch,
+} from "@/features/bim-viewer/components/PassportModelView";
 import { useToast } from "@/components/ToastProvider";
 import {
   kbStatusPassportsUrl,
@@ -14,7 +16,9 @@ import {
 type Props = {
   projectId: string;
   selectedExpressId: number | null;
-  onSelectExpressId: (id: number | null) => void;
+  /** `?group=` (IFC type key) when no element is selected. */
+  passportGroupFromUrl?: string;
+  onPassportNavigate: (patch: PassportNavigatePatch) => void;
   /** Current BIM page query string (no leading `?`), e.g. `projectId=example&view=passports`. */
   urlQueryString?: string;
   className?: string;
@@ -28,21 +32,21 @@ function compactBimUrlQuery(qs: string): { compact: string; title: string } | nu
   const pid = sp.get("projectId")?.trim();
   const view = sp.get("view")?.trim() ?? "";
   const expressId = sp.get("expressId")?.trim();
+  const group = sp.get("group")?.trim();
   const viewCode =
     view === "passports"
       ? "ppv"
-      : view === "building"
+      : view === "building" || view === "3dtest"
         ? "bld"
-        : view === "3dtest"
-          ? "3dt"
-          : view === "inspect"
-            ? "ins"
-            : view || "";
+        : view === "inspect"
+          ? "ins"
+          : view || "";
   const parts: string[] = [];
   if (expressId) parts.push(`id:${expressId}`);
+  if (group) parts.push(`grp:${group.length > 20 ? `${group.slice(0, 18)}…` : group}`);
   if (viewCode) parts.push(`vw:${viewCode}`);
   if (pid) parts.push(`pid:${pid}`);
-  const known = new Set(["projectId", "view", "expressId"]);
+  const known = new Set(["projectId", "view", "expressId", "group"]);
   for (const [k, v] of sp.entries()) {
     if (known.has(k)) continue;
     if (v) parts.push(`${k}:${v}`);
@@ -51,7 +55,7 @@ function compactBimUrlQuery(qs: string): { compact: string; title: string } | nu
   const title = [
     `Full query: ?${s}`,
     "",
-    "Keys: id = expressId · vw = view (ppv=passports, bld=building, 3dt=3D sample, ins=inspect) · pid = projectId",
+    "Keys: id = expressId · grp = group (IFC type) · vw = view (ppv=passports, bld=building, ins=inspect) · pid = projectId",
   ].join("\n");
   return { compact, title };
 }
@@ -64,7 +68,8 @@ export default function BimPassportWorkspace(props: Props) {
   const {
     projectId,
     selectedExpressId,
-    onSelectExpressId,
+    passportGroupFromUrl = "",
+    onPassportNavigate,
     urlQueryString = "",
     className = "",
   } = props;
@@ -168,7 +173,9 @@ export default function BimPassportWorkspace(props: Props) {
   }, [absoluteApiUrl, showToast]);
 
   return (
-    <div className={`flex w-full flex-col gap-2 ${className}`.trim()}>
+    <div
+      className={`flex min-h-0 w-full flex-1 flex-col gap-2 ${className}`.trim()}
+    >
       <details className="group shrink-0 rounded border border-zinc-200 bg-zinc-50 text-xs text-zinc-700 open:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950/50 dark:text-zinc-200 dark:open:bg-zinc-950/50">
         <summary className="cursor-pointer list-none px-2 py-1.5 [&::-webkit-details-marker]:hidden">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -233,6 +240,13 @@ export default function BimPassportWorkspace(props: Props) {
             Same <code className="font-mono">GET</code> as this tab. Up to{" "}
             <code className="font-mono">50k</code> rows per response; total in KB
             may be higher.
+          </p>
+          <p className="mt-2 border-t border-zinc-200 pt-2 text-[11px] leading-snug text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">Takeoff</span> (IFC quantities +
+            materials / GWP) sits <span className="font-medium text-zinc-700 dark:text-zinc-300">under the
+            preview graph</span> after you pick an element. The finder stays on the right; use{" "}
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">Fire snapshot</span> in the
+            finder detail column for KB fire provenance.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <code className="max-w-full break-all rounded bg-white px-1.5 py-1 font-mono text-[10px] text-zinc-800 dark:bg-zinc-900 dark:text-zinc-100">
@@ -343,12 +357,13 @@ export default function BimPassportWorkspace(props: Props) {
           loading={false}
           kbMissing={kbMissing}
           selectedExpressId={selectedExpressId}
-          onSelectExpressId={onSelectExpressId}
+          passportGroupFromUrl={passportGroupFromUrl}
+          onPassportNavigate={onPassportNavigate}
           passportByExpressId={passportByExpressId}
           passportsOrdered={passportsOrdered}
           passportTotal={passportTotal}
           loadedElementCountInKb={loadedElementCountInKb}
-          className="w-full"
+          className="w-full min-h-0 flex-1"
         />
       )}
     </div>

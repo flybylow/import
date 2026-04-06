@@ -8,9 +8,11 @@ Canonical mapping logic lives in `src/lib/timeline-source-provenance.ts` (keep t
 
 **When:** `projectId === "schependomlaan-2015"` and `timeline:source` is `construction-schedule`.
 
+The bundle sets **`primarySheet`** (served CSV — original as-planned event log) and **`datasetLinks`** (openBIMstandards zip + GitHub, same URLs as `docs/DataSetArch/README.md`). On the timeline, those appear only under **Preview → More → Source files and data flow**, above the numbered pipeline steps (not on Summary).
+
 | Step | Role |
 |------|------|
-| `public/data/eventlog_IFC_schependomlaan.csv` | Raw task log: **Material**, task text, IFC GUIDs per row (served at `/data/eventlog_IFC_schependomlaan.csv`). |
+| `public/data/eventlog_IFC_schependomlaan.csv` | Raw task log: **Material**, task text, IFC GUIDs per row (served at `/data/eventlog_IFC_schependomlaan.csv`); linked as `primarySheet` in the UI. |
 | `scripts/seed-timeline-schependomlaan.ts` | Reads CSV, groups by task, emits JSON rows with `dpp:material/…` and `bim:element/IFC_{globalId}`. |
 | `data/schependomlaan-timeline.json` | Generated intermediate (all `evt-schependomlaan-*` events). |
 | `scripts/import-schependomlaan-timeline-audit.ts` | Imports JSON into the project timeline Turtle. |

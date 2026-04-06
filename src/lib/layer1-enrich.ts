@@ -3,6 +3,10 @@ import path from "path";
 import * as WebIFC from "web-ifc";
 import * as $rdf from "rdflib";
 
+import {
+  extractIfcPredefinedTypeLabel,
+  shouldPartitionIfcType,
+} from "@/lib/ifc-passport-type-group";
 import { resolveMaterialLineFromIfc } from "@/lib/ifc-material-resolve";
 
 const BIM_URI = "https://tabulas.eu/bim/";
@@ -65,6 +69,7 @@ const COMMON_PSET_NAMES = new Set([
   "Pset_WallCommon",
   "Pset_WindowCommon",
   "Pset_SlabCommon",
+  "Pset_ManufacturerTypeInformation",
 ]);
 
 const COMMON_PSET_SINGLE_VALUE_NAMES = new Set([
@@ -73,6 +78,9 @@ const COMMON_PSET_SINGLE_VALUE_NAMES = new Set([
   "AcousticRating",
   "IsExternal",
   "LoadBearing",
+  "Manufacturer",
+  "ModelLabel",
+  "ModelReference",
 ]);
 
 function collectIsDefinedByRelIds(
@@ -154,6 +162,10 @@ export type CommonPsetProperties = {
   acousticRating?: string;
   isExternal?: boolean;
   loadBearing?: boolean;
+  /** `Pset_ManufacturerTypeInformation` — product / supplier text for doors, windows, etc. */
+  manufacturer?: string;
+  modelLabel?: string;
+  modelReference?: string;
 };
 
 /**
@@ -222,6 +234,21 @@ function extractCommonPsetPropertiesFromElement(args: {
         case "LoadBearing": {
           const b = readIfcNominalBoolean(nv);
           if (b != null) out.loadBearing = b;
+          break;
+        }
+        case "Manufacturer": {
+          const s = readIfcNominalLabelString(nv);
+          if (s != null) out.manufacturer = s;
+          break;
+        }
+        case "ModelLabel": {
+          const s = readIfcNominalLabelString(nv);
+          if (s != null) out.modelLabel = s;
+          break;
+        }
+        case "ModelReference": {
+          const s = readIfcNominalLabelString(nv);
+          if (s != null) out.modelReference = s;
           break;
         }
         default:
@@ -419,6 +446,21 @@ export async function enrichLayer1FromIfc(params: {
 
     for (const elementId of elementExpressIds) {
       const elementNode = elementById.get(elementId)!;
+      const ifcTypeLit = store.any(elementNode, ONT("ifcType"), null);
+      const elIfcType =
+        typeof ifcTypeLit?.value === "string" ? ifcTypeLit.value : undefined;
+      if (shouldPartitionIfcType(elIfcType ?? "")) {
+        try {
+          const line = ifcApi.GetLine(modelId, elementId, false, true);
+          const pre = extractIfcPredefinedTypeLabel(line?.PredefinedType);
+          if (pre) {
+            store.add(elementNode, ONT("ifcPredefinedType"), $rdf.lit(pre));
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+
       const relIds = collectIsDefinedByRelIds(ifcApi, modelId, elementId);
       const qtys = await extractBaseQuantitiesFromElement({
         ifcApi,
@@ -469,6 +511,12 @@ export async function enrichLayer1FromIfc(params: {
         store.add(elementNode, ONT("isExternal"), toLitBoolean(commonPset.isExternal));
       if (commonPset.loadBearing != null)
         store.add(elementNode, ONT("loadBearing"), toLitBoolean(commonPset.loadBearing));
+      if (commonPset.manufacturer != null)
+        store.add(elementNode, ONT("ifcManufacturer"), $rdf.lit(commonPset.manufacturer));
+      if (commonPset.modelLabel != null)
+        store.add(elementNode, ONT("ifcModelLabel"), $rdf.lit(commonPset.modelLabel));
+      if (commonPset.modelReference != null)
+        store.add(elementNode, ONT("ifcModelReference"), $rdf.lit(commonPset.modelReference));
     }
 
     for (const [materialId, materialNode] of materialById.entries()) {

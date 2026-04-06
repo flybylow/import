@@ -26,25 +26,37 @@ function formatQuantityValue(value: number, unit?: string) {
   return unit ? `${s} ${unit}` : s;
 }
 
+function quantityDl(
+  rows: Array<{ quantityName: string; unit?: string; value: number }>,
+  keyPrefix: string
+) {
+  return (
+    <dl className="grid min-w-0 grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-2 gap-y-1 text-[11px]">
+      {rows.map((q, idx) => (
+        <Fragment key={`${keyPrefix}-${q.quantityName}-${idx}`}>
+          <dt className="min-w-0 break-words text-zinc-500 dark:text-zinc-400">{q.quantityName}</dt>
+          <dd className="min-w-0 break-all font-mono text-zinc-900 dark:text-zinc-100">
+            {formatQuantityValue(q.value, q.unit)}
+          </dd>
+        </Fragment>
+      ))}
+    </dl>
+  );
+}
+
 export default function ElementPassportQuantitiesPanel(props: Props) {
   const { passport, selectedExpressId, embedded = false, className } = props;
 
   if (!selectedExpressId) {
+    if (embedded) {
+      return null;
+    }
     return (
       <div className={panelClass(embedded, className)}>
-        {embedded ? (
-          <p className="py-0.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
-            IFC quantities — pick an element in the finder.
-          </p>
-        ) : (
-          <>
-            <h2 className="text-sm font-semibold">IFC quantities</h2>
-            <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
-              Pick an element in the finder for footprint, volume, height, and other takeoff values from the
-              KB.
-            </p>
-          </>
-        )}
+        <h2 className="text-sm font-semibold">IFC quantities</h2>
+        <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
+          Pick an element in the finder for footprint, volume, height, and other takeoff values from the KB.
+        </p>
       </div>
     );
   }
@@ -73,39 +85,40 @@ export default function ElementPassportQuantitiesPanel(props: Props) {
   const rows = passport.ifcQuantities;
 
   const quantitiesBody = rows.length ? (
-    <dl className="mt-2 grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-2 gap-y-2 text-xs">
-      {rows.map((q, idx) => (
-        <Fragment key={`${q.quantityName}-${idx}`}>
-          <dt className="min-w-0 break-words text-zinc-500">{q.quantityName}</dt>
-          <dd className="min-w-0 break-all font-mono text-zinc-900 dark:text-zinc-100">
-            {formatQuantityValue(q.value, q.unit)}
-          </dd>
-        </Fragment>
-      ))}
-    </dl>
+    (() => {
+      const mid = Math.ceil(rows.length / 2);
+      return (
+        <div className="mt-2 grid min-w-0 grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+          {quantityDl(rows.slice(0, mid), "q-l")}
+          {quantityDl(rows.slice(mid), "q-r")}
+        </div>
+      );
+    })()
   ) : (
     <p className="mt-2 text-xs text-zinc-500">No IFC quantities on this element.</p>
   );
 
   if (embedded) {
+    const mid = Math.ceil(rows.length / 2);
+    const left = rows.slice(0, mid);
+    const right = rows.slice(mid);
     return (
-      <div className={panelClass(embedded, className)}>
-        <details className="group min-w-0 w-full py-0.5 open:pb-1.5">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-0 [&::-webkit-details-marker]:hidden">
-            <h2 className="text-[10px] font-semibold leading-none text-zinc-600 dark:text-zinc-400">
-              IFC quantities
-            </h2>
-            <span className="shrink-0 text-[9px] tabular-nums text-zinc-400 group-open:hidden dark:text-zinc-500">
-              Show
-            </span>
-            <span className="hidden shrink-0 text-[9px] tabular-nums text-zinc-400 group-open:inline dark:text-zinc-500">
-              Hide
-            </span>
-          </summary>
-          <div className="mt-1.5 border-t border-zinc-200/80 pt-2 dark:border-zinc-800">
-            {quantitiesBody}
+      <div
+        className={`${panelClass(embedded, className)} border-b border-zinc-200/80 pb-2 dark:border-zinc-800`.trim()}
+      >
+        <p className="pt-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+          IFC quantities
+        </p>
+        {rows.length > 0 ? (
+          <div className="grid min-w-0 grid-cols-1 gap-x-4 gap-y-1 py-1.5 sm:grid-cols-2">
+            {quantityDl(left, "emb-l")}
+            {quantityDl(right, "emb-r")}
           </div>
-        </details>
+        ) : (
+          <p className="py-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            No IFC quantities on this element.
+          </p>
+        )}
       </div>
     );
   }

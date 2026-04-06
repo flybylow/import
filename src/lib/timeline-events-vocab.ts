@@ -38,6 +38,10 @@ export const TIMELINE_EVENT_ACTIONS = [
   "construction_schedule_task",
   /** BCF 2.0 markup import (coordination / clash follow-up) */
   "bcf_coordination_event",
+  /** Bestek: architect named an auto IFC-type group (/deliveries bestek UI) */
+  "bestek_element_group_binding",
+  /** Contractor / procurement linked real products to bestek groups */
+  "product_coupling_updated",
 ] as const;
 
 export type TimelineEventAction = (typeof TIMELINE_EVENT_ACTIONS)[number];
@@ -56,6 +60,8 @@ export const TIMELINE_EVENT_LABELS: Record<TimelineEventAction, string> = {
   epcis_supply_chain_event: "EPCIS supply-chain event",
   construction_schedule_task: "Construction schedule task",
   bcf_coordination_event: "BCF coordination issue",
+  bestek_element_group_binding: "Bestek — element group named",
+  product_coupling_updated: "Product coupling updated (contractor)",
 };
 
 const ACTION_SET = new Set<string>(TIMELINE_EVENT_ACTIONS);

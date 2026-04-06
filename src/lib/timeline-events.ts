@@ -23,10 +23,52 @@ export type TimelineScheduleFields = {
 /** BCF 2.0 import — optional structured literals. */
 export type TimelineBcfFields = {
   topicGuid?: string;
+  /** First component GUID (backward compatible). */
   ifcGuid?: string;
+  /** JSON string array of all `IfcGuid` values from the topic viewpoint (BCF 2.0). */
+  bcfIfcGuidsJson?: string;
   sourceArchive?: string;
   verbalStatus?: string;
 };
+
+/** Bestek UI — one named IFC-type group. */
+export type TimelineBestekBindingFields = {
+  groupId?: string;
+  architectName?: string;
+  /** EPD slug from material dictionary when architect selected a row */
+  bestekMaterialSlug?: string;
+  ifcType?: string;
+  elementCount?: string;
+  articleNumber?: string;
+  /** e.g. m², m³, st, kg — opmetingsstaat unit */
+  articleUnit?: string;
+  articleQuantity?: string;
+  approvedBrandsJson?: string;
+  orEquivalent?: string;
+};
+
+/** Contractor product rows saved from deliveries bestek UI. */
+export type TimelineProductCouplingFields = {
+  couplingRowsJson?: string;
+  couplingSignatureSha256?: string;
+};
+
+export function parseBcfIfcGuidsJsonField(raw?: string): string[] {
+  if (!raw?.trim()) return [];
+  try {
+    const v = JSON.parse(raw) as unknown;
+    if (!Array.isArray(v)) return [];
+    return [
+      ...new Set(
+        v
+          .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+          .map((s) => s.trim())
+      ),
+    ];
+  } catch {
+    return [];
+  }
+}
 
 /** Structured GS1 EPCIS fields stored as separate `timeline:*` literals (queryable + graph UI). */
 export type TimelineEpcisFields = {
@@ -62,6 +104,8 @@ export type TimelineEventPayload = {
   epcisFields?: TimelineEpcisFields;
   scheduleFields?: TimelineScheduleFields;
   bcfFields?: TimelineBcfFields;
+  bestekBindingFields?: TimelineBestekBindingFields;
+  productCouplingFields?: TimelineProductCouplingFields;
 };
 
 export type ParsedTimelineEvent = {
@@ -79,6 +123,8 @@ export type ParsedTimelineEvent = {
   epcisFields?: TimelineEpcisFields;
   scheduleFields?: TimelineScheduleFields;
   bcfFields?: TimelineBcfFields;
+  bestekBindingFields?: TimelineBestekBindingFields;
+  productCouplingFields?: TimelineProductCouplingFields;
 };
 
 function turtleString(s: string): string {
@@ -172,8 +218,41 @@ export function timelineEventToTurtle(p: TimelineEventPayload): string {
     };
     addB("bcfTopicGuid", b.topicGuid);
     addB("bcfIfcGuid", b.ifcGuid);
+    addB("bcfIfcGuidsJson", b.bcfIfcGuidsJson);
     addB("bcfSourceArchive", b.sourceArchive);
     addB("bcfVerbalStatus", b.verbalStatus);
+  }
+  if (p.bestekBindingFields) {
+    const bk = p.bestekBindingFields;
+    const addBk = (pred: string, val?: string) => {
+      if (val === undefined) return;
+      const s = val.trim();
+      if (!s) return;
+      lines[lines.length - 1] += " ;";
+      lines.push(`    timeline:${pred} ${turtleString(s)}`);
+    };
+    addBk("bestekGroupId", bk.groupId);
+    addBk("bestekArchitectName", bk.architectName);
+    addBk("bestekMaterialSlug", bk.bestekMaterialSlug);
+    addBk("bestekIfcType", bk.ifcType);
+    addBk("bestekElementCount", bk.elementCount);
+    addBk("bestekArticleNumber", bk.articleNumber);
+    addBk("bestekArticleUnit", bk.articleUnit);
+    addBk("bestekArticleQuantity", bk.articleQuantity);
+    addBk("bestekApprovedBrandsJson", bk.approvedBrandsJson);
+    addBk("bestekOrEquivalent", bk.orEquivalent);
+  }
+  if (p.productCouplingFields) {
+    const pc = p.productCouplingFields;
+    const addPc = (pred: string, val?: string) => {
+      if (val === undefined) return;
+      const s = val.trim();
+      if (!s) return;
+      lines[lines.length - 1] += " ;";
+      lines.push(`    timeline:${pred} ${turtleString(s)}`);
+    };
+    addPc("productCouplingRowsJson", pc.couplingRowsJson);
+    addPc("productCouplingSignatureSha256", pc.couplingSignatureSha256);
   }
   lines[lines.length - 1] += " .";
   return `${lines.join("\n")}\n`;
@@ -290,14 +369,71 @@ function parseScheduleFieldsFromStore(
 function parseBcfFieldsFromStore(store: $rdf.Store, subj: unknown): TimelineBcfFields | undefined {
   const topicGuid = lit(store, subj, TL("bcfTopicGuid"));
   const ifcGuid = lit(store, subj, TL("bcfIfcGuid"));
+  const bcfIfcGuidsJson = lit(store, subj, TL("bcfIfcGuidsJson"));
   const sourceArchive = lit(store, subj, TL("bcfSourceArchive"));
   const verbalStatus = lit(store, subj, TL("bcfVerbalStatus"));
-  if (!topicGuid && !ifcGuid && !sourceArchive && !verbalStatus) return undefined;
+  if (!topicGuid && !ifcGuid && !bcfIfcGuidsJson && !sourceArchive && !verbalStatus) return undefined;
   const o: TimelineBcfFields = {};
   if (topicGuid) o.topicGuid = topicGuid;
   if (ifcGuid) o.ifcGuid = ifcGuid;
+  if (bcfIfcGuidsJson) o.bcfIfcGuidsJson = bcfIfcGuidsJson;
   if (sourceArchive) o.sourceArchive = sourceArchive;
   if (verbalStatus) o.verbalStatus = verbalStatus;
+  return o;
+}
+
+function parseBestekBindingFieldsFromStore(
+  store: $rdf.Store,
+  subj: unknown
+): TimelineBestekBindingFields | undefined {
+  const groupId = lit(store, subj, TL("bestekGroupId"));
+  const architectName = lit(store, subj, TL("bestekArchitectName"));
+  const bestekMaterialSlug = lit(store, subj, TL("bestekMaterialSlug"));
+  const ifcType = lit(store, subj, TL("bestekIfcType"));
+  const elementCount = lit(store, subj, TL("bestekElementCount"));
+  const articleNumber = lit(store, subj, TL("bestekArticleNumber"));
+  const articleUnit = lit(store, subj, TL("bestekArticleUnit"));
+  const articleQuantity = lit(store, subj, TL("bestekArticleQuantity"));
+  const approvedBrandsJson = lit(store, subj, TL("bestekApprovedBrandsJson"));
+  const orEquivalent = lit(store, subj, TL("bestekOrEquivalent"));
+  if (
+    !groupId &&
+    !architectName &&
+    !bestekMaterialSlug &&
+    !ifcType &&
+    !elementCount &&
+    !articleNumber &&
+    !articleUnit &&
+    !articleQuantity &&
+    !approvedBrandsJson &&
+    !orEquivalent
+  ) {
+    return undefined;
+  }
+  const o: TimelineBestekBindingFields = {};
+  if (groupId) o.groupId = groupId;
+  if (architectName) o.architectName = architectName;
+  if (bestekMaterialSlug) o.bestekMaterialSlug = bestekMaterialSlug;
+  if (ifcType) o.ifcType = ifcType;
+  if (elementCount) o.elementCount = elementCount;
+  if (articleNumber) o.articleNumber = articleNumber;
+  if (articleUnit) o.articleUnit = articleUnit;
+  if (articleQuantity) o.articleQuantity = articleQuantity;
+  if (approvedBrandsJson) o.approvedBrandsJson = approvedBrandsJson;
+  if (orEquivalent) o.orEquivalent = orEquivalent;
+  return o;
+}
+
+function parseProductCouplingFieldsFromStore(
+  store: $rdf.Store,
+  subj: unknown
+): TimelineProductCouplingFields | undefined {
+  const couplingRowsJson = lit(store, subj, TL("productCouplingRowsJson"));
+  const couplingSignatureSha256 = lit(store, subj, TL("productCouplingSignatureSha256"));
+  if (!couplingRowsJson && !couplingSignatureSha256) return undefined;
+  const o: TimelineProductCouplingFields = {};
+  if (couplingRowsJson) o.couplingRowsJson = couplingRowsJson;
+  if (couplingSignatureSha256) o.couplingSignatureSha256 = couplingSignatureSha256;
   return o;
 }
 
@@ -341,6 +477,8 @@ export function parseTimelineTtl(ttl: string): ParsedTimelineEvent[] {
     const epcisFields = parseEpcisFieldsFromStore(store, subj);
     const scheduleFields = parseScheduleFieldsFromStore(store, subj);
     const bcfFields = parseBcfFieldsFromStore(store, subj);
+    const bestekBindingFields = parseBestekBindingFieldsFromStore(store, subj);
+    const productCouplingFields = parseProductCouplingFieldsFromStore(store, subj);
 
     out.push({
       uri: key,
@@ -357,6 +495,8 @@ export function parseTimelineTtl(ttl: string): ParsedTimelineEvent[] {
       ...(epcisFields ? { epcisFields } : {}),
       ...(scheduleFields ? { scheduleFields } : {}),
       ...(bcfFields ? { bcfFields } : {}),
+      ...(bestekBindingFields ? { bestekBindingFields } : {}),
+      ...(productCouplingFields ? { productCouplingFields } : {}),
     });
   }
 

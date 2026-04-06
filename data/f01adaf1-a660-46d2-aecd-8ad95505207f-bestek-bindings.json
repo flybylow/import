@@ -1,0 +1,136 @@
+[
+  {
+    "group_id": "group_beam_001",
+    "architect_name": "Beton (algemeen)",
+    "material_slug": "concrete_general",
+    "or_equivalent": true,
+    "article_number": "1",
+    "article_unit": "m³",
+    "created_by": "architect",
+    "created_at": "2026-04-06T13:22:58.497Z"
+  },
+  {
+    "group_id": "group_column_006",
+    "architect_name": "Beton (algemeen)",
+    "material_slug": "concrete_general",
+    "or_equivalent": true,
+    "article_number": "2",
+    "article_unit": "m³",
+    "created_by": "architect",
+    "created_at": "2026-04-06T13:22:58.497Z"
+  },
+  {
+    "group_id": "group_covering_007",
+    "architect_name": "Keramische / porselein tegel",
+    "material_slug": "ceramic_tile",
+    "or_equivalent": true,
+    "article_number": "3",
+    "article_unit": "m²",
+    "created_by": "architect",
+    "created_at": "2026-04-06T13:22:58.497Z"
+  },
+  {
+    "group_id": "group_distributionelement_008",
+    "architect_name": "Staal",
+    "material_slug": "steel",
+    "or_equivalent": true,
+    "article_number": "4",
+    "article_unit": "kg",
+    "created_by": "architect",
+    "created_at": "2026-04-06T13:22:58.497Z"
+  },
+  {
+    "group_id": "group_door_009",
+    "architect_name": "Hout",
+    "material_slug": "timber",
+    "or_equivalent": true,
+    "article_number": "5",
+    "article_unit": "stuks",
+    "article_quantity": "205",
+    "created_by": "architect",
+    "created_at": "2026-04-06T13:22:58.497Z"
+  },
+  {
+    "group_id": "group_flowsegment_010",
+    "architect_name": "Staal",
+    "material_slug": "steel",
+    "or_equivalent": true,
+    "article_number": "6",
+    "article_unit": "kg",
+    "created_by": "architect",
+    "created_at": "2026-04-06T13:22:58.497Z"
+  },
+  {
+    "group_id": "group_member_011",
+    "architect_name": "Staal",
+    "material_slug": "steel",
+    "or_equivalent": true,
+    "article_number": "7",
+    "article_unit": "stuks",
+    "article_quantity": "9",
+    "created_by": "architect",
+    "created_at": "2026-04-06T13:22:58.497Z"
+  },
+  {
+    "group_id": "group_railing_012",
+    "architect_name": "Staal",
+    "material_slug": "steel",
+    "or_equivalent": true,
+    "article_number": "8",
+    "article_unit": "stuks",
+    "article_quantity": "90",
+    "created_by": "architect",
+    "created_at": "2026-04-06T13:22:58.497Z"
+  },
+  {
+    "group_id": "group_slab_013",
+    "architect_name": "Beton (algemeen)",
+    "material_slug": "concrete_general",
+    "or_equivalent": true,
+    "article_number": "9",
+    "article_unit": "m³",
+    "created_by": "architect",
+    "created_at": "2026-04-06T13:22:58.497Z"
+  },
+  {
+    "group_id": "group_stair_015",
+    "architect_name": "Beton (algemeen)",
+    "material_slug": "concrete_general",
+    "or_equivalent": true,
+    "article_number": "10",
+    "article_unit": "m³",
+    "created_by": "architect",
+    "created_at": "2026-04-06T13:22:58.497Z"
+  },
+  {
+    "group_id": "group_wall_016",
+    "architect_name": "Metselwerk (baksteen / blok)",
+    "material_slug": "masonry_brick",
+    "or_equivalent": true,
+    "article_number": "11",
+    "article_unit": "m²",
+    "created_by": "architect",
+    "created_at": "2026-04-06T13:22:58.497Z"
+  },
+  {
+    "group_id": "group_wallstandardcase_017",
+    "architect_name": "Metselwerk (baksteen / blok)",
+    "material_slug": "masonry_brick",
+    "or_equivalent": true,
+    "article_number": "12",
+    "article_unit": "m²",
+    "created_by": "architect",
+    "created_at": "2026-04-06T13:22:58.497Z"
+  },
+  {
+    "group_id": "group_window_018",
+    "architect_name": "Aluminium raamkozijn",
+    "material_slug": "aluminium_window_frame",
+    "or_equivalent": true,
+    "article_number": "13",
+    "article_unit": "stuks",
+    "article_quantity": "259",
+    "created_by": "architect",
+    "created_at": "2026-04-06T13:22:58.497Z"
+  }
+]

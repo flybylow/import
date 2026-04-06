@@ -18,20 +18,27 @@ export function useProjectId() {
   const searchParams = useSearchParams();
   const q = searchParams.get("projectId")?.trim() ?? "";
 
-  const [internal, setInternal] = useState<string>(() => {
-    if (typeof window === "undefined") return FALLBACK_PROJECT_ID;
-    try {
-      return window.localStorage.getItem(STORAGE_KEY)?.trim() || FALLBACK_PROJECT_ID;
-    } catch {
-      return FALLBACK_PROJECT_ID;
-    }
-  });
+  /**
+   * Never read `localStorage` in the `useState` initializer: on the server `window` is
+   * undefined (→ fallback), while the client reads storage immediately → different `projectId`
+   * on the first paint and React hydration errors (links, counts, etc.).
+   * Apply persisted id after mount in `useEffect` when the URL has no `?projectId=`.
+   */
+  const [internal, setInternal] = useState<string>(FALLBACK_PROJECT_ID);
 
   useEffect(() => {
-    if (!q) return;
-    setInternal(q);
+    if (q) {
+      setInternal(q);
+      try {
+        window.localStorage.setItem(STORAGE_KEY, q);
+      } catch {
+        // ignore
+      }
+      return;
+    }
     try {
-      window.localStorage.setItem(STORAGE_KEY, q);
+      const stored = window.localStorage.getItem(STORAGE_KEY)?.trim();
+      if (stored) setInternal(stored);
     } catch {
       // ignore
     }

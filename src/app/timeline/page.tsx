@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -38,7 +38,12 @@ import {
   TIMELINE_TARGET_EXPRESS_OPTIONS,
   type TimelineEventAction,
 } from "@/lib/timeline-events-vocab";
-import { timelineProvenanceForEvent } from "@/lib/timeline-source-provenance";
+import {
+  provenanceLinkIsExternal,
+  timelineProvenanceForEvent,
+  type TimelineProvenanceBundle,
+  type TimelineProvenanceHrefItem,
+} from "@/lib/timeline-source-provenance";
 
 const TimelineKbGraph = dynamic(
   () => import("@/components/TimelineKbGraph"),
@@ -48,6 +53,10 @@ const TimelineKbGraph = dynamic(
 const TIMELINE_PROJECT_PRESETS: readonly { id: string; label: string }[] = [
   { id: "example", label: "example" },
   { id: "schependomlaan-2015", label: "schependomlaan-2015" },
+  {
+    id: "lca-stakeholder-review",
+    label: "LCA stakeholder review (demo thread)",
+  },
 ];
 
 /** `?view=graph` opens the Timeline KB graph; default is normal timeline + strip. */
@@ -84,7 +93,7 @@ type ParsedRow = {
   confidence?: number;
   materialReference?: string;
   epcisFields?: TimelineEpcisFields;
-  bcfFields?: { ifcGuid?: string };
+  bcfFields?: { ifcGuid?: string; bcfIfcGuidsJson?: string };
 };
 
 function formatTimelineStamp(iso: string): string {
@@ -215,6 +224,37 @@ function eventLogMetadataSummaryLine(ev: ParsedRow): string {
   return parts.join(" · ");
 }
 
+const provenanceUiLinkClass =
+  "font-medium text-violet-700 underline underline-offset-2 hover:no-underline dark:text-violet-300";
+
+/** Sheet + openBIM links — only under Preview → More → “Source files and data flow”. */
+function TimelineProvenanceSheetNav({ bundle }: { bundle: TimelineProvenanceBundle }) {
+  const items: TimelineProvenanceHrefItem[] = [
+    ...(bundle.primarySheet ? [bundle.primarySheet] : []),
+    ...(bundle.datasetLinks ?? []),
+  ];
+  if (items.length === 0) return null;
+  return (
+    <nav
+      className="flex flex-col gap-0.5 text-[10px]"
+      aria-label="Original as-planned sheet and dataset"
+    >
+      {items.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          {...(provenanceLinkIsExternal(item.href)
+            ? { target: "_blank", rel: "noreferrer" as const }
+            : {})}
+          className={provenanceUiLinkClass}
+        >
+          {item.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 function EventLogRowMetadataDl({ ev, projectId }: { ev: ParsedRow; projectId: string }) {
   const provenanceBundle = useMemo(
     () => timelineProvenanceForEvent(projectId.trim(), ev.source),
@@ -295,9 +335,10 @@ function EventLogRowMetadataDl({ ev, projectId }: { ev: ParsedRow; projectId: st
                   {s.href ? (
                     <Link
                       href={s.href}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-medium text-violet-700 underline underline-offset-2 hover:no-underline dark:text-violet-300"
+                      {...(provenanceLinkIsExternal(s.href)
+                        ? { target: "_blank", rel: "noreferrer" as const }
+                        : {})}
+                      className={provenanceUiLinkClass}
                       onClick={(e) => e.stopPropagation()}
                     >
                       {s.label}
@@ -328,7 +369,7 @@ function EventLogRowMetadataDl({ ev, projectId }: { ev: ParsedRow; projectId: st
 function EventLogRowMetadata(props: {
   ev: ParsedRow;
   projectId: string;
-  /** List view: one summary row; open for full labeled fields. By day: always expanded stack. */
+  /** Stack: full metadata block. List row: collapsible summary in the table. */
   layout?: "stack" | "listCollapsible";
 }) {
   const { ev, projectId, layout = "stack" } = props;
@@ -406,7 +447,12 @@ function TimelineEventDetailPanel(props: {
 }) {
   const { ev, projectId, passportOrdered, globalIdToExpressId, onClear, className: panelClass } =
     props;
+  const [previewTab, setPreviewTab] = useState<"summary" | "more">("summary");
   const [showEpcisJson, setShowEpcisJson] = useState(false);
+
+  useEffect(() => {
+    setPreviewTab("summary");
+  }, [ev.eventId]);
   const jsonIdx = ev.message?.indexOf(EPCIS_JSON_SEPARATOR) ?? -1;
   const hasEpcisPayload = jsonIdx >= 0;
   const humanMessage = hasEpcisPayload ? ev.message!.slice(0, jsonIdx) : ev.message;
@@ -547,7 +593,9 @@ function TimelineEventDetailPanel(props: {
   const passportsFailed = passportOrdered === null;
   const hasBimUriInMessage = parseBimGlobalIdsFromMessage(ev.message).length > 0;
   const hasKbElementInMessage = parseKbElementExpressIdsFromMessage(ev.message).length > 0;
-  const hasBcfGuid = Boolean(ev.bcfFields?.ifcGuid?.trim());
+  const hasBcfGuid = Boolean(
+    ev.bcfFields?.ifcGuid?.trim() || ev.bcfFields?.bcfIfcGuidsJson?.trim()
+  );
   const linkedMaterialId = useMemo(() => {
     const list = Array.isArray(passportOrdered) ? passportOrdered : [];
     return resolveKbMaterialIdFromMaterialReference(ev.materialReference, list);
@@ -564,17 +612,52 @@ function TimelineEventDetailPanel(props: {
 
   const shell =
     "min-w-0 overflow-hidden rounded-md border border-zinc-300 bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900/60";
+  const tabBtn =
+    "rounded px-1 py-px text-[9px] font-medium transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400 dark:focus-visible:ring-zinc-500";
+
   return (
     <section
       id="timeline-selected-event"
       className={panelClass?.trim() ? `${shell} ${panelClass}` : shell}
-      aria-label="Selected event metadata"
+      aria-label="Preview"
     >
       <div className="flex flex-wrap items-center justify-between gap-1 border-b border-zinc-200 px-2 py-1 dark:border-zinc-700">
-        <div className="flex min-w-0 flex-wrap items-center gap-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h3 className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            Selected event
+            Preview
           </h3>
+          <nav
+            className="flex items-center gap-1 text-[9px]"
+            aria-label="Preview sections"
+          >
+            <button
+              type="button"
+              aria-current={previewTab === "summary" ? "page" : undefined}
+              onClick={() => setPreviewTab("summary")}
+              className={`${tabBtn} ${
+                previewTab === "summary"
+                  ? "text-zinc-900 underline decoration-zinc-400 underline-offset-2 dark:text-zinc-100 dark:decoration-zinc-500"
+                  : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+              }`}
+            >
+              Summary
+            </button>
+            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+              ·
+            </span>
+            <button
+              type="button"
+              aria-current={previewTab === "more" ? "page" : undefined}
+              onClick={() => setPreviewTab("more")}
+              className={`${tabBtn} ${
+                previewTab === "more"
+                  ? "text-zinc-900 underline decoration-zinc-400 underline-offset-2 dark:text-zinc-100 dark:decoration-zinc-500"
+                  : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+              }`}
+            >
+              More
+            </button>
+          </nav>
           <span
             className="shrink-0 rounded border border-amber-200/90 bg-amber-50 px-1 py-px text-[7px] font-semibold uppercase tracking-wide text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/80 dark:text-amber-200"
             title="Layout and fields may change"
@@ -590,57 +673,106 @@ function TimelineEventDetailPanel(props: {
           Clear
         </button>
       </div>
-      <div className="min-w-0 space-y-1.5 px-2 py-1.5">
-        <div className="min-w-0">
-          <div className="flex min-w-0 flex-wrap items-start gap-1">
-            <h4
-              className="min-w-0 flex-1 truncate text-xs font-semibold leading-snug text-zinc-900 dark:text-zinc-50"
-              title={displayTitle}
-            >
-              {displayTitle}
-            </h4>
-            {ifcCategory !== "Other" ? (
-              <span
-                className="shrink-0 rounded border bg-white/90 px-1 py-px font-mono text-[8px] font-semibold leading-none dark:bg-zinc-950/90"
-                style={{
-                  borderColor: ifcCategoryColor(ifcCategory),
-                  color: ifcCategoryColor(ifcCategory),
-                }}
-                title={`IFC type (parsed): ${ifcCategory}`}
-              >
-                {ifcCategory}
-              </span>
-            ) : null}
+      <div className="min-w-0 px-2 py-1.5">
+        {previewTab === "summary" ? (
+          <div className="min-w-0 space-y-1.5">
+            <div className="min-w-0">
+              <div className="flex min-w-0 flex-wrap items-start gap-1">
+                <h4
+                  className="min-w-0 flex-1 truncate text-xs font-semibold leading-snug text-zinc-900 dark:text-zinc-50"
+                  title={displayTitle}
+                >
+                  {displayTitle}
+                </h4>
+                {ifcCategory !== "Other" ? (
+                  <span
+                    className="shrink-0 rounded border bg-white/90 px-1 py-px font-mono text-[8px] font-semibold leading-none dark:bg-zinc-950/90"
+                    style={{
+                      borderColor: ifcCategoryColor(ifcCategory),
+                      color: ifcCategoryColor(ifcCategory),
+                    }}
+                    title={`IFC type (parsed): ${ifcCategory}`}
+                  >
+                    {ifcCategory}
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-0.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+                <span className="font-medium text-zinc-700 dark:text-zinc-200">
+                  {TIMELINE_EVENT_LABELS[ev.eventAction]}
+                </span>
+                <span aria-hidden className="mx-0.5 text-zinc-300 dark:text-zinc-600">
+                  ·
+                </span>
+                <time dateTime={ev.timestampIso} className="font-mono tabular-nums">
+                  {formatTimelineStamp(ev.timestampIso)}
+                </time>
+                <span aria-hidden className="mx-0.5 text-zinc-300 dark:text-zinc-600">
+                  ·
+                </span>
+                <span className="text-zinc-600 dark:text-zinc-300">{actorLine(ev)}</span>
+              </p>
+              {displaySummary ? (
+                <p
+                  className="mt-1 line-clamp-4 text-[11px] leading-snug text-zinc-600 dark:text-zinc-300"
+                  title={displaySummary}
+                >
+                  {displaySummary}
+                </p>
+              ) : null}
+              {ev.eventAction === "bcf_coordination_event" ? (
+                <div
+                  role="status"
+                  className="mt-1.5 rounded border border-amber-200/90 bg-amber-50/95 px-2 py-1.5 text-[10px] leading-snug text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/45 dark:text-amber-100"
+                >
+                  <p className="font-semibold text-amber-900 dark:text-amber-200">
+                    BCF and this project&apos;s IFC
+                  </p>
+                  <p className="mt-0.5 text-amber-900/95 dark:text-amber-100/95">
+                    Links to expressId and materials only line up when the KB/passports for this
+                    project come from the same (or compatible) IFC as the BCF viewpoint. Federated
+                    coordination often references other files in the BCF markup header (for example{" "}
+                    <span className="font-mono">ROOT-Compleet.ifczip</span>) — if that is not the
+                    model your timeline uses, treat element and material links as uncertain.
+                  </p>
+                  {mightResolveLater && hasBcfGuid ? (
+                    <p className="mt-1 text-amber-800/90 dark:text-amber-200/90">
+                      Checking whether the BCF IfcGuid maps to this project&apos;s passports…
+                    </p>
+                  ) : null}
+                  {!hasBcfGuid && !passportsLoading ? (
+                    <p className="mt-1 text-amber-800/90 dark:text-amber-200/90">
+                      This topic has no <span className="font-mono">IfcGuid</span> in the viewpoint
+                      (empty components) — use the comment text and archive name for context; there
+                      is no geometry id to resolve here.
+                    </p>
+                  ) : null}
+                  {hasBcfGuid && passportsFailed ? (
+                    <p className="mt-1 text-amber-800/90 dark:text-amber-200/90">
+                      Passports could not be loaded — we did not verify whether the BCF IfcGuid
+                      exists in this project.
+                    </p>
+                  ) : null}
+                  {hasBcfGuid &&
+                  !passportsLoading &&
+                  !passportsFailed &&
+                  linkedExpressIds.length === 0 ? (
+                    <p
+                      className="mt-1 font-semibold text-red-800 dark:text-red-200"
+                      role="alert"
+                    >
+                      This BCF IfcGuid does not match any element in the current passport batch —
+                      the coordination IFC and this project&apos;s model likely differ. Do not assume
+                      material or 3D links apply until the KB matches the BCF source model.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
-          <p className="mt-0.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
-            <span className="font-medium text-zinc-700 dark:text-zinc-200">
-              {TIMELINE_EVENT_LABELS[ev.eventAction]}
-            </span>
-            <span aria-hidden className="mx-0.5 text-zinc-300 dark:text-zinc-600">
-              ·
-            </span>
-            <time dateTime={ev.timestampIso} className="font-mono tabular-nums">
-              {formatTimelineStamp(ev.timestampIso)}
-            </time>
-            <span aria-hidden className="mx-0.5 text-zinc-300 dark:text-zinc-600">
-              ·
-            </span>
-            <span className="text-zinc-600 dark:text-zinc-300">{actorLine(ev)}</span>
-          </p>
-          {displaySummary ? (
-            <p
-              className="mt-1 truncate text-[11px] leading-snug text-zinc-600 dark:text-zinc-300"
-              title={displaySummary}
-            >
-              {displaySummary}
-            </p>
-          ) : null}
-        </div>
-
-        <div
-          id="timeline-open-in-app"
-          className="scroll-mt-4 border-t border-zinc-200 px-2 py-1.5 dark:border-zinc-700"
-        >
+        ) : (
+          <div className="min-w-0 space-y-1.5">
+        <div id="timeline-open-in-app" className="scroll-mt-4">
           <p className={metaLabelClass()}>Open in app</p>
           {passportsFailed &&
           primaryExpressId == null &&
@@ -749,49 +881,46 @@ function TimelineEventDetailPanel(props: {
           ) : null}
         </div>
 
-        {provenanceBundle ? (
-          <details className="group scroll-mt-4 rounded border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950/50">
+        <details className="group scroll-mt-4 rounded border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950/50">
             <summary className="cursor-pointer list-none px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:text-zinc-300 [&::-webkit-details-marker]:hidden">
               <span className="text-zinc-400 group-open:hidden dark:text-zinc-500">▶</span>
               <span className="hidden text-zinc-400 group-open:inline dark:text-zinc-500">▼</span>
               <span className="ml-1">Source files and data flow</span>
             </summary>
             <div className="max-h-[min(45vh,14rem)] overflow-y-auto border-t border-zinc-100 px-1.5 py-1.5 dark:border-zinc-800">
-              <p className="text-[10px] leading-snug text-zinc-600 dark:text-zinc-300">
-                {provenanceBundle.intro}
-              </p>
-              <ol className="mt-2 list-decimal space-y-2 pl-3.5 text-[10px] text-zinc-700 dark:text-zinc-200">
-                {provenanceBundle.steps.map((s) => (
-                  <li key={s.repoPath} className="min-w-0">
-                    {s.href ? (
-                      <Link
-                        href={s.href}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-medium text-violet-700 underline underline-offset-2 hover:no-underline dark:text-violet-300"
-                      >
-                        {s.label}
-                      </Link>
-                    ) : (
-                      <span>{s.label}</span>
-                    )}
-                    <span className="mt-0.5 block font-mono text-[9px] text-zinc-500 dark:text-zinc-400">
-                      {s.repoPath}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-              <p className="mt-2 text-[9px] text-zinc-500 dark:text-zinc-400">
-                <Link
-                  href="/timeline/provenance"
-                  className="font-medium text-violet-700 underline underline-offset-2 dark:text-violet-300"
-                >
-                  Open full data-flow page (all pipelines) →
-                </Link>
-              </p>
+              {provenanceBundle ? (
+                <>
+                  <TimelineProvenanceSheetNav bundle={provenanceBundle} />
+                  <ol className="mt-2 list-decimal space-y-2 pl-3.5 text-[10px] text-zinc-700 dark:text-zinc-200">
+                    {provenanceBundle.steps.map((s) => (
+                      <li key={s.repoPath} className="min-w-0">
+                        {s.href ? (
+                          <Link
+                            href={s.href}
+                            {...(provenanceLinkIsExternal(s.href)
+                              ? { target: "_blank", rel: "noreferrer" as const }
+                              : {})}
+                            className={provenanceUiLinkClass}
+                          >
+                            {s.label}
+                          </Link>
+                        ) : (
+                          <span>{s.label}</span>
+                        )}
+                        <span className="mt-0.5 block font-mono text-[9px] text-zinc-500 dark:text-zinc-400">
+                          {s.repoPath}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              ) : (
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                  No mapping for this source yet.
+                </p>
+              )}
             </div>
           </details>
-        ) : null}
 
         <details className="group rounded border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950/50">
           <summary className="cursor-pointer list-none px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:text-zinc-300 [&::-webkit-details-marker]:hidden">
@@ -898,6 +1027,8 @@ function TimelineEventDetailPanel(props: {
             ) : null}
           </div>
         </details>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -986,7 +1117,8 @@ export default function TimelinePage() {
   const [expandedLogEventId, setExpandedLogEventId] = useState<string | null>(null);
   /** Empty = no filter (all IFC types). Non-empty = show only events whose parsed IFC type is in this set. */
   const [ifcFilterTypes, setIfcFilterTypes] = useState<string[]>([]);
-  const [eventLogLayout, setEventLogLayout] = useState<"list" | "dayColumns">("list");
+  /** Cards = one horizontal card per event. Days = one card per calendar day, events in a horizontal row. List = table. */
+  const [eventLogLayout, setEventLogLayout] = useState<"cards" | "dayGroups" | "list">("cards");
 
   const [epcisJsonText, setEpcisJsonText] = useState(() =>
     JSON.stringify(
@@ -1145,19 +1277,24 @@ export default function TimelinePage() {
     });
   }, [events, ifcFilterTypes]);
 
+  /** Newest calendar days first; events within a day keep global list order (newest-first). */
   const displayEventLogDayGroups = useMemo(() => {
     const map = new Map<string, ParsedRow[]>();
     for (const ev of displayEvents) {
       const k = localCalendarDayKey(ev.timestampIso);
-      if (!k) continue;
-      const arr = map.get(k) ?? [];
+      const bucket = k || "__undated__";
+      const arr = map.get(bucket) ?? [];
       arr.push(ev);
-      map.set(k, arr);
+      map.set(bucket, arr);
     }
-    const keys = [...map.keys()].sort((a, b) => b.localeCompare(a));
+    const keys = [...map.keys()].sort((a, b) => {
+      if (a === "__undated__") return 1;
+      if (b === "__undated__") return -1;
+      return b.localeCompare(a);
+    });
     return keys.map((dayKey) => ({
       dayKey,
-      label: formatDayColumnHeading(dayKey),
+      label: dayKey === "__undated__" ? "Undated" : formatDayColumnHeading(dayKey),
       events: map.get(dayKey)!,
     }));
   }, [displayEvents]);
@@ -1846,7 +1983,7 @@ export default function TimelinePage() {
               <div className="flex shrink-0 flex-col gap-4 overflow-hidden lg:flex-row lg:items-stretch lg:gap-4">
                 <aside
                   className="w-full shrink-0 lg:w-[16.5rem] lg:min-h-0 lg:min-w-[16.5rem] lg:max-w-[16.5rem] lg:overflow-y-auto"
-                  aria-label="Selected event"
+                  aria-label="Preview"
                 >
                 {selectedEvent ? (
                     <TimelineEventDetailPanel
@@ -1873,11 +2010,11 @@ export default function TimelinePage() {
                   </div>
                 ) : displayEvents.length > 0 ? (
                   <div className="flex min-h-[4.5rem] w-full flex-col justify-center rounded-md border border-dashed border-zinc-300 px-2 py-2.5 text-center text-xs leading-snug text-zinc-500 dark:border-zinc-600 dark:text-zinc-400">
-                    Select an event on the timeline strip or in the event log to view details here.
+                    Pick an event on the strip or in the log — preview appears here.
                   </div>
                 ) : (
                   <div className="flex min-h-[4rem] w-full items-center justify-center rounded-md border border-dashed border-zinc-300 px-2 py-2.5 text-center text-xs leading-snug text-zinc-500 dark:border-zinc-600 dark:text-zinc-400">
-                    No events yet — details will appear here when you add or select one.
+                    No events yet — preview will show here when you add or select one.
                   </div>
                 )}
                 </aside>
@@ -1970,9 +2107,8 @@ export default function TimelinePage() {
                           aria-pressed={isSel}
                           onClick={() => {
                             setExpandedLogEventId(null);
-                            const next = selectedEventId === ev.eventId ? null : ev.eventId;
-                            setSelectedEventId(next);
-                            syncEventIdQuery(next);
+                            setSelectedEventId(ev.eventId);
+                            syncEventIdQuery(ev.eventId);
                           }}
                           className={`flex w-[4.25rem] shrink-0 flex-col items-stretch rounded-md border text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:focus-visible:ring-zinc-500 ${
                             isSel
@@ -2052,6 +2188,30 @@ export default function TimelinePage() {
                     <div className="inline-flex rounded-lg border border-zinc-300 bg-zinc-50/90 p-0.5 dark:border-zinc-600 dark:bg-zinc-900/80">
                       <button
                         type="button"
+                        aria-pressed={eventLogLayout === "cards"}
+                        onClick={() => setEventLogLayout("cards")}
+                        className={`rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                          eventLogLayout === "cards"
+                            ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                            : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        Cards
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={eventLogLayout === "dayGroups"}
+                        onClick={() => setEventLogLayout("dayGroups")}
+                        className={`rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                          eventLogLayout === "dayGroups"
+                            ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                            : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        Days
+                      </button>
+                      <button
+                        type="button"
                         aria-pressed={eventLogLayout === "list"}
                         onClick={() => setEventLogLayout("list")}
                         className={`rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors ${
@@ -2060,36 +2220,22 @@ export default function TimelinePage() {
                             : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
                         }`}
                       >
-                        List
-                      </button>
-                      <button
-                        type="button"
-                        aria-pressed={eventLogLayout === "dayColumns"}
-                        onClick={() => setEventLogLayout("dayColumns")}
-                        className={`rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors ${
-                          eventLogLayout === "dayColumns"
-                            ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                            : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                        }`}
-                      >
-                        By day
+                        Table
                       </button>
                     </div>
                   </div>
                 ) : null}
                 <div
                   ref={eventLogScrollRef}
-                  className={`min-h-0 w-full min-w-0 flex-1 overscroll-y-contain [-webkit-overflow-scrolling:touch] ${
-                    eventLogLayout === "dayColumns"
-                      ? "flex flex-col overflow-x-auto overflow-y-hidden"
-                      : "overflow-x-auto overflow-y-auto"
-                  }`}
+                  className="min-h-0 w-full min-w-0 flex-1 overflow-x-auto overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
                 >
                   <div
                     className={
                       eventLogLayout === "list"
                         ? "min-w-[32rem] space-y-1 pb-2"
-                        : "flex min-h-0 min-w-full w-max flex-1 flex-row items-stretch gap-2 px-0.5 pb-2"
+                        : `flex w-max min-w-full flex-row items-stretch px-0.5 pb-2 ${
+                            eventLogLayout === "dayGroups" ? "gap-3" : "gap-2"
+                          }`
                     }
                   >
                     {displayEvents.length === 0 && ifcFilterTypes.length > 0 ? (
@@ -2244,45 +2390,48 @@ export default function TimelinePage() {
                           })}
                         </ul>
                       </>
-                    ) : (
+                    ) : eventLogLayout === "dayGroups" ? (
                       <>
                         {displayEventLogDayGroups.map((g) => (
                           <div
                             key={g.dayKey}
-                            data-timeline-day-column={g.dayKey}
-                            className="flex min-h-0 w-[11.5rem] shrink-0 flex-row overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50/40 dark:border-zinc-700 dark:bg-zinc-900/25 sm:w-[12rem]"
+                            data-timeline-day-card={g.dayKey}
+                            className="flex w-[min(17rem,calc(100vw-3rem))] min-w-[10.5rem] max-w-[20rem] shrink-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50/60 dark:border-zinc-700 dark:bg-zinc-900/40"
                           >
-                            <div
-                              className="flex w-8 shrink-0 flex-col items-center justify-between gap-2 border-r border-zinc-200 bg-zinc-100/95 py-2 dark:border-zinc-700 dark:bg-zinc-900/95 sm:w-9"
-                              aria-label={`Day ${g.label}, ${g.events.length} event${g.events.length === 1 ? "" : "s"}`}
-                            >
-                              <p
-                                className="select-none text-center text-[9px] font-bold uppercase leading-tight tracking-wider text-zinc-600 dark:text-zinc-300 [text-orientation:mixed] [writing-mode:vertical-rl] rotate-180"
+                            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200 bg-zinc-100/90 px-2 py-1.5 dark:border-zinc-600 dark:bg-zinc-900/90">
+                              <span
+                                className="min-w-0 truncate text-[11px] font-semibold text-zinc-900 dark:text-zinc-50"
                                 title={g.label}
                               >
                                 {g.label}
-                              </p>
-                              <p
-                                className="select-none text-center font-mono text-[9px] tabular-nums leading-none text-zinc-500 dark:text-zinc-400 [writing-mode:vertical-rl] rotate-180"
-                                title={`${g.events.length} event${g.events.length === 1 ? "" : "s"}`}
-                                aria-hidden
+                              </span>
+                              <span
+                                className="shrink-0 rounded-full bg-white px-1.5 py-px text-[9px] font-medium tabular-nums text-zinc-600 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-600"
+                                aria-label={`${g.events.length} events`}
                               >
                                 {g.events.length}
-                              </p>
+                              </span>
                             </div>
-                            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden overscroll-y-contain p-1 [-webkit-overflow-scrolling:touch]">
+                            <div
+                              className="flex max-h-[min(48vh,18rem)] flex-col gap-0.5 overflow-y-auto overscroll-y-contain p-1.5 [-webkit-overflow-scrolling:touch]"
+                              aria-label={`Events on ${g.label}`}
+                            >
                               {g.events.map((ev) => {
                                 const isSel = selectedEventId === ev.eventId;
                                 const isExpanded = expandedLogEventId === ev.eventId;
-                                const { title: rowTitle, summary: rowSummary } = eventTitleAndSummary(ev);
+                                const { title: rowTitle, summary: rowSummary } =
+                                  eventTitleAndSummary(ev);
                                 const rowIfcCat = extractIfcCategoryFromTitle(rowTitle);
-                                const summaryDisplay = rowSummary.trim() ? rowSummary : "—";
                                 const kindLabel = TIMELINE_EVENT_LABELS[ev.eventAction];
                                 const timeOnly = formatTimelineTimeOnly(ev.timestampIso);
 
-                                function onDayCardClick() {
+                                function onDayStackSelect() {
                                   setSelectedEventId(ev.eventId);
                                   syncEventIdQuery(ev.eventId);
+                                }
+
+                                function onDayStackToggleOpen(e: MouseEvent<HTMLButtonElement>) {
+                                  e.stopPropagation();
                                   setExpandedLogEventId((cur) =>
                                     cur === ev.eventId ? null : ev.eventId
                                   );
@@ -2292,90 +2441,204 @@ export default function TimelinePage() {
                                   <div
                                     key={ev.eventId}
                                     data-event-log-entry={ev.eventId}
-                                    className={`scroll-mt-2 overflow-hidden rounded-md border text-left transition-colors ${
-                                      constructionStrip.showIfcLane ? "border-l-[3px]" : ""
-                                    } ${
-                                      isSel
-                                        ? "border-zinc-500 bg-zinc-100 dark:border-zinc-500 dark:bg-zinc-800/80"
-                                        : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
-                                    }`}
-                                    style={
-                                      constructionStrip.showIfcLane
-                                        ? { borderLeftColor: ifcCategoryColor(rowIfcCat) }
-                                        : undefined
-                                    }
+                                    className="min-w-0 scroll-mt-1"
                                   >
                                     <div
-                                      role="button"
-                                      tabIndex={0}
-                                      aria-expanded={isExpanded}
-                                      aria-label={`${rowTitle}; ${kindLabel}; ${summaryDisplay}; ${timeOnly}. ${isExpanded ? "Collapse" : "Expand"} metadata.`}
-                                      onClick={onDayCardClick}
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter" || e.key === " ") {
-                                          e.preventDefault();
-                                          onDayCardClick();
-                                        }
-                                      }}
-                                      className="cursor-pointer px-1.5 py-1 hover:bg-zinc-50/80 dark:hover:bg-zinc-900/50"
+                                      className={`overflow-hidden rounded-md border text-left transition-colors ${
+                                        constructionStrip.showIfcLane ? "border-l-[3px]" : ""
+                                      } ${
+                                        isSel
+                                          ? "border-zinc-500 bg-zinc-100 dark:border-zinc-500 dark:bg-zinc-800/80"
+                                          : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+                                      }`}
+                                      style={
+                                        constructionStrip.showIfcLane
+                                          ? { borderLeftColor: ifcCategoryColor(rowIfcCat) }
+                                          : undefined
+                                      }
                                     >
-                                      <div className="flex items-start gap-1">
-                                        <span
-                                          className="shrink-0 pt-0.5 text-[9px] text-zinc-400 dark:text-zinc-500"
-                                          aria-hidden
+                                      <div className="flex min-h-[1.65rem] items-stretch">
+                                        <button
+                                          type="button"
+                                          onClick={onDayStackSelect}
+                                          aria-pressed={isSel}
+                                          aria-label={`Select: ${rowTitle}; ${kindLabel}; ${timeOnly}`}
+                                          className="flex min-w-0 flex-1 items-center gap-1 px-1.5 py-0.5 text-left hover:bg-zinc-50/90 dark:hover:bg-zinc-900/60"
                                         >
-                                          {isExpanded ? "▼" : "▶"}
-                                        </span>
-                                        <p
-                                          className="min-w-0 flex-1 truncate text-xs font-semibold leading-snug text-zinc-900 dark:text-zinc-50"
-                                          title={rowTitle}
-                                        >
-                                          {rowTitle}
-                                        </p>
-                                      </div>
-                                      <div className="mt-1 flex min-w-0 flex-nowrap items-center gap-1">
-                                        <span
-                                          className="min-w-0 flex-1 truncate text-[10px] text-zinc-600 dark:text-zinc-300"
-                                          title={kindLabel}
-                                        >
-                                          {kindLabel}
-                                        </span>
-                                        {timelineProvenanceForEvent(projectId.trim(), ev.source) ? (
-                                          <Link
-                                            href="/timeline/provenance"
-                                            className="shrink-0 rounded bg-violet-100 px-1 py-px text-[8px] font-medium text-violet-900 underline-offset-2 hover:underline dark:bg-violet-900/40 dark:text-violet-200"
-                                            title="Repo files and import pipeline for this source"
-                                            onClick={(e) => e.stopPropagation()}
+                                          <span
+                                            className="shrink-0 font-mono text-[9px] tabular-nums text-zinc-500 dark:text-zinc-400"
+                                            title={ev.timestampIso}
                                           >
-                                            Files
-                                          </Link>
-                                        ) : null}
-                                        <time
-                                          dateTime={ev.timestampIso}
-                                          className="shrink-0 font-mono text-[9px] tabular-nums text-zinc-500 dark:text-zinc-400"
-                                          title={ev.timestampIso}
+                                            {timeOnly}
+                                          </span>
+                                          <span
+                                            className="min-w-0 flex-1 truncate text-[10px] font-medium leading-tight text-zinc-900 dark:text-zinc-50"
+                                            title={rowTitle}
+                                          >
+                                            {rowTitle}
+                                          </span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={onDayStackToggleOpen}
+                                          aria-expanded={isExpanded}
+                                          aria-label={
+                                            isExpanded
+                                              ? "Close inline details"
+                                              : "Open inline details"
+                                          }
+                                          className="shrink-0 border-l border-zinc-200 px-1.5 py-0.5 text-[9px] font-medium text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800/80"
                                         >
-                                          {timeOnly}
-                                        </time>
+                                          {isExpanded ? "Close" : "Open"}
+                                        </button>
                                       </div>
-                                      {summaryDisplay !== "—" ? (
-                                        <p
-                                          className="mt-1 truncate text-[10px] text-zinc-500 dark:text-zinc-400"
-                                          title={summaryDisplay}
-                                        >
-                                          {summaryDisplay}
-                                        </p>
+                                      {isExpanded ? (
+                                        <div className="border-t border-zinc-100 dark:border-zinc-800">
+                                          <p className="px-1.5 py-0.5 text-[9px] text-zinc-600 dark:text-zinc-400">
+                                            <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                                              {kindLabel}
+                                            </span>
+                                            {rowSummary.trim() ? (
+                                              <span className="mt-0.5 line-clamp-2 block text-zinc-500 dark:text-zinc-400">
+                                                {rowSummary.trim()}
+                                              </span>
+                                            ) : null}
+                                          </p>
+                                          <EventLogRowMetadata
+                                            ev={ev}
+                                            projectId={projectId}
+                                            layout="stack"
+                                          />
+                                        </div>
                                       ) : null}
                                     </div>
-                                    {isExpanded ? (
-                                      <EventLogRowMetadata ev={ev} projectId={projectId} />
-                                    ) : null}
                                   </div>
                                 );
                               })}
                             </div>
                           </div>
                         ))}
+                      </>
+                    ) : (
+                      <>
+                        {displayEvents.map((ev, idx) => {
+                          const dayKey = localCalendarDayKey(ev.timestampIso);
+                          const prevKey =
+                            idx > 0
+                              ? localCalendarDayKey(displayEvents[idx - 1]!.timestampIso)
+                              : "";
+                          const newDay = Boolean(dayKey && dayKey !== prevKey);
+                          const dayHeading = dayKey ? formatDayColumnHeading(dayKey) : "—";
+                          const isSel = selectedEventId === ev.eventId;
+                          const { title: rowTitle, summary: rowSummary } = eventTitleAndSummary(ev);
+                          const rowIfcCat = extractIfcCategoryFromTitle(rowTitle);
+                          const summaryDisplay = rowSummary.trim() ? rowSummary : "—";
+                          const kindLabel = TIMELINE_EVENT_LABELS[ev.eventAction];
+                          const stamp = formatTimelineStamp(ev.timestampIso);
+
+                          function onCardClick() {
+                            setExpandedLogEventId(null);
+                            setSelectedEventId(ev.eventId);
+                            syncEventIdQuery(ev.eventId);
+                          }
+
+                          return (
+                            <div
+                              key={ev.eventId}
+                              data-event-log-entry={ev.eventId}
+                              className="w-[11.5rem] shrink-0 scroll-mt-2 sm:w-[13rem]"
+                            >
+                              <div
+                                className="flex h-6 shrink-0 items-center justify-center"
+                                aria-hidden={!newDay}
+                              >
+                                {newDay ? (
+                                  <span
+                                    className="rounded-full border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-center text-[9px] font-semibold uppercase tracking-wide text-zinc-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                                    title={formatTimelineDateOnly(ev.timestampIso)}
+                                  >
+                                    {dayHeading}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div
+                                className={`overflow-hidden rounded-lg border text-left transition-colors ${
+                                  constructionStrip.showIfcLane ? "border-l-[3px]" : ""
+                                } ${
+                                  isSel
+                                    ? "border-zinc-500 bg-zinc-100 dark:border-zinc-500 dark:bg-zinc-800/80"
+                                    : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+                                }`}
+                                style={
+                                  constructionStrip.showIfcLane
+                                    ? { borderLeftColor: ifcCategoryColor(rowIfcCat) }
+                                    : undefined
+                                }
+                              >
+                                <button
+                                  type="button"
+                                  onClick={onCardClick}
+                                  aria-pressed={isSel}
+                                  aria-label={`${rowTitle}; ${kindLabel}; ${summaryDisplay}; ${stamp}`}
+                                  className="w-full cursor-pointer px-2 py-1.5 text-left hover:bg-zinc-50/80 dark:hover:bg-zinc-900/50"
+                                >
+                                  <p
+                                    className="line-clamp-2 text-xs font-semibold leading-snug text-zinc-900 dark:text-zinc-50"
+                                    title={rowTitle}
+                                  >
+                                    {rowTitle}
+                                  </p>
+                                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
+                                    <span
+                                      className="min-w-0 truncate text-[10px] text-zinc-600 dark:text-zinc-300"
+                                      title={kindLabel}
+                                    >
+                                      {kindLabel}
+                                    </span>
+                                    {ev.source === "epcis" ? (
+                                      <span className="shrink-0 rounded bg-amber-100 px-1 py-px text-[8px] font-medium uppercase text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+                                        EPCIS
+                                      </span>
+                                    ) : ev.source === "form" ? (
+                                      <span className="shrink-0 rounded bg-zinc-200 px-1 py-px text-[8px] font-medium text-zinc-700 dark:bg-zinc-600 dark:text-zinc-200">
+                                        Form
+                                      </span>
+                                    ) : ev.source === "deliveries-ingest" ? (
+                                      <span className="shrink-0 rounded bg-emerald-100 px-1 py-px text-[8px] font-medium text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200">
+                                        Deliveries
+                                      </span>
+                                    ) : null}
+                                    {timelineProvenanceForEvent(projectId.trim(), ev.source) ? (
+                                      <Link
+                                        href="/timeline/provenance"
+                                        className="shrink-0 rounded bg-violet-100 px-1 py-px text-[8px] font-medium text-violet-900 underline-offset-2 hover:underline dark:bg-violet-900/40 dark:text-violet-200"
+                                        title="Repo files and import pipeline for this source"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        Files
+                                      </Link>
+                                    ) : null}
+                                  </div>
+                                  <time
+                                    dateTime={ev.timestampIso}
+                                    className="mt-1 block font-mono text-[9px] tabular-nums text-zinc-500 dark:text-zinc-400"
+                                    title={ev.timestampIso}
+                                  >
+                                    {stamp}
+                                  </time>
+                                  {summaryDisplay !== "—" ? (
+                                    <p
+                                      className="mt-1 line-clamp-3 text-[10px] text-zinc-500 dark:text-zinc-400"
+                                      title={summaryDisplay}
+                                    >
+                                      {summaryDisplay}
+                                    </p>
+                                  ) : null}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </>
                     )}
                   </div>
@@ -2409,3 +2672,4 @@ export default function TimelinePage() {
     </div>
   );
 }
+

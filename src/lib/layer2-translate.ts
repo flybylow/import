@@ -2,6 +2,8 @@ import fs from "fs";
 import path from "path";
 import * as $rdf from "rdflib";
 
+import { linkDictionaryMatchToArchitectSpecCategory } from "@/lib/architect-spec-category-kb";
+import { loadArchitectMaterialTaxonomyFromDisk } from "@/lib/architect-material-taxonomy";
 import { ensureFillerNoEpdStub } from "@/lib/kb-epd-stubs";
 import { loadSourcesConfig } from "@/lib/sources-config";
 import {
@@ -134,16 +136,102 @@ function isAmbiguousCompositeMaterialList(
   return hasTimber && hasReinforcedConcrete;
 }
 
+/** Doors/windows often carry host-wall layer names (e.g. NL “gewapend beton” → reinforced concrete). */
+function isOpeningOrVoidIfcType(ifcType: string | undefined): boolean {
+  const t = (ifcType ?? "").trim();
+  if (!t) return false;
+  return (
+    /^IfcDoor/i.test(t) ||
+    /^IfcWindow/i.test(t) ||
+    t === "IfcOpeningElement" ||
+    t === "IfcDoorStandardCase" ||
+    t === "IfcWindowStandardCase"
+  );
+}
+
+/** Host types that usually imply shared “wall” material ids — do not inject door product names. */
+function isStructuralMaterialHostIfcType(ifcType: string | undefined): boolean {
+  const t = (ifcType ?? "").trim();
+  if (!t) return false;
+  return (
+    /^IfcWall/i.test(t) ||
+    /^IfcSlab/i.test(t) ||
+    /^IfcRoof/i.test(t) ||
+    /^IfcColumn/i.test(t) ||
+    /^IfcBeam/i.test(t) ||
+    /^IfcFooting/i.test(t) ||
+    /^IfcFoundation/i.test(t) ||
+    /^IfcPile/i.test(t) ||
+    /^IfcPlate/i.test(t) ||
+    /^IfcMember/i.test(t)
+  );
+}
+
+/**
+ * When a material is only used by openings, prepend IFC element name + manufacturer / model
+ * tokens so dictionary + source match on the real product (not only copied wall layer text).
+ */
+function openingOnlyProductMatchPrefix(
+  store: $rdf.Store,
+  matNode: $rdf.NamedNode
+): string {
+  const stmts = store.statementsMatching(null as any, ONT("madeOf"), matNode);
+  if (!stmts.length) return "";
+  let sawStructuralHost = false;
+  let sawOpeningHost = false;
+  const tokens = new Set<string>();
+  for (const st of stmts) {
+    const el = st.subject as $rdf.NamedNode;
+    const ifcType = store.any(el, ONT("ifcType"), null)?.value;
+    if (isStructuralMaterialHostIfcType(ifcType)) sawStructuralHost = true;
+    if (!isOpeningOrVoidIfcType(ifcType)) continue;
+    sawOpeningHost = true;
+    const name = store.any(el, SCHEMA("name"), null)?.value?.trim();
+    if (name) tokens.add(name);
+    const mfr = store.any(el, ONT("ifcManufacturer"), null)?.value?.trim();
+    if (mfr) tokens.add(mfr);
+    const mdl = store.any(el, ONT("ifcModelLabel"), null)?.value?.trim();
+    if (mdl) tokens.add(mdl);
+    const mref = store.any(el, ONT("ifcModelReference"), null)?.value?.trim();
+    if (mref) tokens.add(mref);
+  }
+  if (!sawOpeningHost || sawStructuralHost) return "";
+  if (tokens.size === 0) return "";
+  return `${[...tokens].sort((a, b) => a.localeCompare(b)).join(" · ")} | `;
+}
+
+const STRUCTURAL_CONCRETE_DICTIONARY_SLUGS = new Set([
+  "concrete_reinforced_in_situ",
+  "concrete_general",
+]);
+
+function shouldSuppressSourceStructuralConcreteOnOpening(
+  ifcType: string | undefined,
+  combinedNorm: string
+): boolean {
+  if (!isOpeningOrVoidIfcType(ifcType)) return false;
+  return (
+    /\breinforced\b/.test(combinedNorm) && /\bconcrete\b/.test(combinedNorm)
+  );
+}
+
 function matchMaterialToDictionary(
   entries: MatchEntry[],
   args: {
     schemaName?: string;
     layerSetName?: string;
+    ifcType?: string;
   }
 ): { entry: MatchEntry; matchedBy: string } | null {
   const combined = combinedNormalizedMaterialLabel(args);
   const ambiguousComposite = isAmbiguousCompositeMaterialList(args, combined);
   for (const e of entries) {
+    if (
+      isOpeningOrVoidIfcType(args.ifcType) &&
+      STRUCTURAL_CONCRETE_DICTIONARY_SLUGS.has(e.epdSlug)
+    ) {
+      continue;
+    }
     if (
       ambiguousComposite &&
       (e.epdSlug === "concrete_reinforced_in_situ" ||
@@ -364,6 +452,8 @@ export async function translateLayer2FromEnrichedTtl(params: {
 
   const dict = loadMaterialDictionaryFromDisk();
   const dictEntries = dict.entries;
+  const { taxonomy: architectTaxonomy } = loadArchitectMaterialTaxonomyFromDisk();
+  const architectSpecCategoryIdsSeen = new Set<string>();
 
   const store = $rdf.graph();
   $rdf.parse(ttlContent, store, BIM_URI, "text/turtle");
@@ -419,17 +509,20 @@ export async function translateLayer2FromEnrichedTtl(params: {
       continue;
     }
 
+    const productPrefix = openingOnlyProductMatchPrefix(store, matNode);
+    const schemaNameForMatch = productPrefix + (schemaName ?? "");
     const combinedNorm = combinedNormalizedMaterialLabel({
-      schemaName,
+      schemaName: schemaNameForMatch,
       layerSetName,
     });
 
     const dictMatch = matchMaterialToDictionary(dictEntries, {
-      schemaName,
+      schemaName: schemaNameForMatch,
       layerSetName,
+      ifcType,
     });
 
-    const sourceHit =
+    let sourceHit =
       dictMatch || !isTooGenericForSourceOnlyMatch(combinedNorm)
         ? pickFirstOrderedSourceMatch({
             orderedEntries: orderedSources,
@@ -437,6 +530,10 @@ export async function translateLayer2FromEnrichedTtl(params: {
             combinedNorm,
           })
         : null;
+
+    if (shouldSuppressSourceStructuralConcreteOnOpening(ifcType, combinedNorm)) {
+      sourceHit = null;
+    }
 
     let effectiveSourceHit = sourceHit;
     if (
@@ -534,6 +631,14 @@ export async function translateLayer2FromEnrichedTtl(params: {
         $rdf.lit(effectiveSourceHit ? "dictionary-routed" : "dictionary-no-lca")
       );
       store.add(matNode, ONT("hasEPD"), epdNode);
+      linkDictionaryMatchToArchitectSpecCategory(
+        store,
+        matNode,
+        epdNode,
+        entry.epdSlug,
+        architectTaxonomy,
+        architectSpecCategoryIdsSeen
+      );
       continue;
     }
 

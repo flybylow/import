@@ -22,6 +22,7 @@ export type MaterialCalcGroup = {
   groupKey: string;
   humanLabel: string;
   epdSlug: string;
+  /** Full EPD label from calculate API (`slug (catalog id)`), or slug fallback. */
   epdName: string;
   totalKgCO2e: number;
   ifcMaterialCount: number;
@@ -29,16 +30,6 @@ export type MaterialCalcGroup = {
   /** For Step 4 ordering: largest quantity magnitude first. */
   maxActivityMetric: number;
 };
-
-function epdNameFromCombinedLabel(epd: string): string {
-  const s = String(epd ?? "").trim();
-  const openIdx = s.indexOf(" (");
-  const closeIdx = s.endsWith(")") ? s.length - 1 : -1;
-  if (openIdx > 0 && closeIdx > openIdx + 2) {
-    return s.slice(openIdx + 2, closeIdx).trim() || s;
-  }
-  return s || "—";
-}
 
 /** Remove trailing ` (IFC expressId 123)` from API material labels. */
 export function stripIfcExpressIdSuffix(label: string): string {
@@ -59,7 +50,8 @@ export function groupMaterialCalcRows(rows: unknown[] | undefined): MaterialCalc
     const row = raw as Record<string, unknown>;
     const humanLabel = stripIfcExpressIdSuffix(String(row.materialLabel ?? ""));
     const epdSlug = String(row.epdSlug ?? "—").trim() || "—";
-    const epdName = epdNameFromCombinedLabel(String(row.epd ?? ""));
+    const epdCombined = String(row.epd ?? "").trim();
+    const epdName = epdCombined || (epdSlug !== "—" ? epdSlug : "—");
     const key = JSON.stringify({ humanLabel, epdSlug });
 
     const line: MaterialCalcLine = {

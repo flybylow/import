@@ -3,6 +3,11 @@
  * Keep in sync with `docs/timeline-source-provenance.md`.
  */
 
+/** Same URLs as `docs/DataSetArch/README.md` (openBIMstandards release). */
+const OPENBIM_SCHEPENDOMLAAN_REPO = "https://github.com/openBIMstandards/DataSetSchependomlaan";
+const OPENBIM_SCHEPENDOMLAAN_ZIP =
+  "https://github.com/openBIMstandards/DataSetSchependomlaan/releases/download/1.0/FullDataSetSchependomlaan-1.0.zip";
+
 export type TimelineProvenanceStep = {
   label: string;
   /** In-app URL when the file is served (public/ or /api/file). */
@@ -11,12 +16,22 @@ export type TimelineProvenanceStep = {
   repoPath: string;
 };
 
+export type TimelineProvenanceHrefItem = { label: string; href: string };
+
 export type TimelineProvenanceBundle = {
   id: string;
   title: string;
   intro: string;
   steps: TimelineProvenanceStep[];
+  /** Original sheet + dataset (Preview → More → Source files only). */
+  primarySheet?: TimelineProvenanceHrefItem;
+  /** Upstream dataset (zip, GitHub) — see DataSetArch README. */
+  datasetLinks?: TimelineProvenanceHrefItem[];
 };
+
+export function provenanceLinkIsExternal(href: string): boolean {
+  return href.startsWith("http://") || href.startsWith("https://");
+}
 
 function bundleConstructionScheduleSchependomlaan(): TimelineProvenanceBundle {
   return {
@@ -24,12 +39,15 @@ function bundleConstructionScheduleSchependomlaan(): TimelineProvenanceBundle {
     title: "Construction schedule → timeline (Schependomlaan)",
     intro:
       "Rows come from the IFC-linked task CSV, grouped by task in the seeder, then JSON and TTL for the audit API.",
+    primarySheet: {
+      label: "Original as-planned event log (CSV)",
+      href: "/data/eventlog_IFC_schependomlaan.csv",
+    },
+    datasetLinks: [
+      { label: "Full Schependomlaan dataset (zip)", href: OPENBIM_SCHEPENDOMLAAN_ZIP },
+      { label: "openBIMstandards / DataSetSchependomlaan (GitHub)", href: OPENBIM_SCHEPENDOMLAAN_REPO },
+    ],
     steps: [
-      {
-        label: "Event log CSV (Material, Task, GUID per element)",
-        href: "/data/eventlog_IFC_schependomlaan.csv",
-        repoPath: "public/data/eventlog_IFC_schependomlaan.csv",
-      },
       {
         label: "Seed script (CSV → grouped events + dpp:material + bim:element/IFC_…)",
         repoPath: "scripts/seed-timeline-schependomlaan.ts",

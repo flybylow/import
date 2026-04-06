@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Button from "@/components/Button";
+import DeliveriesBestekPanel from "@/components/DeliveriesBestekPanel";
 import LeveringsbonFicheVisual, {
   type LeveringsbonFicheData,
 } from "@/components/LeveringsbonFicheVisual";
+import { CollapseSection, InfoDetails } from "@/components/InfoDetails";
 import ProjectIdField from "@/components/ProjectIdField";
 import { useToast } from "@/components/ToastProvider";
 import { useProjectId } from "@/lib/useProjectId";
@@ -113,20 +116,20 @@ const TECH_FILES = [
 
 function StepRail() {
   return (
-    <ol className="relative space-y-0 border-l border-zinc-200 dark:border-zinc-700 ml-3">
+    <ol className="relative ml-2 space-y-0 border-l border-zinc-200 pl-0 dark:border-zinc-700">
       {FLOW_STEPS.map((step, i) => (
-        <li key={step.id} className="mb-8 ml-6 last:mb-0">
+        <li key={step.id} className="mb-3 ml-4 last:mb-0">
           <span
-            className="absolute flex items-center justify-center w-6 h-6 rounded-full -left-3 ring-4 ring-white dark:ring-zinc-950 bg-emerald-700 dark:bg-emerald-600 text-[10px] font-bold text-white"
+            className="absolute -left-2 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-700 text-[8px] font-bold text-white dark:bg-emerald-600"
             aria-hidden
           >
             {i + 1}
           </span>
-          <div className="pl-2">
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+          <div className="pl-3">
+            <h3 className="text-[11px] font-semibold text-zinc-900 dark:text-zinc-50">
               {step.title}
             </h3>
-            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+            <p className="mt-0.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
               {step.detail}
             </p>
           </div>
@@ -138,11 +141,8 @@ function StepRail() {
 
 function TechnicalFilesPanel() {
   return (
-    <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40 p-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-        Technical files
-      </h3>
-      <ul className="mt-2 space-y-1.5 text-xs font-mono text-zinc-700 dark:text-zinc-300">
+    <div className="rounded border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900/40">
+      <ul className="space-y-1 text-[10px] font-mono text-zinc-700 dark:text-zinc-300">
         {TECH_FILES.map((f) => (
           <li key={f.path}>
             <span className="text-zinc-500 dark:text-zinc-500">{f.label}: </span>
@@ -156,19 +156,12 @@ function TechnicalFilesPanel() {
 
 function DeepDocumentationPanel() {
   return (
-    <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-        Deeper documentation (repo)
-      </h3>
-      <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-        Open in your editor or Git host; paths are relative to the project root.
-      </p>
-      <ul className="mt-3 space-y-2 text-sm">
+    <div className="rounded border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-950">
+      <ul className="space-y-1.5 text-[11px] leading-snug">
         {DEEP_DOCS.map((d) => (
-          <li key={d.path} className="leading-snug">
-            <span className="text-zinc-700 dark:text-zinc-300">{d.label}</span>
-            <br />
-            <code className="text-[11px] font-mono text-emerald-800 dark:text-emerald-400">
+          <li key={d.path}>
+            <span className="text-zinc-700 dark:text-zinc-300">{d.label}</span>{" "}
+            <code className="font-mono text-[10px] text-emerald-800 dark:text-emerald-400">
               {d.path}
             </code>
           </li>
@@ -178,11 +171,12 @@ function DeepDocumentationPanel() {
   );
 }
 
-type DeliveriesTabId = "flow" | "ingest";
+type DeliveriesTabId = "flow" | "ingest" | "bestek";
 
-const TAB_DEFS: { id: DeliveriesTabId; label: string }[] = [
-  { id: "flow", label: "What happens (in order)" },
-  { id: "ingest", label: "Ingest" },
+const TAB_DEFS: { id: DeliveriesTabId; label: string; title: string }[] = [
+  { id: "flow", label: "Flow", title: "What happens (in order)" },
+  { id: "ingest", label: "Ingest", title: "Ingest leveringsbon JSON" },
+  { id: "bestek", label: "Bestek", title: "Bestek dictionary & bindings" },
 ];
 
 function leveringsbonFicheFromParsed(parsed: unknown): LeveringsbonFicheData | null {
@@ -214,10 +208,55 @@ function leveringsbonFicheFromParsed(parsed: unknown): LeveringsbonFicheData | n
   };
 }
 
-export default function DeliveriesPage() {
+function DeliveriesPageInner() {
   const { showToast } = useToast();
   const { projectId, setProjectId } = useProjectId();
-  const [activeTab, setActiveTab] = useState<DeliveriesTabId>("flow");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const activeTab = useMemo((): DeliveriesTabId => {
+    const t = searchParams.get("tab")?.trim().toLowerCase();
+    if (t === "ingest" || t === "bestek" || t === "flow") return t;
+    return "flow";
+  }, [searchParams]);
+
+  const setActiveTab = useCallback(
+    (id: DeliveriesTabId) => {
+      const q = new URLSearchParams(searchParams.toString());
+      if (id === "flow") q.delete("tab");
+      else q.set("tab", id);
+      const qs = q.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
+  /** Bestek table filter: absent sp/pr = hide those IFC buckets; sp=1 / pr=1 = show them (survives reload). */
+  const hideSpatialTypes = searchParams.get("sp") !== "1";
+  const hideMetaTypes = searchParams.get("pr") !== "1";
+
+  const onHideSpatialTypesChange = useCallback(
+    (hide: boolean) => {
+      const q = new URLSearchParams(searchParams.toString());
+      if (hide) q.delete("sp");
+      else q.set("sp", "1");
+      const qs = q.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
+  const onHideMetaTypesChange = useCallback(
+    (hide: boolean) => {
+      const q = new URLSearchParams(searchParams.toString());
+      if (hide) q.delete("pr");
+      else q.set("pr", "1");
+      const qs = q.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
   const [jsonText, setJsonText] = useState(SAMPLE_JSON);
   const [recordTimelineEvent, setRecordTimelineEvent] = useState(false);
   const [appendDeliveriesTurtle, setAppendDeliveriesTurtle] = useState(false);
@@ -322,52 +361,58 @@ export default function DeliveriesPage() {
   }, [result?.turtle, showToast]);
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-10 space-y-10">
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-          Beyond IFC — leveringsbon intake
-        </p>
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50 mt-1">
-          Deliveries importer
-        </h1>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed max-w-3xl">
-          Match delivery-note lines to the material dictionary, see confidence and MVP GWP, and
-          copy Turtle. Same contract as{" "}
-          <code className="text-xs font-mono bg-zinc-100 dark:bg-zinc-800 px-1 rounded">
-            POST /api/deliveries/ingest
-          </code>
-          . On the Ingest tab you can append a{" "}
-          <strong className="font-medium text-zinc-700 dark:text-zinc-300">timeline</strong> entry
-          and/or RDF under{" "}
-          <code className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
-            data/&lt;projectId&gt;
-          </code>
-          .
-        </p>
+    <div className="mx-auto box-border w-full min-w-0 max-w-[1024px] px-4 py-4 space-y-3">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 pb-2 dark:border-zinc-800">
+        <div className="flex min-w-0 items-center gap-2">
+          <h1 className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-50">
+            Deliveries
+          </h1>
+          <InfoDetails label="About deliveries importer">
+            <p className="mb-2">
+              Match delivery-note lines to the material dictionary, confidence and MVP GWP, copy
+              Turtle. Same contract as{" "}
+              <code className="font-mono text-[10px]">POST /api/deliveries/ingest</code>. Ingest tab:
+              optional timeline entry and/or RDF append under{" "}
+              <code className="font-mono text-[10px]">data/&lt;projectId&gt;</code>.
+            </p>
+          </InfoDetails>
+          <span className="hidden text-[10px] text-zinc-500 sm:inline dark:text-zinc-400">
+            Leveringsbon
+          </span>
+        </div>
         <nav
-          className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm"
+          className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]"
           aria-label="Related pages"
         >
-          <Link
-            href="/pipeline"
-            className="text-emerald-700 dark:text-emerald-400 hover:underline"
-          >
-            Pipeline journey
+          <Link href="/pipeline" className="text-emerald-700 hover:underline dark:text-emerald-400">
+            Pipeline
           </Link>
-          <Link
-            href="/sources"
-            className="text-emerald-700 dark:text-emerald-400 hover:underline"
-          >
+          <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            ·
+          </span>
+          <Link href="/sources" className="text-emerald-700 hover:underline dark:text-emerald-400">
             Sources
           </Link>
+          <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            ·
+          </span>
           <Link
             href={`/timeline?projectId=${encodeURIComponent(projectId)}`}
-            className="text-emerald-700 dark:text-emerald-400 hover:underline"
+            className="text-emerald-700 hover:underline dark:text-emerald-400"
           >
             Timeline
           </Link>
+          <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            ·
+          </span>
+          <Link
+            href={`/deliveries/match-materials?projectId=${encodeURIComponent(projectId)}`}
+            className="text-emerald-700 hover:underline dark:text-emerald-400"
+          >
+            Match materials
+          </Link>
         </nav>
-      </div>
+      </header>
 
       <div className="border-b border-zinc-200 dark:border-zinc-800">
         <div
@@ -383,12 +428,13 @@ export default function DeliveriesPage() {
                 type="button"
                 role="tab"
                 id={`deliveries-tab-${t.id}`}
+                title={t.title}
                 aria-selected={selected}
                 aria-controls={`deliveries-panel-${t.id}`}
                 tabIndex={selected ? 0 : -1}
                 onClick={() => setActiveTab(t.id)}
                 className={[
-                  "shrink-0 rounded-t-md border px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950",
+                  "shrink-0 rounded-t border px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-zinc-950",
                   selected
                     ? "border-zinc-200 border-b-white bg-white text-zinc-900 dark:border-zinc-700 dark:border-b-zinc-950 dark:bg-zinc-950 dark:text-zinc-50"
                     : "border-transparent text-zinc-600 hover:border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:border-zinc-800 dark:hover:bg-zinc-900/50 dark:hover:text-zinc-100",
@@ -406,41 +452,34 @@ export default function DeliveriesPage() {
         id="deliveries-panel-flow"
         aria-labelledby="deliveries-tab-flow"
         hidden={activeTab !== "flow"}
-        className="pt-8 space-y-8"
+        className="space-y-2 pt-3"
       >
-        <section className="max-w-2xl space-y-3" aria-labelledby="deliveries-fiche-heading">
-          <div>
-            <h2
-              id="deliveries-fiche-heading"
-              className="text-sm font-semibold text-zinc-900 dark:text-zinc-50"
-            >
-              Voorbeeldfiche (Wienerberger-stijl)
-            </h2>
-            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              Zo ziet de bron er ongeveer uit op papier: leveringsbon met werfadres en
-              artikelregels. De JSON in het tabblad Ingest is de digitale versie hiervan.
-            </p>
-          </div>
+        <CollapseSection title="Sample fiche (visual)">
+          <p className="mb-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+            Paper-style preview; Ingest tab holds the JSON.
+          </p>
           <LeveringsbonFicheVisual data={ficheData} variant="full" />
-        </section>
-        <div className="max-w-2xl">
-          <StepRail />
-        </div>
-        <div className="max-w-2xl">
+        </CollapseSection>
+        <CollapseSection title="Pipeline steps (detail)">
+          <div className="max-w-2xl">
+            <StepRail />
+          </div>
+        </CollapseSection>
+        <CollapseSection title="Technical files">
           <TechnicalFilesPanel />
-        </div>
-        <div className="max-w-2xl">
+        </CollapseSection>
+        <CollapseSection title="Repo documentation links">
           <DeepDocumentationPanel />
-        </div>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-2xl">
+        </CollapseSection>
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
           <button
             type="button"
             onClick={() => setActiveTab("ingest")}
-            className="font-medium text-emerald-700 dark:text-emerald-400 underline underline-offset-2 hover:text-emerald-800 dark:hover:text-emerald-300"
+            className="font-medium text-emerald-700 underline underline-offset-2 dark:text-emerald-400"
           >
-            Open the Ingest tab
-          </button>{" "}
-          to paste JSON, run the request, and view matches plus Turtle.
+            Ingest tab
+          </button>
+          — JSON, run, matches, Turtle.
         </p>
       </div>
 
@@ -449,66 +488,54 @@ export default function DeliveriesPage() {
         id="deliveries-panel-ingest"
         aria-labelledby="deliveries-tab-ingest"
         hidden={activeTab !== "ingest"}
-        className="pt-8 space-y-6"
+        className="space-y-3 pt-3"
       >
-        <div className="max-w-md space-y-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/30 px-4 py-3">
-          <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-            Project persistence (file “database”)
-          </p>
-          <ProjectIdField value={projectId} onChange={setProjectId} />
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-            This app has no SQL server: project state lives under{" "}
-            <code className="font-mono">data/</code>. See{" "}
-            <code className="font-mono text-[10px]">docs/deliveries-importer-integration.md</code>{" "}
-            for wiring to an external DB.
-          </p>
-          <div className="flex flex-col gap-2 text-sm text-zinc-800 dark:text-zinc-200">
-            <label className="flex cursor-pointer items-start gap-2">
+        <div className="flex max-w-md flex-wrap items-center gap-2 rounded border border-zinc-200 bg-zinc-50/80 px-2 py-2 dark:border-zinc-800 dark:bg-zinc-900/30">
+          <ProjectIdField value={projectId} onChange={setProjectId} label="Project" />
+          <InfoDetails label="Persistence (data folder)">
+            <p>
+              No SQL server — state under <code className="font-mono">data/</code>. See{" "}
+              <code className="font-mono text-[10px]">docs/deliveries-importer-integration.md</code>{" "}
+              for external DB notes.
+            </p>
+          </InfoDetails>
+          <div className="flex w-full flex-col gap-1.5 text-[11px] text-zinc-800 dark:text-zinc-200">
+            <label className="flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
-                className="mt-1 rounded border-zinc-300 dark:border-zinc-600"
+                className="rounded border-zinc-300 dark:border-zinc-600"
                 checked={recordTimelineEvent}
                 onChange={(e) => setRecordTimelineEvent(e.target.checked)}
               />
-              <span>
-                Append <strong>timeline</strong> event{" "}
-                <code className="text-[11px] font-mono">delivery_document_added</code> to{" "}
-                <code className="text-[11px] font-mono">data/&lt;projectId&gt;-timeline.ttl</code>
-              </span>
+              <span>Append timeline event</span>
             </label>
-            <label className="flex cursor-pointer items-start gap-2">
+            <label className="flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
-                className="mt-1 rounded border-zinc-300 dark:border-zinc-600"
+                className="rounded border-zinc-300 dark:border-zinc-600"
                 checked={appendDeliveriesTurtle}
                 onChange={(e) => setAppendDeliveriesTurtle(e.target.checked)}
               />
-              <span>
-                <strong>Append</strong> response Turtle to{" "}
-                <code className="text-[11px] font-mono">data/&lt;projectId&gt;-deliveries.ttl</code>
-              </span>
+              <span>Append Turtle to deliveries TTL</span>
             </label>
           </div>
         </div>
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            Live voorbeeld — volgt je JSON
-          </p>
+        <CollapseSection title="Live preview (JSON)" defaultOpen>
           <LeveringsbonFicheVisual data={ficheData} variant="compact" />
-        </div>
+        </CollapseSection>
         <div>
           <label
             htmlFor="deliveries-json"
-            className="block text-sm font-semibold text-zinc-900 dark:text-zinc-50 mb-2"
+            className="mb-1 block text-xs font-medium text-zinc-800 dark:text-zinc-100"
           >
-            Leveringsbon JSON
+            JSON
           </label>
           <textarea
             id="deliveries-json"
             value={jsonText}
             onChange={(e) => setJsonText(e.target.value)}
             spellCheck={false}
-            className="w-full min-h-[220px] rounded-md border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-mono text-xs p-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            className="w-full min-h-[160px] rounded border border-zinc-300 bg-white p-2 font-mono text-[11px] text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
           />
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <Button
@@ -545,46 +572,49 @@ export default function DeliveriesPage() {
         </div>
 
         {result ? (
-          <div className="space-y-8 border-t border-zinc-200 dark:border-zinc-800 pt-8">
+          <div className="space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
               {result.persistence ? (
-                <section className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-3 dark:border-emerald-900/50 dark:bg-emerald-950/20">
-                  <h2 className="text-sm font-semibold text-emerald-900 dark:text-emerald-200 mb-2">
-                    Persisted to disk
+                <section className="rounded border border-emerald-200 bg-emerald-50/60 px-2 py-2 text-[11px] dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                  <h2 className="mb-1 font-semibold text-emerald-900 dark:text-emerald-200">
+                    Saved
                   </h2>
-                  <ul className="text-xs text-emerald-900/90 dark:text-emerald-200/90 space-y-1 font-mono">
+                  <ul className="space-y-1 font-mono text-emerald-900/90 dark:text-emerald-200/90">
                     {result.persistence.timeline ? (
-                      <li>
-                        Timeline: {result.persistence.timeline.path} (eventId{" "}
-                        {result.persistence.timeline.eventId})
-                        <br />
+                      <li className="flex flex-wrap items-center gap-2">
+                        <span>
+                          {result.persistence.timeline.path} · {result.persistence.timeline.eventId}
+                        </span>
                         <a
                           href={`/timeline?projectId=${encodeURIComponent(
                             result.persistence.projectId ?? projectId
                           )}`}
-                          className="inline-block mt-1 text-emerald-800 underline underline-offset-2 hover:text-emerald-950 dark:text-emerald-300 dark:hover:text-emerald-100"
+                          className="text-emerald-800 underline dark:text-emerald-300"
                           onClick={(e) => {
                             e.preventDefault();
                             window.location.assign(e.currentTarget.href);
                           }}
                         >
-                          Open timeline for this project
+                          Timeline
                         </a>
-                        <span className="mt-1 block text-[10px] font-normal text-emerald-800/80 dark:text-emerald-200/70">
-                          Full page load so <code className="rounded bg-emerald-100/80 px-0.5 dark:bg-emerald-900/50">?projectId=</code> is applied before the timeline fetches events.
-                        </span>
+                        <InfoDetails label="Why full page load for timeline">
+                          <p>
+                            Full navigation applies <code className="font-mono">?projectId=</code>{" "}
+                            before the timeline fetches events.
+                          </p>
+                        </InfoDetails>
                       </li>
                     ) : null}
                     {result.persistence.deliveriesTtl ? (
-                      <li>Turtle append: {result.persistence.deliveriesTtl.path}</li>
+                      <li>{result.persistence.deliveriesTtl.path}</li>
                     ) : null}
                   </ul>
                 </section>
               ) : null}
               <section>
-                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 mb-3">
+                <h2 className="mb-2 text-xs font-semibold text-zinc-900 dark:text-zinc-50">
                   Summary
                 </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {[
                     ["Total lines", result.summary.total],
                     ["Matched", result.summary.matched],
@@ -593,12 +623,12 @@ export default function DeliveriesPage() {
                   ].map(([label, val]) => (
                     <div
                       key={String(label)}
-                      className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-3 py-2"
+                      className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950"
                     >
-                      <p className="text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                      <p className="text-[9px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                         {label}
                       </p>
-                      <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">
+                      <p className="text-base font-semibold tabular-nums text-zinc-900 dark:text-zinc-50">
                         {typeof val === "number" && label === "Avg confidence"
                           ? val.toFixed(2)
                           : val}
@@ -608,11 +638,8 @@ export default function DeliveriesPage() {
                 </div>
               </section>
 
-              <section>
-                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 mb-3">
-                  Line by line
-                </h2>
-                <ul className="space-y-3">
+              <CollapseSection title="Line by line" defaultOpen>
+                <ul className="space-y-2">
                   {result.matches.map((m, i) => (
                     <li
                       key={`${m.description}-${i}`}
@@ -684,28 +711,56 @@ export default function DeliveriesPage() {
                     </li>
                   ))}
                 </ul>
-              </section>
+              </CollapseSection>
 
-              <section>
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                  <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                    Turtle (RDF)
-                  </h2>
+              <CollapseSection title="Turtle (RDF)" defaultOpen>
+                <div className="mb-1 flex justify-end">
                   <Button type="button" variant="secondary" onClick={copyTurtle}>
-                    Copy Turtle
+                    Copy
                   </Button>
                 </div>
-                <pre className="max-h-[min(420px,50vh)] overflow-auto rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-950 text-zinc-100 font-mono text-[11px] p-3 leading-relaxed">
+                <pre className="max-h-[min(320px,45vh)] overflow-auto rounded border border-zinc-200 bg-zinc-950 p-2 font-mono text-[10px] leading-snug text-zinc-100 dark:border-zinc-800">
                   {result.turtle}
                 </pre>
-              </section>
+              </CollapseSection>
             </div>
         ) : (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 border-t border-dashed border-zinc-200 dark:border-zinc-800 pt-6">
-            Run ingest to see normalization, matches, summary, and Turtle here.
+          <p className="border-t border-dashed border-zinc-200 pt-3 text-[11px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+            Run ingest for matches &amp; Turtle.
           </p>
         )}
       </div>
+
+      <div
+        role="tabpanel"
+        id="deliveries-panel-bestek"
+        aria-labelledby="deliveries-tab-bestek"
+        hidden={activeTab !== "bestek"}
+        className="pt-2"
+      >
+        <DeliveriesBestekPanel
+          projectId={projectId}
+          setProjectId={setProjectId}
+          hideSpatialTypes={hideSpatialTypes}
+          hideMetaTypes={hideMetaTypes}
+          onHideSpatialTypesChange={onHideSpatialTypesChange}
+          onHideMetaTypesChange={onHideMetaTypesChange}
+        />
+      </div>
     </div>
+  );
+}
+
+export default function DeliveriesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto box-border w-full min-w-0 max-w-[1024px] px-4 py-10 text-sm text-zinc-500 dark:text-zinc-400">
+          Loading…
+        </div>
+      }
+    >
+      <DeliveriesPageInner />
+    </Suspense>
   );
 }

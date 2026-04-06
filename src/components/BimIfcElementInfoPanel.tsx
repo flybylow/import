@@ -2,27 +2,32 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { ElementSpatialContext } from "@/lib/bim-element-spatial-context";
 import {
   loadPhase4PassportsAllInstancesCached,
   Phase4PassportLoadError,
   type Phase4ElementPassport,
+  type Phase4PassportMaterial,
 } from "@/lib/phase4-passports";
+import { kbFocusMaterialHref } from "@/lib/passport-navigation-links";
 import {
   BIM_GLASS_CHIP,
   BIM_GLASS_OPEN,
   BIM_PANEL_OPEN_DETAIL,
   BIM_PANEL_SCROLL,
 } from "@/lib/bim-glass-ui";
+import { formatPassportMaterialGwpLine } from "@/lib/format-passport-material-gwp";
 
 type Props = {
   projectId: string;
   selectedExpressId: number | null;
-  viewMode: "building" | "3dtest";
   className?: string;
   /** Default: collapsible chip in the tools dock. `rightRail`: full-height right column, always open (does not share pointer-events with canvas overlay). */
   layout?: "dock" | "rightRail";
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Focus another expressId in the viewer + URL (spatial parents / siblings). */
+  onNavigateExpressId?: (id: number) => void;
 };
 
 function passportSourceLabel(p: Phase4ElementPassport): string {
@@ -30,14 +35,93 @@ function passportSourceLabel(p: Phase4ElementPassport): string {
   return `element-${p.elementId} · expressId ${ex}`;
 }
 
+function carbonLayersSorted(materials: Phase4PassportMaterial[]) {
+  const out: { m: Phase4PassportMaterial; line: string }[] = [];
+  for (const m of materials) {
+    const line = formatPassportMaterialGwpLine(m);
+    if (line) out.push({ m, line });
+  }
+  out.sort(
+    (a, b) => Math.abs(b.m.gwpPerUnit ?? 0) - Math.abs(a.m.gwpPerUnit ?? 0)
+  );
+  return out;
+}
+
+/** Same facts as `ElementPassportPanel` `MaterialBlock`, styled for the glass dock. */
+function GlassMaterialLayer(props: { m: Phase4PassportMaterial; projectId: string }) {
+  const { m, projectId } = props;
+  const gwpLine = formatPassportMaterialGwpLine(m);
+  const pid = projectId.trim();
+
+  return (
+    <li className="space-y-1 rounded border border-white/[0.1] bg-black/25 px-2 py-1.5">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <span className="font-mono text-[9px] tabular-nums text-zinc-500">{m.materialId}</span>
+        <span className="text-[10px] font-medium leading-snug text-zinc-100">{m.materialName}</span>
+      </div>
+
+      {m.hasEPD ? (
+        <div className="text-[9px] text-zinc-400">
+          <span className="font-mono text-[8px] text-zinc-500">EPD</span> {m.epdSlug ?? "—"}
+          {m.epdName ? <span className="text-zinc-500"> · {m.epdName}</span> : null}
+        </div>
+      ) : (
+        <div className="text-[9px] text-amber-300/90">No EPD linked</div>
+      )}
+
+      {gwpLine ? (
+        <div className="rounded border border-emerald-500/25 bg-emerald-950/45 px-2 py-1 text-[9px] font-medium text-emerald-100">
+          <span className="text-emerald-300/95">GWP (A1–A3 factor)</span>
+          <div className="mt-0.5 font-mono tabular-nums leading-snug">{gwpLine}</div>
+        </div>
+      ) : m.hasEPD ? (
+        <p className="text-[8px] text-zinc-500">—</p>
+      ) : null}
+
+      {m.densityKgPerM3 != null && Number.isFinite(m.densityKgPerM3) ? (
+        <p className="text-[8px] text-zinc-500">
+          Density <span className="font-mono tabular-nums">{m.densityKgPerM3}</span> kg/m³
+        </p>
+      ) : null}
+
+      {m.declaredUnit?.trim() && !gwpLine ? (
+        <p className="text-[8px] text-zinc-500">
+          Declared unit: <span className="font-mono">{m.declaredUnit.trim()}</span>
+        </p>
+      ) : null}
+
+      {m.producer?.trim() ? (
+        <p className="text-[8px] leading-snug text-zinc-500">
+          Producer: <span className="text-zinc-300">{m.producer.trim()}</span>
+        </p>
+      ) : null}
+
+      {m.lcaReady === false ? (
+        <p className="text-[8px] text-amber-300/90">—</p>
+      ) : null}
+
+      {pid ? (
+        <div className="border-t border-white/[0.06] pt-1">
+          <Link
+            href={kbFocusMaterialHref(pid, m.materialId)}
+            className="text-[9px] text-violet-300 underline"
+          >
+            KB
+          </Link>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
 export default function BimIfcElementInfoPanel({
   projectId,
   selectedExpressId,
-  viewMode,
   className = "",
   layout = "dock",
   open: openProp,
   onOpenChange,
+  onNavigateExpressId,
 }: Props) {
   const isRail = layout === "rightRail";
   const [internalOpen, setInternalOpen] = useState(false);
@@ -51,6 +135,8 @@ export default function BimIfcElementInfoPanel({
   const [passport, setPassport] = useState<Phase4ElementPassport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [spatial, setSpatial] = useState<ElementSpatialContext | null | undefined>(undefined);
+  const [spatialError, setSpatialError] = useState<string | null>(null);
 
   const primaryExpressId = selectedExpressId;
 
@@ -86,11 +172,51 @@ export default function BimIfcElementInfoPanel({
     };
   }, [projectId, primaryExpressId]);
 
-  const viewQ = viewMode === "3dtest" ? "3dtest" : "building";
-  const viewerHref = `/bim?projectId=${encodeURIComponent(projectId)}&view=${viewQ}&expressId=${encodeURIComponent(String(primaryExpressId ?? ""))}`;
+  useEffect(() => {
+    if (primaryExpressId == null) {
+      setSpatial(undefined);
+      setSpatialError(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const url = `/api/bim/element-context?projectId=${encodeURIComponent(projectId)}&expressId=${encodeURIComponent(String(primaryExpressId))}`;
+        const res = await fetch(url);
+        if (!res.ok) {
+          const j = (await res.json().catch(() => null)) as { error?: string } | null;
+          if (!cancelled) {
+            setSpatial(null);
+            setSpatialError(j?.error ?? `HTTP ${res.status}`);
+          }
+          return;
+        }
+        const data = (await res.json()) as { context: ElementSpatialContext | null };
+        if (!cancelled) {
+          setSpatial(data.context ?? null);
+          setSpatialError(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setSpatial(null);
+          setSpatialError(e instanceof Error ? e.message : "Spatial context failed");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, primaryExpressId]);
+
+  const viewerHref = `/bim?projectId=${encodeURIComponent(projectId)}&view=building&expressId=${encodeURIComponent(String(primaryExpressId ?? ""))}`;
   const passportsHref = `/bim?projectId=${encodeURIComponent(projectId)}&view=passports&expressId=${encodeURIComponent(String(primaryExpressId ?? ""))}`;
+  const timelineHref = `/timeline?projectId=${encodeURIComponent(projectId)}`;
+  const calculateHref = `/calculate?projectId=${encodeURIComponent(projectId)}`;
 
   const railShellClass = `h-full min-h-0 max-h-none min-w-0 w-full rounded-none ${BIM_GLASS_OPEN}`;
+
+  const navBtn =
+    "w-full rounded border border-white/15 bg-black/20 px-2 py-1 text-left text-[10px] font-medium text-sky-100 hover:border-sky-400/40 hover:bg-white/[0.06]";
 
   return (
     <aside
@@ -101,7 +227,7 @@ export default function BimIfcElementInfoPanel({
             ? `${BIM_GLASS_OPEN} ${BIM_PANEL_OPEN_DETAIL} min-h-0`
             : `${BIM_GLASS_CHIP} min-h-0 w-max max-w-full`
       } ${className}`.trim()}
-      aria-label="IFC element KB details"
+      aria-label="Inspect element"
     >
       {!open ? (
         <button
@@ -110,7 +236,7 @@ export default function BimIfcElementInfoPanel({
           aria-expanded={false}
           className="max-w-full truncate rounded-md px-2 py-1.5 text-left font-semibold text-sky-200 hover:bg-white/[0.06]"
         >
-          <span className="whitespace-nowrap">Element (KB)</span>
+          <span className="whitespace-nowrap">Inspect</span>
           {primaryExpressId != null ? (
             <span className="ml-1.5 font-normal tabular-nums text-sky-300/90">
               · {primaryExpressId}
@@ -120,7 +246,7 @@ export default function BimIfcElementInfoPanel({
       ) : (
         <>
           <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.07] px-2 py-1.5">
-            <span className="font-semibold text-sky-200">Elements</span>
+            <span className="font-semibold text-sky-200">Inspect</span>
             {!isRail ? (
               <button
                 type="button"
@@ -132,75 +258,242 @@ export default function BimIfcElementInfoPanel({
               </button>
             ) : null}
           </div>
-          <p className="shrink-0 border-b border-white/[0.06] px-2 py-1 text-[9px] leading-snug text-sky-200/75">
-            KB row or <strong className="font-medium">3D lime pick</strong> updates this panel and the URL.
-            Ctrl+click adds in the viewer; the URL follows the last-picked id.
-          </p>
           <div
             className={`min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-2 py-1.5 ${BIM_PANEL_SCROLL}`}
           >
             {primaryExpressId == null ? (
-              <p className="text-zinc-400">Nothing selected.</p>
+              <p className="text-[10px] text-zinc-600">—</p>
             ) : loading ? (
-              <p className="text-zinc-400">Loading…</p>
+              <p className="text-zinc-500">…</p>
             ) : error ? (
               <p className="text-amber-200">{error}</p>
             ) : passport == null ? (
-              <p className="text-zinc-400">Not in this KB batch.</p>
+              <p className="text-zinc-600">—</p>
             ) : (
               <div className="space-y-2">
-                <p className="font-mono text-[10px] text-sky-100">
-                  <span className="font-semibold">{primaryExpressId}</span>
-                </p>
-                <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 font-mono leading-tight text-zinc-200">
-                  <dt className="text-zinc-500">Name</dt>
-                  <dd className="min-w-0 break-words font-sans text-[11px] font-medium text-zinc-200">
+                <header className="border-b border-white/[0.08] pb-2">
+                  <p className="font-mono text-[11px] tabular-nums text-sky-300/90">
+                    #{primaryExpressId}
+                  </p>
+                  <h2 className="mt-0.5 text-sm font-semibold leading-snug tracking-tight text-zinc-50">
                     {passport.elementName?.trim() || "—"}
-                  </dd>
-                  <dt className="text-zinc-500">IFC type</dt>
-                  <dd className="min-w-0 break-all">{passport.ifcType?.trim() || "—"}</dd>
-                  <dt className="text-zinc-500">GlobalId</dt>
-                  <dd className="min-w-0 break-all text-[9px]">{passport.globalId?.trim() || "—"}</dd>
-                  <dt className="text-zinc-500">Element id</dt>
-                  <dd>{passport.elementId}</dd>
-                  {passport.ifcFireRating?.trim() ? (
-                    <>
-                      <dt className="text-zinc-500">Fire</dt>
-                      <dd>{passport.ifcFireRating.trim()}</dd>
-                    </>
-                  ) : null}
-                  {passport.sameNameElementCount != null && passport.sameNameElementCount > 1 ? (
-                    <>
-                      <dt className="text-zinc-500">Same name</dt>
-                      <dd>×{passport.sameNameElementCount} in KB</dd>
-                    </>
-                  ) : null}
-                </dl>
+                  </h2>
+                  <p
+                    className="mt-1 font-mono text-[10px] leading-snug text-zinc-500"
+                    title={passport.ifcType?.trim() || undefined}
+                  >
+                    {passport.ifcType?.trim() || "—"}
+                  </p>
+                </header>
+
+                {(() => {
+                  const layers = carbonLayersSorted(passport.materials);
+                  return layers.length ? (
+                    <div className="rounded border border-emerald-500/35 bg-emerald-950/50 px-2 py-2">
+                      <div className="text-[9px] font-medium uppercase tracking-wide text-emerald-400/90">
+                        Carbon
+                      </div>
+                      <p className="mt-1 text-base font-semibold tabular-nums leading-tight text-emerald-100">
+                        {layers[0].line}
+                      </p>
+                      {layers[0].m.materialName?.trim() ? (
+                        <p className="mt-0.5 text-[9px] leading-snug text-emerald-200/80 line-clamp-2">
+                          {layers[0].m.materialName.trim()}
+                        </p>
+                      ) : null}
+                      {layers.length > 1 ? (
+                        <ul className="mt-2 space-y-1 border-t border-emerald-500/25 pt-2 text-[9px] text-emerald-200/85">
+                          {layers.slice(1).map(({ m, line }) => (
+                            <li key={m.materialId} className="flex flex-col gap-0.5">
+                              <span className="font-mono tabular-nums">{line}</span>
+                              {m.materialName?.trim() ? (
+                                <span className="text-zinc-400 line-clamp-1">{m.materialName}</span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="rounded border border-white/[0.08] bg-black/25 px-2 py-2">
+                      <div className="text-[9px] font-medium uppercase tracking-wide text-zinc-500">
+                        Carbon
+                      </div>
+                      <p className="mt-1 text-sm text-zinc-500">—</p>
+                    </div>
+                  );
+                })()}
+
+                {spatial !== undefined ? (
+                  <div className="space-y-1.5 border-b border-white/[0.07] pb-2">
+                    <div className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500">
+                      Location
+                    </div>
+                    {spatialError ? (
+                      <p className="text-[9px] text-amber-200/90">{spatialError}</p>
+                    ) : spatial == null ? (
+                      <p className="text-[9px] text-zinc-600">—</p>
+                    ) : (
+                      <>
+                        <p className="text-[9px] leading-snug text-zinc-400">
+                          {spatial.building?.label ? (
+                            <span title="bot:Building">{spatial.building.label}</span>
+                          ) : null}
+                          {spatial.storey ? (
+                            <>
+                              {spatial.building?.label ? (
+                                <span className="text-zinc-600" aria-hidden>
+                                  {" "}
+                                  ·{" "}
+                                </span>
+                              ) : null}
+                              <span title="bot:Storey">{spatial.storey.label}</span>
+                            </>
+                          ) : null}
+                          {spatial.space ? (
+                            <>
+                              {spatial.building?.label || spatial.storey ? (
+                                <span className="text-zinc-600" aria-hidden>
+                                  {" "}
+                                  ·{" "}
+                                </span>
+                              ) : null}
+                              <span title="bot:Space">{spatial.space.label}</span>
+                            </>
+                          ) : null}
+                          {!spatial.building && !spatial.storey && !spatial.space ? (
+                            <span>—</span>
+                          ) : null}
+                        </p>
+                        {onNavigateExpressId ? (
+                          <div className="flex flex-col gap-1">
+                            {spatial.storey ? (
+                              <button
+                                type="button"
+                                className={navBtn}
+                                onClick={() => onNavigateExpressId(spatial.storey!.expressId)}
+                              >
+                                Part of: storey · {spatial.storey.label}{" "}
+                                <span className="font-mono text-zinc-500">
+                                  ({spatial.storey.expressId})
+                                </span>
+                              </button>
+                            ) : null}
+                            {spatial.space ? (
+                              <button
+                                type="button"
+                                className={navBtn}
+                                onClick={() => onNavigateExpressId(spatial.space!.expressId)}
+                              >
+                                Part of: space · {spatial.space.label}{" "}
+                                <span className="font-mono text-zinc-500">
+                                  ({spatial.space.expressId})
+                                </span>
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        {spatial.siblings.length > 0 ? (
+                          <div>
+                            <div className="mb-0.5 text-[9px] font-medium text-zinc-500">
+                              Same room / zone ({spatial.siblings.length})
+                            </div>
+                            <ul className="max-h-28 space-y-0.5 overflow-y-auto">
+                              {spatial.siblings.map((s) => (
+                                <li key={s.expressId}>
+                                  {onNavigateExpressId ? (
+                                    <button
+                                      type="button"
+                                      className={`${navBtn} py-0.5 font-normal`}
+                                      onClick={() => onNavigateExpressId(s.expressId)}
+                                    >
+                                      <span className="line-clamp-2">{s.label}</span>{" "}
+                                      <span className="font-mono text-zinc-500">{s.expressId}</span>
+                                    </button>
+                                  ) : (
+                                    <span className="text-[9px] text-zinc-300">
+                                      {s.label}{" "}
+                                      <span className="font-mono text-zinc-500">{s.expressId}</span>
+                                    </span>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
+                ) : null}
+
+                <div className="space-y-1">
+                  <div className="text-[9px] font-semibold uppercase tracking-wide text-zinc-500">
+                    Metadata
+                  </div>
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 font-mono leading-tight text-zinc-200">
+                    <dt className="text-zinc-500">GlobalId</dt>
+                    <dd className="min-w-0 break-all text-[9px]">{passport.globalId?.trim() || "—"}</dd>
+                    <dt className="text-zinc-500">Element id</dt>
+                    <dd>{passport.elementId}</dd>
+                    {passport.ifcFireRating?.trim() ? (
+                      <>
+                        <dt className="text-zinc-500">Fire</dt>
+                        <dd>{passport.ifcFireRating.trim()}</dd>
+                      </>
+                    ) : null}
+                    {passport.ifcManufacturer?.trim() ? (
+                      <>
+                        <dt className="text-zinc-500">Manufacturer</dt>
+                        <dd className="min-w-0 break-words font-sans text-[9px] leading-snug">
+                          {passport.ifcManufacturer.trim()}
+                        </dd>
+                      </>
+                    ) : null}
+                    {passport.ifcModelLabel?.trim() ? (
+                      <>
+                        <dt className="text-zinc-500">Model</dt>
+                        <dd className="min-w-0 break-words font-sans text-[9px] leading-snug">
+                          {passport.ifcModelLabel.trim()}
+                        </dd>
+                      </>
+                    ) : null}
+                    {passport.ifcModelReference?.trim() ? (
+                      <>
+                        <dt className="text-zinc-500">Model ref</dt>
+                        <dd className="min-w-0 break-all text-[9px]">{passport.ifcModelReference.trim()}</dd>
+                      </>
+                    ) : null}
+                    {passport.sameNameElementCount != null && passport.sameNameElementCount > 1 ? (
+                      <>
+                        <dt className="text-zinc-500">Same name</dt>
+                        <dd>×{passport.sameNameElementCount} in KB</dd>
+                      </>
+                    ) : null}
+                  </dl>
+                </div>
 
                 {passport.materials.length > 0 ? (
                   <div>
                     <div className="mb-0.5 text-[9px] font-semibold uppercase tracking-wide text-zinc-500">
-                      Materials ({passport.materials.length})
+                      Materials
                     </div>
-                    <ul className="space-y-1 border-l-2 border-sky-500/40 pl-1.5">
+                    <ul className="space-y-1.5">
                       {passport.materials.slice(0, 12).map((m) => (
-                        <li key={m.materialId} className="text-[9px] leading-snug">
-                          <span className="font-medium text-zinc-200">{m.materialName}</span>
-                          {m.epdName ? (
-                            <span className="mt-px block text-zinc-400">EPD: {m.epdName}</span>
-                          ) : null}
-                          {m.lcaReady === false ? (
-                            <span className="text-amber-300"> · LCA not ready</span>
-                          ) : null}
-                        </li>
+                        <GlassMaterialLayer key={m.materialId} m={m} projectId={projectId} />
                       ))}
                       {passport.materials.length > 12 ? (
-                        <li className="text-zinc-500">+{passport.materials.length - 12} more…</li>
+                        <li className="text-[9px] text-zinc-500">
+                          +{passport.materials.length - 12} more in{" "}
+                          <Link href={passportsHref} className="text-violet-300 underline">
+                            full passport
+                          </Link>
+                          …
+                        </li>
                       ) : null}
                     </ul>
                   </div>
                 ) : (
-                  <p className="text-[9px] text-zinc-500">No materials.</p>
+                  <p className="text-[9px] text-zinc-600">—</p>
                 )}
 
                 {passport.ifcQuantities.length > 0 ? (
@@ -222,25 +515,34 @@ export default function BimIfcElementInfoPanel({
                   </div>
                 ) : null}
 
-                <div className="flex flex-col gap-1 border-t border-white/[0.07] pt-1.5">
-                  <Link href={passportsHref} className="font-medium text-violet-300 underline">
-                    Passports tab
+                <nav
+                  className="flex flex-col gap-1 border-t border-white/[0.07] pt-2"
+                  aria-label="Related"
+                >
+                  <Link href={timelineHref} className="text-[10px] font-medium text-violet-300 underline">
+                    Timeline
+                  </Link>
+                  <Link href={calculateHref} className="text-[10px] font-medium text-violet-300 underline">
+                    Calculate
+                  </Link>
+                  <Link href={passportsHref} className="text-[10px] font-medium text-violet-300 underline">
+                    Passports
                   </Link>
                   <Link
                     href={viewerHref}
-                    className="font-medium text-sky-300 underline"
+                    className="text-[10px] font-medium text-sky-300 underline"
                     target="_blank"
                     rel="noreferrer"
                   >
                     Viewer URL
                   </Link>
-                  <span
-                    className="text-[9px] text-zinc-500"
-                    title={passportSourceLabel(passport)}
-                  >
-                    {passportSourceLabel(passport)}
-                  </span>
-                </div>
+                </nav>
+                <span
+                  className="block font-mono text-[8px] text-zinc-600"
+                  title={passportSourceLabel(passport)}
+                >
+                  {passportSourceLabel(passport)}
+                </span>
               </div>
             )}
           </div>

@@ -12,15 +12,21 @@ export default function KbGraphVisualization(props: {
   kbGraph: KBGraph;
   /** From `/kb?expressId=` — opens force view and zooms the matching element node. */
   focusExpressId?: number;
+  /** From `/kb?focusMaterialId=` — opens force view and zooms the material node. */
+  focusMaterialId?: number;
 }) {
-  const { kbGraph, focusExpressId } = props;
+  const { kbGraph, focusExpressId, focusMaterialId } = props;
   const [mode, setMode] = useState<KbVizMode>("grouped");
 
   useEffect(() => {
     if (focusExpressId != null && Number.isFinite(focusExpressId)) {
       setMode("force");
+      return;
     }
-  }, [focusExpressId]);
+    if (focusMaterialId != null && Number.isFinite(focusMaterialId)) {
+      setMode("force");
+    }
+  }, [focusExpressId, focusMaterialId]);
 
   return (
     <div className="space-y-3">
@@ -57,6 +63,7 @@ export default function KbGraphVisualization(props: {
         <KbGraphWithInspector
           kbGraph={kbGraph}
           focusExpressId={focusExpressId}
+          focusMaterialId={focusMaterialId}
         />
       ) : null}
       {mode === "grouped" ? (

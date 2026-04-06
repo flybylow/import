@@ -1,5 +1,7 @@
 import type { Phase4ElementPassport } from "@/lib/phase4-passports";
 import { passportMaterialMatchesSlug } from "@/lib/material-slug-match";
+import type { TimelineBcfFields } from "@/lib/timeline-events";
+import { parseBcfIfcGuidsJsonField } from "@/lib/timeline-events";
 
 /** Minimal row shape from the timeline API / TTL parser. */
 export type TimelineBuildupEvent = {
@@ -80,7 +82,7 @@ export function lookupExpressIdForIfcGlobalIdTail(
 export type TimelineLinkResolutionInput = {
   message?: string;
   targetExpressId?: number;
-  bcfFields?: { ifcGuid?: string };
+  bcfFields?: TimelineBcfFields;
 };
 
 /**
@@ -101,8 +103,14 @@ export function resolveTimelineExpressIdsForLinks(
     const resolved = lookupExpressIdForIfcGlobalIdTail(gid, globalMap);
     if (resolved != null) out.add(resolved);
   }
-  const bcfG = ev.bcfFields?.ifcGuid?.trim();
-  if (bcfG) {
+  const bcfGuids = new Set<string>();
+  for (const g of parseBcfIfcGuidsJsonField(ev.bcfFields?.bcfIfcGuidsJson)) {
+    bcfGuids.add(g);
+  }
+  const single = ev.bcfFields?.ifcGuid?.trim();
+  if (single) bcfGuids.add(single);
+
+  for (const bcfG of bcfGuids) {
     const tail = bcfG.replace(/^IFC_/i, "");
     const r =
       lookupExpressIdForIfcGlobalIdTail(bcfG, globalMap) ??

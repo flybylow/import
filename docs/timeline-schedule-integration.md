@@ -41,7 +41,18 @@ BCF archives live under:
 npm run import:schependomlaan-bcf
 ```
 
-Each `markup.bcf` comment becomes a **`bcf_coordination_event`** with `timeline:source` **`bcfzip-import`**. Stable **`eventId`** is a short hash of archive name + comment GUID + timestamp + author so duplicate GUIDs across archives do not collide in RDF. When `viewpoint.bcfv` is present, the first `Component/@IfcGuid` is stored as `timeline:bcfIfcGuid` (expressId linking is future work).
+Each `markup.bcf` comment becomes a **`bcf_coordination_event`** with `timeline:source` **`bcfzip-import`**. Stable **`eventId`** is a short hash of archive name + comment GUID + timestamp + author so duplicate GUIDs across archives do not collide in RDF. When `viewpoint.bcfv` contains `<Component IfcGuid="…"/>`, the first GUID is stored as `timeline:bcfIfcGuid`; if there are several, the full list is also stored as **`timeline:bcfIfcGuidsJson`** (JSON string array). The UI / `resolveTimelineExpressIdsForLinks` maps those GUIDs to **expressId** via passport `globalId` when the KB matches the coordination IFC.
+
+**Trace / test (read archives without appending TTL):**
+
+```bash
+npm run bcf:trace-sample
+npm run bcf:trace-sample -- --file "docs/DataSetArch/Coordination model and subcontractors models/Checks/BCF/Controle Geelen V3+Dak 20-03-2015.bcfzip" --maxTopics 3 --json
+# With dev server: resolve IfcGuid → expressId + passport material names
+npm run bcf:trace-sample -- --origin http://127.0.0.1:3000 --projectId schependomlaan-2015 --maxZips 1 --maxTopics 4 --json
+```
+
+**Unit test (markup + viewpoint parsing):** `npm run test:bcf-extract`
 
 ## Native Synchro `.sp` (deferred)
 

@@ -9,6 +9,39 @@ import {
   materialDisplayNameFromStore,
   readMaterialLabelPartsFromStore,
 } from "@/lib/material-label";
+
+type KbGraphMaterialComposition = {
+  ifcMaterialType?: string;
+  layerSetName?: string;
+  schemaNameRaw?: string;
+  standardNameKb?: string;
+  /**
+   * Layers from Phase 1: IfcMaterialList names joined with ` | `, or a single `schema:name`.
+   * Use for “how this passport material is composed” vs element occurrences.
+   */
+  compositionLayerLabels?: string[];
+};
+
+function kbGraphMaterialComposition(
+  store: $rdf.Store,
+  materialId: number
+): KbGraphMaterialComposition {
+  const p = readMaterialLabelPartsFromStore(store, materialId);
+  const raw = (p.schemaName ?? "").trim();
+  const compositionLayerLabels = raw
+    ? raw.split("|").map((s) => s.trim()).filter(Boolean)
+    : undefined;
+  return {
+    ifcMaterialType: p.ifcType ?? undefined,
+    layerSetName: p.layerSetName ?? undefined,
+    schemaNameRaw: p.schemaName ?? undefined,
+    standardNameKb: p.standardName ?? undefined,
+    compositionLayerLabels:
+      compositionLayerLabels && compositionLayerLabels.length > 0
+        ? compositionLayerLabels
+        : undefined,
+  };
+}
 import type { UnmatchedMaterialRowKind } from "@/lib/material-unmatched-diagnostics";
 import { unmatchedMaterialDiagnostics } from "@/lib/material-unmatched-diagnostics";
 
@@ -16,11 +49,13 @@ const BIM_URI = "https://tabulas.eu/bim/";
 const ONT_URI = "https://tabulas.eu/ontology/";
 const RDF_URI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 const SCHEMA_URI = "http://schema.org/";
+const DCT_URI = "http://purl.org/dc/terms/";
 
 const BIM = $rdf.Namespace(BIM_URI);
 const ONT = $rdf.Namespace(ONT_URI);
 const RDF = $rdf.Namespace(RDF_URI);
 const SCHEMA = $rdf.Namespace(SCHEMA_URI);
+const DCT = $rdf.Namespace(DCT_URI);
 
 export function parseKbTtlToStore(kbTtl: string): $rdf.Store {
   const store = $rdf.graph();
@@ -76,6 +111,51 @@ function safeNum(v: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** One consolidated read of `bim:epd-{slug}` — same literals as element passports in `/api/kb/status`. */
+function kbGraphEpdSnapshot(
+  store: $rdf.Store,
+  epdSlug: string,
+  epdName: string
+): KBGraph["epds"][number] {
+  const ep = BIM(`epd-${epdSlug}`) as $rdf.NamedNode;
+  const gwpPerUnit = safeNum(getLitValue(store, ep, ONT("gwpPerUnit")));
+  const declaredUnit = getLitValue(store, ep, ONT("declaredUnit")) || undefined;
+  const densityKgPerM3 = safeNum(getLitValue(store, ep, ONT("density")));
+  const epdDataProvenance = getLitValue(store, ep, ONT("epdDataProvenance")) || undefined;
+  const epdSource = getLitValue(store, ep, ONT("source")) || undefined;
+  const sourceProductUri = getLitValue(store, ep, ONT("sourceProductUri")) || undefined;
+  const sourceFileName = getLitValue(store, ep, ONT("sourceFileName")) || undefined;
+  const producer = getLitValue(store, ep, ONT("producer")) || undefined;
+  const productionLocation = getLitValue(store, ep, ONT("productionLocation")) || undefined;
+  const issueDate = getLitValue(store, ep, ONT("issueDate")) || undefined;
+  const validUntil = getLitValue(store, ep, ONT("validUntil")) || undefined;
+  const epdIdentifier = getLitValue(store, ep, DCT("identifier")) || undefined;
+  const lcaReady =
+    calculationBlockedReason({
+      gwpPerUnit,
+      epdDataProvenance,
+    }) === null;
+
+  return {
+    epdSlug,
+    epdName,
+    epdDataProvenance,
+    epdSource,
+    hasGwp: gwpPerUnit != null,
+    lcaReady,
+    gwpPerUnit,
+    declaredUnit,
+    densityKgPerM3,
+    sourceProductUri,
+    sourceFileName,
+    producer,
+    productionLocation,
+    issueDate,
+    validUntil,
+    epdIdentifier,
+  };
+}
+
 export type MatchingPreview = {
   matched: Array<{
     materialId: number;
@@ -108,13 +188,32 @@ export type KBGraph = {
     epdSlug?: string;
     matchType?: string;
     matchConfidence?: number;
+    /** `ont:source` on the material (e.g. dictionary-routed, kbob-source). */
+    materialSource?: string;
+    ifcMaterialType?: string;
+    layerSetName?: string;
+    schemaNameRaw?: string;
+    standardNameKb?: string;
+    compositionLayerLabels?: string[];
   }>;
   epds: Array<{
     epdSlug: string;
     epdName: string;
     epdDataProvenance?: string;
+    /** `ont:source` on the EPD — dataset id aligned with Sources imports (e.g. b-epd-be, kbob). */
+    epdSource?: string;
     hasGwp: boolean;
     lcaReady: boolean;
+    gwpPerUnit?: number;
+    declaredUnit?: string;
+    densityKgPerM3?: number;
+    sourceProductUri?: string;
+    sourceFileName?: string;
+    producer?: string;
+    productionLocation?: string;
+    issueDate?: string;
+    validUntil?: string;
+    epdIdentifier?: string;
   }>;
   links: Array<{
     materialId: number;
@@ -128,6 +227,13 @@ export type KBGraph = {
   }>;
   /** Per-element material links: IFC element express id → material id (`mat-{id}` in the graph). */
   elementMaterialLinks?: Array<{ expressId: number; materialId: number }>;
+  /** Architect spec vocabulary (`ont:ArchitectSpecCategory` / `bim:archcat-*`). */
+  architectSpecCategories?: Array<{ categoryId: string; label: string }>;
+  materialToArchitectCategoryLinks?: Array<{
+    materialId: number;
+    categoryId: string;
+  }>;
+  epdToArchitectCategoryLinks?: Array<{ epdSlug: string; categoryId: string }>;
 };
 
 export function buildFullKBGraph(
@@ -137,16 +243,7 @@ export function buildFullKBGraph(
   const materialNode = (id: number) => BIM(`material-${id}`);
   const epdNode = (slug: string) => BIM(`epd-${slug}`);
 
-  const epdMap = new Map<
-    string,
-    {
-      epdSlug: string;
-      epdName: string;
-      epdDataProvenance?: string;
-      hasGwp: boolean;
-      lcaReady: boolean;
-    }
-  >();
+  const epdMap = new Map<string, KBGraph["epds"][number]>();
   const materials: KBGraph["materials"] = [];
   const links: KBGraph["links"] = [];
 
@@ -165,6 +262,7 @@ export function buildFullKBGraph(
         materialId: id,
         materialName: getMaterialName(id),
         hasEPD: false,
+        ...kbGraphMaterialComposition(store, id),
       });
       continue;
     }
@@ -175,6 +273,7 @@ export function buildFullKBGraph(
         materialId: id,
         materialName: getMaterialName(id),
         hasEPD: false,
+        ...kbGraphMaterialComposition(store, id),
       });
       continue;
     }
@@ -182,25 +281,11 @@ export function buildFullKBGraph(
     const epdSlug = epdSlugMatch[1];
     const epd = epdNode(epdSlug);
     const epdName = getLitValue(store, epd, SCHEMA("name")) || epdSlug;
-    const gwp = safeNum(getLitValue(store, epd, ONT("gwpPerUnit")));
-    const prov = getLitValue(store, epd, ONT("epdDataProvenance")) as
-      | string
-      | undefined;
-    const lcaReady =
-      calculationBlockedReason({
-        gwpPerUnit: gwp,
-        epdDataProvenance: prov,
-      }) === null;
-
     if (!epdMap.has(epdSlug)) {
-      epdMap.set(epdSlug, {
-        epdSlug,
-        epdName,
-        epdDataProvenance: prov,
-        hasGwp: gwp != null,
-        lcaReady,
-      });
+      epdMap.set(epdSlug, kbGraphEpdSnapshot(store, epdSlug, epdName));
     }
+
+    const materialSource = getLitValue(store, mat, ONT("source")) as string | undefined;
 
     materials.push({
       materialId: id,
@@ -209,6 +294,8 @@ export function buildFullKBGraph(
       epdSlug,
       matchType,
       matchConfidence,
+      materialSource,
+      ...kbGraphMaterialComposition(store, id),
     });
     links.push({ materialId: id, epdSlug });
   }
@@ -254,7 +341,72 @@ export function buildFullKBGraph(
     (a, b) => a.expressId - b.expressId
   );
 
-  return { materials, epds, links, elements, elementMaterialLinks };
+  const archCategoryById = new Map<string, string>();
+  const archTypeStmts = store.statementsMatching(
+    null as any,
+    RDF("type"),
+    ONT("ArchitectSpecCategory")
+  );
+  for (const st of archTypeStmts) {
+    const subj = st.subject as $rdf.NamedNode;
+    const m = /archcat-(.+)$/.exec(subj.value);
+    if (!m) continue;
+    const categoryId = m[1];
+    const label = getLitValue(store, subj, SCHEMA("name")) || categoryId;
+    archCategoryById.set(categoryId, label);
+  }
+
+  const materialToArchitectCategoryLinks: NonNullable<
+    KBGraph["materialToArchitectCategoryLinks"]
+  > = [];
+  const epdToArchitectCategoryLinks: NonNullable<
+    KBGraph["epdToArchitectCategoryLinks"]
+  > = [];
+
+  const archRel = store.statementsMatching(
+    null as any,
+    ONT("architectSpecCategory"),
+    null as any
+  );
+  for (const st of archRel) {
+    const obj = st.object as $rdf.NamedNode;
+    const cm = /archcat-(.+)$/.exec(obj.value);
+    if (!cm) continue;
+    const categoryId = cm[1];
+    const sm = /material-(\d+)$/.exec(st.subject.value);
+    if (sm) {
+      const materialId = Number(sm[1]);
+      if (Number.isFinite(materialId)) {
+        materialToArchitectCategoryLinks.push({ materialId, categoryId });
+      }
+    }
+    const se = /epd-(.+)$/.exec(st.subject.value);
+    if (se) {
+      epdToArchitectCategoryLinks.push({ epdSlug: se[1], categoryId });
+    }
+  }
+
+  const architectSpecCategories = Array.from(archCategoryById.entries())
+    .map(([categoryId, label]) => ({ categoryId, label }))
+    .sort((a, b) => a.categoryId.localeCompare(b.categoryId));
+
+  return {
+    materials,
+    epds,
+    links,
+    elements,
+    elementMaterialLinks,
+    architectSpecCategories:
+      architectSpecCategories.length > 0 ? architectSpecCategories : undefined,
+    materialToArchitectCategoryLinks:
+      materialToArchitectCategoryLinks.length > 0
+        ? materialToArchitectCategoryLinks
+        : undefined,
+    epdToArchitectCategoryLinks:
+      epdToArchitectCategoryLinks.length > 0
+        ? epdToArchitectCategoryLinks
+        : undefined,
+  };
 }
 
 export function buildMatchingPreview(

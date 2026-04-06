@@ -14,10 +14,19 @@
     "clean:pipeline": "node scripts/clean-pipeline.js",
     "build:kb": "tsx --tsconfig tsconfig.json scripts/build-kb.ts",
     "report:epd": "tsx --tsconfig tsconfig.json scripts/report-epd-coverage.ts",
+    "audit:kb": "tsx --tsconfig tsconfig.json scripts/kb-provenance-audit.ts",
+    "test:kb-audit": "tsx --test src/lib/kb-provenance-audit.test.ts",
     "test:2050": "node --env-file=.env scripts/test-2050-api.mjs",
     "import:schependomlaan-timeline": "tsx --tsconfig tsconfig.json scripts/import-schependomlaan-timeline-audit.ts",
     "import:schependomlaan-schedule": "tsx --tsconfig tsconfig.json scripts/import-schependomlaan-msproject-timeline.ts",
-    "import:schependomlaan-bcf": "tsx --tsconfig tsconfig.json scripts/import-schependomlaan-bcf-timeline.ts"
+    "import:schependomlaan-bcf": "tsx --tsconfig tsconfig.json scripts/import-schependomlaan-bcf-timeline.ts",
+    "bcf:trace-sample": "tsx --tsconfig tsconfig.json scripts/bcfzip-trace-sample.ts",
+    "test:bcf-extract": "tsx --test src/lib/bcfzip/extract-topics.test.ts",
+    "benchmark:workflow-pipeline": "tsx --tsconfig tsconfig.json scripts/benchmark-workflow-pipeline.ts",
+    "test:workflow-progress": "tsx --test src/lib/workflow-pipeline-progress.test.ts",
+    "test:material-labels": "tsx --test src/lib/material-label-translations.test.ts",
+    "test:bestek-units": "tsx --test src/lib/bestek/bestek-autofill-units.test.ts",
+    "test:ifc-week26": "tsx --tsconfig tsconfig.json scripts/extract-week26-as-planned-ifc-smoke.ts"
   },
   "dependencies": {
     "@thatopen/components": "^3.3.3",

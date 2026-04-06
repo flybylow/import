@@ -42,6 +42,8 @@ function pickVolumeM3(compact: string): number | null {
 
 function pickAreaM2(compact: string): number | null {
   const fields = [
+    // Generic exporter / UI label (must not match GrossArea / NetSideArea — `\bArea:` only)
+    pickFirstNumber(compact, [/\bArea:\s*([0-9eE+.-]+)/i]),
     pickFirstNumber(compact, [/NetArea:\s*([0-9eE+.-]+)/i, /\bNA:\s*([0-9eE+.-]+)/i, /\bNA\s+([0-9eE+.-]+)/i]),
     pickFirstNumber(compact, [/GrossArea:\s*([0-9eE+.-]+)/i, /\bGA:\s*([0-9eE+.-]+)/i]),
     pickFirstNumber(compact, [/NetSideArea:\s*([0-9eE+.-]+)/i, /\bNSA:\s*([0-9eE+.-]+)/i]),
@@ -63,8 +65,11 @@ function pickAreaM2(compact: string): number | null {
 function pickLengthM(compact: string): number | null {
   const fields = [
     parseQuantityField(compact, /Length:\s*([0-9eE+.-]+)/i),
+    parseQuantityField(compact, /\bLen:\s*([0-9eE+.-]+)/i),
     parseQuantityField(compact, /Width:\s*([0-9eE+.-]+)/i),
+    parseQuantityField(compact, /\bW:\s*([0-9eE+.-]+)/i),
     parseQuantityField(compact, /Height:\s*([0-9eE+.-]+)/i),
+    parseQuantityField(compact, /\bH:\s*([0-9eE+.-]+)/i),
   ];
   const hasAny = fields.some((v) => v != null);
   if (!hasAny) return null;
@@ -161,6 +166,13 @@ export function computeKgCO2e(args: {
   const gwp = args.epd.gwpPerUnit;
   if (gwp == null || !Number.isFinite(gwp)) {
     return { kgCO2e: null, note: "missing_gwp_in_kb" };
+  }
+
+  if (args.quantityKind === "length") {
+    return {
+      kgCO2e: null,
+      note: "length_not_mapped_declared_unit_needs_area_volume_or_mass",
+    };
   }
 
   const du = args.epd.declaredUnit ?? "";

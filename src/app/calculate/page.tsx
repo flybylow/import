@@ -14,9 +14,10 @@ import SignaturePassportsPanel from "@/components/SignaturePassportsPanel";
 import TruncatedWithTooltip from "@/components/TruncatedWithTooltip";
 import { dbg, dbgButton, dbgLoad } from "@/lib/client-pipeline-debug";
 import { groupMaterialCalcRows } from "@/lib/calculate-material-groups";
+import { pickIfcQuantitiesForLcaCompact } from "@/lib/ifc-quantity-compact";
 import { useProjectId } from "@/lib/useProjectId";
 
-/** Labels for compact quantity chips — keep in sync with `parsePrimaryQuantity` in `api/calculate/route.ts`. */
+/** Labels for compact quantity chips — full IFC names; abbreviations are parsed in `phase3-carbon-calc`. */
 const QTY_COMPACT_LABEL: Record<string, string> = {
   Mass: "Mass",
   NetVolume: "NetV",
@@ -31,21 +32,6 @@ const QTY_COMPACT_LABEL: Record<string, string> = {
   Width: "W",
   Height: "H",
 };
-
-const PREFERRED_QTY_ORDER = [
-  "NetVolume",
-  "GrossVolume",
-  "NetArea",
-  "Mass",
-  "GrossArea",
-  "NetSideArea",
-  "GrossSideArea",
-  "NetFootprintArea",
-  "GrossFootprintArea",
-  "Length",
-  "Width",
-  "Height",
-] as const;
 
 const GROUP_MODE_LABEL: Record<"materialId" | "materialName" | "epd", string> = {
   materialId: "Material ID",
@@ -225,16 +211,7 @@ export default function CalculatePrepPage() {
           })
         : [];
 
-      const preferred = PREFERRED_QTY_ORDER.map((name) =>
-        quantityTotals.find((q) => q.quantityName === name)
-      )
-        .filter(Boolean)
-        .slice(0, 3) as Array<{
-        quantityName: string;
-        unit?: string;
-        total: number;
-        count: number;
-      }>;
+      const preferred = pickIfcQuantitiesForLcaCompact(quantityTotals, 3);
 
       const compactQuantities = preferred.length
         ? preferred
@@ -422,15 +399,7 @@ export default function CalculatePrepPage() {
         elementCount: row.elementCount,
         quantityRecordCount: row.quantityRecordCount,
         compactQuantities: (() => {
-          const preferred = PREFERRED_QTY_ORDER.map((name) =>
-            row.quantityTotals.find((q) => q.quantityName === name)
-          )
-            .filter(Boolean)
-            .slice(0, 3) as Array<{
-            quantityName: string;
-            unit?: string;
-            total: number;
-          }>;
+          const preferred = pickIfcQuantitiesForLcaCompact(row.quantityTotals, 3);
           if (preferred.length) {
             return preferred
               .map((q) => {
@@ -1239,7 +1208,7 @@ export default function CalculatePrepPage() {
                     rows={
                       Array.isArray(calculateResult.byEpd)
                         ? calculateResult.byEpd.map((row: any) => ({
-                            label: row.epdName ?? row.epd ?? "—",
+                            label: row.epd ?? row.epdName ?? row.epdSlug ?? "—",
                             value: Number(row.kgCO2e ?? 0),
                           }))
                         : []
@@ -1267,7 +1236,7 @@ export default function CalculatePrepPage() {
                         rows={
                           Array.isArray(calculateResult.byEpd)
                             ? calculateResult.byEpd.map((row: any) => ({
-                                left: row.epdName ?? row.epd ?? "—",
+                                left: row.epd ?? row.epdName ?? row.epdSlug ?? "—",
                                 right: row.kgCO2e,
                               }))
                             : []

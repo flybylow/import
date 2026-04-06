@@ -27,8 +27,9 @@ type Props = {
 };
 
 /**
- * Passport left column: real IFC geometry for the project, focused by expressId (same pipeline as Building tab).
- * Loads once when mounted; selection stays in sync with the finder / URL.
+ * Universal IFC mini-viewer for passports (reuse anywhere you need the same 3D pipeline as Building):
+ * wraps `BuildingIfcViewer` with project IFC, single-id or multi-id group focus, and canvas pick.
+ * In passports, pair with `PassportElementFinder`: Groups (IFC type) → Elements → this preview + detail.
  */
 export default function PassportIfcMiniPreview(props: Props) {
   const {

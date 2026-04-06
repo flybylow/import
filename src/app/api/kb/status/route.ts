@@ -5,6 +5,7 @@ import * as $rdf from "rdflib";
 import { NextResponse } from "next/server";
 
 import { parsePrimaryQuantity } from "@/lib/phase3-carbon-calc";
+import { pickIfcQuantitiesForLcaCompact } from "@/lib/ifc-quantity-compact";
 
 import { getAvailableEpdsCatalog } from "@/lib/available-epds";
 import { calculationBlockedReason } from "@/lib/kb-read-epd";
@@ -166,10 +167,16 @@ export type ElementPassport = {
   elementId: number;
   elementName?: string;
   ifcType?: string;
+  /** When set on the element in KB (`ont:ifcPredefinedType`), e.g. `CEILING` for `IfcCovering`. */
+  ifcPredefinedType?: string;
   globalId?: string;
   expressId?: number;
   /** IFC Pset fire rating on the element (`ont:fireRating`), when present in KB. */
   ifcFireRating?: string;
+  /** `Pset_ManufacturerTypeInformation` from Phase 1 enrich. */
+  ifcManufacturer?: string;
+  ifcModelLabel?: string;
+  ifcModelReference?: string;
   /** When deduping by name: how many `bim:element-*` share this name key (same trimmed `schema:name`). */
   sameNameElementCount?: number;
   materials: ElementPassportMaterial[];
@@ -187,6 +194,7 @@ export type SignaturePassport = {
     elementId: number;
     elementName?: string;
     ifcType?: string;
+    ifcPredefinedType?: string;
     globalId?: string;
     expressId?: number;
   };
@@ -210,21 +218,6 @@ type SignaturePassportsCacheEntry = {
 // In-memory cache to avoid re-building + re-sorting all signature groups
 // on every paginated request. Invalidated by KB file mtime/size.
 const signaturePassportsCache = new Map<string, SignaturePassportsCacheEntry>();
-
-const PREFERRED_QTY_ORDER = [
-  "NetVolume",
-  "GrossVolume",
-  "NetArea",
-  "Mass",
-  "GrossArea",
-  "NetSideArea",
-  "GrossSideArea",
-  "NetFootprintArea",
-  "GrossFootprintArea",
-  "Length",
-  "Width",
-  "Height",
-] as const;
 
 function stableStringifyForSignature(v: unknown): string {
   // Minimal stable serializer for signature keys: arrays/objects are canonicalized by sorting keys.
@@ -301,14 +294,7 @@ function signatureIdFromKey(signatureKey: string): string {
 function activityScoreFromIfcQuantities(
   ifcQuantities: Array<{ quantityName: string; unit?: string; value: number }>
 ): number {
-  const preferred = PREFERRED_QTY_ORDER.map((name) =>
-    ifcQuantities.find((q) => q.quantityName === name)
-  )
-    .filter(Boolean)
-    .slice(0, 3) as Array<{ quantityName: string; unit?: string; value: number }>;
-
-  const compactParts =
-    preferred.length > 0 ? preferred : ifcQuantities.length > 0 ? [ifcQuantities[0]] : [];
+  const compactParts = pickIfcQuantitiesForLcaCompact(ifcQuantities, 3);
 
   const compactQuantities = compactParts.length
     ? compactParts
@@ -360,9 +346,14 @@ function buildOneElementPassport(
   const el = BIM(`element-${id}`);
   const elementName = getLitValue(store, el, SCHEMA("name")) || undefined;
   const ifcType = getLitValue(store, el, ONT("ifcType")) || undefined;
+  const ifcPredefinedType =
+    getLitValue(store, el, ONT("ifcPredefinedType")) || undefined;
   const globalId = getLitValue(store, el, ONT("globalId")) || undefined;
   const expressId = safeNum(getLitValue(store, el, ONT("expressId")));
   const ifcFireRating = getLitValue(store, el, ONT("fireRating")) || undefined;
+  const ifcManufacturer = getLitValue(store, el, ONT("ifcManufacturer")) || undefined;
+  const ifcModelLabel = getLitValue(store, el, ONT("ifcModelLabel")) || undefined;
+  const ifcModelReference = getLitValue(store, el, ONT("ifcModelReference")) || undefined;
 
   const ifcQuantities: ElementPassport["ifcQuantities"] = [];
   const qtyStmts = store.statementsMatching(el, ONT("hasIfcQuantity"), null as any);
@@ -466,9 +457,13 @@ function buildOneElementPassport(
     elementId: id,
     elementName,
     ifcType,
+    ifcPredefinedType,
     globalId,
     expressId: expressId ?? id,
     ifcFireRating,
+    ifcManufacturer,
+    ifcModelLabel,
+    ifcModelReference,
     materials,
     ifcQuantities,
   };
@@ -687,6 +682,7 @@ export async function GET(request: Request) {
             elementId: p.elementId,
             elementName: p.elementName,
             ifcType: p.ifcType,
+            ifcPredefinedType: p.ifcPredefinedType,
             globalId: p.globalId,
             expressId: p.expressId,
           },

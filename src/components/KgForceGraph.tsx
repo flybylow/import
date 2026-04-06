@@ -19,6 +19,7 @@ type KGNodeKind =
   | "materialMatched"
   | "materialUnmatched"
   | "epd"
+  | "architectSpecCategory"
   | "timelineHub"
   | "timelineEvent"
   | "timelineMaterial"

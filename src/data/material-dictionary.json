@@ -1,6 +1,6 @@
 {
-  "version": "routing-2026-04-04-composite-materiallist",
-  "description": "IfcMaterialList joins (|): do not let generic reinforced-concrete patterns win over timber when wood+concrete appear together (layer2 skip). Removed standalone `gewapend` pattern; `loofhout` → timber in material-norm.",
+  "version": "routing-2026-04-05-brick-colour-split",
+  "description": "Brick colour: `roodbruin` / `kopergeel` / `baksteen geel` route to distinct slugs before generic `masonry_brick` (bare `baksteen`). IfcMaterialList joins (|): composite concrete vs timber skip; `loofhout` → timber in material-norm.",
   "entries": [
     {
       "epdSlug": "porotherm_38_t_profi",
@@ -180,6 +180,37 @@
       "epdName": "AAC (route via source)",
       "declaredUnit": "kg",
       "defaultDensityKgPerM3": 500
+    },
+    {
+      "epdSlug": "masonry_brick_red_brown",
+      "matchPatterns": ["roodbruin", "red brown"],
+      "standardName": "Masonry brick (red-brown facing)",
+      "category": "Masonry",
+      "subcategory": "Facing brick",
+      "matchConfidence": 0.72,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "ice",
+      "epdName": "Masonry brick red-brown (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 1800
+    },
+    {
+      "epdSlug": "masonry_brick_yellow",
+      "matchPatterns": [
+        "kopergeel",
+        "copper yellow",
+        "baksteen geel",
+        "mw baksteen geel"
+      ],
+      "standardName": "Masonry brick (yellow / kopergeel facing)",
+      "category": "Masonry",
+      "subcategory": "Facing brick",
+      "matchConfidence": 0.72,
+      "matchType": "dictionary_fuzzy",
+      "epdSource": "ice",
+      "epdName": "Masonry brick yellow (route via source)",
+      "declaredUnit": "kg",
+      "defaultDensityKgPerM3": 1800
     },
     {
       "epdSlug": "masonry_brick",

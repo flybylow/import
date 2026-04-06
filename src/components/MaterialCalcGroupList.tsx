@@ -56,10 +56,7 @@ export default function MaterialCalcGroupList({ groups, compact }: Props) {
                     </span>
                   </td>
                   <td className={`${td} text-[11px] text-zinc-700 dark:text-zinc-300`}>
-                    <span
-                      className="block truncate whitespace-nowrap"
-                      title={`${g.epdName} (${g.epdSlug})`}
-                    >
+                    <span className="block truncate whitespace-nowrap" title={g.epdName}>
                       {g.epdName}
                     </span>
                   </td>

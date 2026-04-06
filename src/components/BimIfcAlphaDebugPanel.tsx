@@ -18,7 +18,7 @@ type Props = {
   ifcStatus: BuildingIfcViewerStatusPayload | null;
   wholeGraphAlphaOn: boolean;
   onWholeGraphAlphaOnChange: (on: boolean) => void;
-  /** That Open Highlighter multi-style overlay demo (3D test + type group with ≥6 ids). */
+  /** That Open Highlighter multi-style overlay demo (Building view + type group with ≥6 ids). */
   highlighterOverlayDemoOn: boolean;
   onHighlighterOverlayDemoOnChange: (on: boolean) => void;
 };
@@ -256,11 +256,11 @@ export default function BimIfcAlphaDebugPanel({
               </button>
               <button
                 type="button"
-                disabled={viewQuery !== "3dtest"}
+                disabled={viewQuery !== "building"}
                 title={
-                  viewQuery === "3dtest"
-                    ? "Amber = first 3 ids, violet = last 3 (needs type group with ≥6 instances)"
-                    : "Switch to 3D test and load a type group (≥6 instances)"
+                  viewQuery === "building"
+                    ? "Amber = first 3 ids, violet = last 3 (needs material group with ≥6 instances)"
+                    : "Open Building view and load a material group (≥6 instances)"
                 }
                 className="rounded border border-cyan-700/50 bg-cyan-50/90 px-1.5 py-1 text-left text-[10px] font-medium text-cyan-950 hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-cyan-600 dark:bg-cyan-950/50 dark:text-cyan-100 dark:hover:bg-cyan-900/70"
                 onClick={() => {

@@ -3,8 +3,8 @@ import path from "path";
 import { NextResponse } from "next/server";
 import { parseIfcPhase1 } from "@/lib/ifc-parser";
 import {
-  isPhase1LibrarySampleKey,
   PHASE1_LIBRARY_SAMPLES,
+  resolvePhase1LibrarySampleKey,
 } from "@/lib/phase1-library-samples";
 import { generateTriplesPhase1 } from "@/lib/triple-generator";
 
@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 type RunExampleRequest = {
   projectId?: string;
-  /** `schependomlaan` | `small` — defaults to schependomlaan */
+  /** `schependomlaan` | `small` | `lcaReview` — defaults to schependomlaan */
   sample?: string;
 };
 
@@ -24,10 +24,7 @@ export async function POST(request: Request) {
     // Allow empty body for backwards compatibility.
   }
   const projectId = body.projectId?.trim() || "example";
-  const sampleRaw = body.sample?.trim().toLowerCase() ?? "";
-  const sampleKey = isPhase1LibrarySampleKey(sampleRaw)
-    ? sampleRaw
-    : "schependomlaan";
+  const sampleKey = resolvePhase1LibrarySampleKey(body.sample ?? "");
   const dataFile = PHASE1_LIBRARY_SAMPLES[sampleKey].dataFile;
   const ifcPath = path.join(process.cwd(), "data", dataFile);
 

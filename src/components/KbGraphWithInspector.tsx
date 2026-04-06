@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import KgForceGraph, { type KGNode } from "@/components/KgForceGraph";
+import KgForceGraph, { type KGNode, type KGLink } from "@/components/KgForceGraph";
 import type { KBGraph } from "@/lib/kb-store-queries";
 
 const MAX_ELEMENT_NODES = 500;
@@ -10,13 +10,15 @@ export default function KbGraphWithInspector(props: {
   kbGraph: KBGraph;
   /** Deep link from `/kb?expressId=` — switches zoom to that IFC element node when present. */
   focusExpressId?: number;
+  /** Deep link from `/kb?focusMaterialId=` — highlights and zooms that material node when present. */
+  focusMaterialId?: number;
 }) {
-  const { kbGraph, focusExpressId } = props;
+  const { kbGraph, focusExpressId, focusMaterialId } = props;
   const [selectedNode, setSelectedNode] = useState<any | null>(null);
 
   const { nodes, links, elementStats } = useMemo(() => {
     const nodes: KGNode[] = [];
-    const links: Array<{ source: string; target: string }> = [];
+    const links: KGLink[] = [];
 
     const hubId = "kb-hub";
     nodes.push({
@@ -101,10 +103,12 @@ export default function KbGraphWithInspector(props: {
 
     let elementsShown = allElements.slice(0, MAX_ELEMENT_NODES);
     const truncated = allElements.length > elementsShown.length;
-    const focusOk =
+    const focusExpressOk =
       focusExpressId != null && Number.isFinite(focusExpressId);
+    const focusMaterialOk =
+      focusMaterialId != null && Number.isFinite(focusMaterialId);
     if (
-      focusOk &&
+      focusExpressOk &&
       !elementsShown.some((e) => e.expressId === focusExpressId)
     ) {
       const row = allElements.find((e) => e.expressId === focusExpressId);
@@ -148,7 +152,9 @@ export default function KbGraphWithInspector(props: {
         y: elementRadius * Math.sin(angle),
         val: 0.82,
         color:
-          focusOk && el.expressId === focusExpressId ? "#c026d3" : "#d97706",
+          focusExpressOk && el.expressId === focusExpressId
+            ? "#c026d3"
+            : "#d97706",
         meta: {
           nodeType: "element",
           expressId: el.expressId,
@@ -171,7 +177,10 @@ export default function KbGraphWithInspector(props: {
         x: matchedRadius * Math.cos(angle),
         y: matchedRadius * Math.sin(angle),
         val: 1.05,
-        color: "#2563eb",
+        color:
+          focusMaterialOk && m.materialId === focusMaterialId
+            ? "#c026d3"
+            : "#2563eb",
         meta: {
           nodeType: "material",
           materialId: m.materialId,
@@ -196,7 +205,10 @@ export default function KbGraphWithInspector(props: {
         x: unmatchedRadius * Math.cos(angle),
         y: unmatchedRadius * Math.sin(angle),
         val: 0.95,
-        color: "#ef4444",
+        color:
+          focusMaterialOk && u.materialId === focusMaterialId
+            ? "#c026d3"
+            : "#ef4444",
         meta: {
           nodeType: "material",
           materialId: u.materialId,
@@ -208,10 +220,75 @@ export default function KbGraphWithInspector(props: {
 
     nodes.push(...epdNodes);
 
+    const archSpecCategoriesAll = kbGraph.architectSpecCategories ?? [];
+    const matToArch = kbGraph.materialToArchitectCategoryLinks ?? [];
+    const epdToArch = kbGraph.epdToArchitectCategoryLinks ?? [];
+    const usedArchCatIds = new Set<string>();
+    for (const x of matToArch) usedArchCatIds.add(x.categoryId);
+    for (const x of epdToArch) usedArchCatIds.add(x.categoryId);
+    const archCatsUsed = archSpecCategoriesAll.filter((c) =>
+      usedArchCatIds.has(c.categoryId)
+    );
+
+    const archcatRadius =
+      archCatsUsed.length === 0
+        ? 0
+        : Math.max(
+            matchedRadius + 22,
+            epdList.length === 0
+              ? matchedRadius + 48
+              : (matchedRadius + epdR0) * 0.52
+          );
+
+    for (let i = 0; i < archCatsUsed.length; i++) {
+      const c = archCatsUsed[i];
+      const angle = (2 * Math.PI * i) / Math.max(1, archCatsUsed.length);
+      const short =
+        c.label.length > 34 ? `${c.label.slice(0, 32)}…` : c.label;
+      nodes.push({
+        id: `archcat-${c.categoryId}`,
+        label: short,
+        kind: "architectSpecCategory",
+        x: archcatRadius * Math.cos(angle),
+        y: archcatRadius * Math.sin(angle),
+        val: 1.08,
+        color: "#7c3aed",
+        meta: {
+          nodeType: "architectSpecCategory",
+          categoryId: c.categoryId,
+          label: c.label,
+        },
+      });
+    }
+
     for (const l of kbGraph.links) {
       links.push({
         source: `mat-${l.materialId}`,
         target: `epd-${l.epdSlug}`,
+      });
+    }
+
+    const matArchSeen = new Set<string>();
+    for (const l of matToArch) {
+      const key = `${l.materialId}\0${l.categoryId}`;
+      if (matArchSeen.has(key)) continue;
+      matArchSeen.add(key);
+      if (!materialIdsInGraph.has(l.materialId)) continue;
+      links.push({
+        source: `mat-${l.materialId}`,
+        target: `archcat-${l.categoryId}`,
+        color: "rgba(124,58,237,0.42)",
+      });
+    }
+    const epdArchSeen = new Set<string>();
+    for (const l of epdToArch) {
+      const key = `${l.epdSlug}\0${l.categoryId}`;
+      if (epdArchSeen.has(key)) continue;
+      epdArchSeen.add(key);
+      links.push({
+        source: `epd-${l.epdSlug}`,
+        target: `archcat-${l.categoryId}`,
+        color: "rgba(124,58,237,0.42)",
       });
     }
 
@@ -234,7 +311,7 @@ export default function KbGraphWithInspector(props: {
         linkCount: allLinks.length,
       },
     };
-  }, [kbGraph, focusExpressId]);
+  }, [kbGraph, focusExpressId, focusMaterialId]);
 
   useEffect(() => {
     if (focusExpressId == null || !Number.isFinite(focusExpressId)) return;
@@ -250,12 +327,38 @@ export default function KbGraphWithInspector(props: {
     }
   }, [focusExpressId, nodes]);
 
-  const focusNodeId =
-    focusExpressId != null &&
-    Number.isFinite(focusExpressId) &&
-    nodes.some((n) => n.id === `el-${focusExpressId}`)
-      ? `el-${focusExpressId}`
-      : null;
+  useEffect(() => {
+    if (focusExpressId != null && Number.isFinite(focusExpressId)) return;
+    if (focusMaterialId == null || !Number.isFinite(focusMaterialId)) return;
+    const nodeId = `mat-${focusMaterialId}`;
+    const n = nodes.find((x) => x.id === nodeId);
+    if (n) {
+      setSelectedNode({
+        id: n.id,
+        kind: n.kind,
+        label: n.label,
+        meta: n.meta,
+      });
+    }
+  }, [focusExpressId, focusMaterialId, nodes]);
+
+  const focusNodeId = (() => {
+    if (
+      focusExpressId != null &&
+      Number.isFinite(focusExpressId) &&
+      nodes.some((n) => n.id === `el-${focusExpressId}`)
+    ) {
+      return `el-${focusExpressId}`;
+    }
+    if (
+      focusMaterialId != null &&
+      Number.isFinite(focusMaterialId) &&
+      nodes.some((n) => n.id === `mat-${focusMaterialId}`)
+    ) {
+      return `mat-${focusMaterialId}`;
+    }
+    return null;
+  })();
 
   return (
     <div className="flex flex-col gap-3">
@@ -318,6 +421,7 @@ export default function KbGraphWithInspector(props: {
           <LegendItem color="#2563eb" label="Material (matched)" />
           <LegendItem color="#ef4444" label="Material (unmatched)" />
           <LegendItem color="#10b981" label="EPD" />
+          <LegendItem color="#7c3aed" label="Architect spec category" />
           <LegendItem color="rgba(17,24,39,0.95)" label="KB hub" />
         </div>
       </div>
@@ -349,13 +453,15 @@ function NodeInspector(props: { node: any }) {
   const title =
     meta.nodeType === "epd"
       ? "EPD"
-      : meta.nodeType === "material"
-        ? meta.hasEPD
-          ? "Material (matched)"
-          : "Material (unmatched)"
-        : meta.nodeType === "element"
-          ? "IFC element"
-          : "KB hub";
+      : meta.nodeType === "architectSpecCategory"
+        ? "Architect spec category"
+        : meta.nodeType === "material"
+          ? meta.hasEPD
+            ? "Material (matched)"
+            : "Material (unmatched)"
+          : meta.nodeType === "element"
+            ? "IFC element"
+            : "KB hub";
 
   return (
     <div className="text-xs text-zinc-800 dark:text-zinc-50 space-y-2">
@@ -430,6 +536,19 @@ function NodeInspector(props: { node: any }) {
           <div>
             <span className="font-mono">name</span>:{" "}
             <span>{meta.epdName ?? node.label ?? "—"}</span>
+          </div>
+        </>
+      ) : null}
+
+      {meta.nodeType === "architectSpecCategory" ? (
+        <>
+          <div>
+            <span className="font-mono">categoryId</span>:{" "}
+            <span>{meta.categoryId ?? "—"}</span>
+          </div>
+          <div>
+            <span className="font-mono">label</span>:{" "}
+            <span>{meta.label ?? node.label ?? "—"}</span>
           </div>
         </>
       ) : null}

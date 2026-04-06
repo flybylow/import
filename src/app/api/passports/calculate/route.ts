@@ -15,6 +15,7 @@ import {
   parsePrimaryQuantity,
   computeKgCO2e,
 } from "@/lib/phase3-carbon-calc";
+import { pickIfcQuantitiesForLcaCompact } from "@/lib/ifc-quantity-compact";
 import { materialDisplayNameFromStore } from "@/lib/material-label";
 
 const BIM_URI = "https://tabulas.eu/bim/";
@@ -125,21 +126,6 @@ type ElementPassport = {
   materials: ElementPassportMaterial[];
   ifcQuantities: Array<{ quantityName: string; unit?: string; value: number }>;
 };
-
-const PREFERRED_QTY_ORDER = [
-  "NetVolume",
-  "GrossVolume",
-  "NetArea",
-  "Mass",
-  "GrossArea",
-  "NetSideArea",
-  "GrossSideArea",
-  "NetFootprintArea",
-  "GrossFootprintArea",
-  "Length",
-  "Width",
-  "Height",
-] as const;
 
 function stableStringifyForSignature(v: unknown): string {
   if (v == null) return "null";
@@ -480,19 +466,7 @@ export async function POST(request: Request) {
     const totalMaterialCO2: number[] = [];
     const byMaterials: PassportCarbonMaterial[] = [];
 
-    // Match Phase 3 material-level compactQuantities selection:
-    // pick up to 3 preferred quantity kinds, then join with `|` separators.
-    const preferred = PREFERRED_QTY_ORDER.map((name) =>
-      ifcQuantities.find((q) => q.quantityName === name)
-    )
-      .filter(Boolean)
-      .slice(0, 3) as Array<{ quantityName: string; unit?: string; value: number }>;
-
-    const compactParts = preferred.length
-      ? preferred
-      : ifcQuantities.length
-        ? [ifcQuantities[0]]
-        : [];
+    const compactParts = pickIfcQuantitiesForLcaCompact(ifcQuantities, 3);
 
     const scaledCompactQuantities = compactParts.length
       ? compactParts

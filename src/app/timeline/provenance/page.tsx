@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  provenanceLinkIsExternal,
   timelineProvenanceForEvent,
   type TimelineProvenanceBundle,
 } from "@/lib/timeline-source-provenance";
@@ -18,8 +19,9 @@ function StepRow(props: { step: TimelineProvenanceBundle["steps"][0] }) {
           <Link
             href={step.href}
             className="text-violet-700 underline underline-offset-2 hover:no-underline dark:text-violet-300"
-            target="_blank"
-            rel="noreferrer"
+            {...(provenanceLinkIsExternal(step.href)
+              ? { target: "_blank", rel: "noreferrer" as const }
+              : {})}
           >
             {step.label}
           </Link>
@@ -29,6 +31,36 @@ function StepRow(props: { step: TimelineProvenanceBundle["steps"][0] }) {
       </div>
       <div className="mt-0.5 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">{step.repoPath}</div>
     </li>
+  );
+}
+
+function BundlePrimaryLinks(props: { bundle: TimelineProvenanceBundle }) {
+  const { bundle } = props;
+  const linkClass =
+    "font-medium text-violet-700 underline underline-offset-2 hover:no-underline dark:text-violet-300";
+  const items = [
+    ...(bundle.primarySheet ? [bundle.primarySheet] : []),
+    ...(bundle.datasetLinks ?? []),
+  ];
+  if (items.length === 0) return null;
+  return (
+    <nav
+      className="mt-3 flex flex-col gap-1 text-sm text-zinc-600 dark:text-zinc-300"
+      aria-label="Original sheet and dataset"
+    >
+      {items.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          className={linkClass}
+          {...(provenanceLinkIsExternal(item.href)
+            ? { target: "_blank", rel: "noreferrer" as const }
+            : {})}
+        >
+          {item.label}
+        </Link>
+      ))}
+    </nav>
   );
 }
 
@@ -62,6 +94,7 @@ export default function TimelineProvenancePage() {
         {KNOWN_BUNDLES.map((bundle) => (
           <section key={bundle.id} className="border-t border-zinc-200 pt-8 dark:border-zinc-700">
             <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">{bundle.title}</h2>
+            <BundlePrimaryLinks bundle={bundle} />
             <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">{bundle.intro}</p>
             <ol className="mt-4 list-decimal space-y-4 pl-5">
               {bundle.steps.map((step) => (

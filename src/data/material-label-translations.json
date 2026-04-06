@@ -1,0 +1,150 @@
+{
+  "version": "2026-04-06",
+  "description": "NL (Flanders/BE) display labels beside the Turtle KB. Join key is epdSlug (same as bim:epd-{slug} and material-dictionary.json). Future: per-architect or contractor packs.",
+  "locale": "nl-BE",
+  "role": "architect_display",
+  "translations": [
+    {
+      "epdSlug": "concrete_general",
+      "en": "Concrete (general)",
+      "nl": "Beton (algemeen)"
+    },
+    {
+      "epdSlug": "concrete_reinforced_in_situ",
+      "en": "Reinforced concrete in-situ",
+      "nl": "Beton gewapend ter plaatse"
+    },
+    {
+      "epdSlug": "precast_breedplaat",
+      "en": "Precast concrete façade / breedplaat shell",
+      "nl": "Voorgespannen betonnen gevel / breedplaat schil"
+    },
+    {
+      "epdSlug": "masonry_brick",
+      "en": "Masonry (brick / block)",
+      "nl": "Metselwerk (baksteen / blok)"
+    },
+    {
+      "epdSlug": "masonry_brick_red_brown",
+      "en": "Masonry brick (red-brown facing)",
+      "nl": "Metselwerk rood-bruin (gevelafwerking)"
+    },
+    {
+      "epdSlug": "masonry_brick_yellow",
+      "en": "Masonry brick (yellow / kopergeel facing)",
+      "nl": "Metselwerk geel / kopergeel (gevelafwerking)"
+    },
+    {
+      "epdSlug": "porotherm_19_t_profi",
+      "en": "Porotherm 19 T Profi",
+      "nl": "Porotherm 19 T Profi"
+    },
+    {
+      "epdSlug": "porotherm_38_t_profi",
+      "en": "Porotherm 38 T Profi",
+      "nl": "Porotherm 38 T Profi"
+    },
+    {
+      "epdSlug": "terca_klinker_brussel",
+      "en": "Terca Klinker Brussel",
+      "nl": "Terca Klinker Brussel"
+    },
+    {
+      "epdSlug": "kalkzandsteen",
+      "en": "Calcium silicate brick",
+      "nl": "Kalkzandsteen"
+    },
+    {
+      "epdSlug": "koramic_planum_11",
+      "en": "Koramic Planum 11",
+      "nl": "Koramic Planum 11"
+    },
+    {
+      "epdSlug": "aac",
+      "en": "Autoclaved aerated concrete",
+      "nl": "Gasbeton / cellenbeton"
+    },
+    {
+      "epdSlug": "timber",
+      "en": "Timber (dormer / roof carpentry)",
+      "nl": "Hout (dakkapel / dakconstructie)",
+      "standardNameEn": "Timber (dormer / roof carpentry)"
+    },
+    {
+      "epdSlug": "timber",
+      "en": "Timber",
+      "nl": "Hout",
+      "standardNameEn": "Timber"
+    },
+    {
+      "epdSlug": "steel",
+      "en": "Steel",
+      "nl": "Staal"
+    },
+    {
+      "epdSlug": "aluminium_window_frame",
+      "en": "Aluminium window frame (joinery)",
+      "nl": "Aluminium raamkozijn"
+    },
+    {
+      "epdSlug": "zinc_work",
+      "en": "Zinc sheet / zinc work",
+      "nl": "Zinkwerk / zinken beplating"
+    },
+    {
+      "epdSlug": "glass_railing",
+      "en": "Glass (guardrail / infill)",
+      "nl": "Glas (hekwerk / invulling)"
+    },
+    {
+      "epdSlug": "ceramic_tile",
+      "en": "Ceramic / porcelain tile",
+      "nl": "Keramische / porselein tegel"
+    },
+    {
+      "epdSlug": "gypsum_plaster",
+      "en": "Gypsum plaster / boards",
+      "nl": "Gipsplaat / gipsblokken"
+    },
+    {
+      "epdSlug": "screed_floor",
+      "en": "Mortar / cement screed",
+      "nl": "Mortel / cementdekvloer"
+    },
+    {
+      "epdSlug": "natural_stone",
+      "en": "Natural stone",
+      "nl": "Natuursteen"
+    },
+    {
+      "epdSlug": "insulation_eps",
+      "en": "Insulation EPS / polystyrene",
+      "nl": "Isolatie EPS / polystyreen"
+    },
+    {
+      "epdSlug": "insulation_glass_wool",
+      "en": "Insulation glass / mineral wool",
+      "nl": "Isolatie glaswol / mineraalwol"
+    },
+    {
+      "epdSlug": "insulation_pir",
+      "en": "Insulation PIR",
+      "nl": "Isolatie PIR"
+    },
+    {
+      "epdSlug": "insulation_xps",
+      "en": "Insulation XPS",
+      "nl": "Isolatie XPS"
+    },
+    {
+      "epdSlug": "insulation_generic",
+      "en": "Thermal insulation (generic)",
+      "nl": "Thermische isolatie (algemeen)"
+    },
+    {
+      "epdSlug": "plastic_sheet",
+      "en": "Plastic / polymer sheet",
+      "nl": "Kunststof / polymeerschoeting"
+    }
+  ]
+}

@@ -1,6 +1,9 @@
 /**
  * Shared “glass” chrome over the IFC canvas: transparent from first paint, no separate themes.
  * Slightly stronger when a panel is open so lists stay readable.
+ *
+ * **Universal IFC viewer:** parent pages (`/bim`, `/view`, …) keep toolbars/panels on these tokens;
+ * mesh appearance (uniform ghost vs solid) is controlled by `BuildingIfcViewer` prop `uniformGhost`.
  */
 export const BIM_GLASS_STRIP =
   "border-b border-white/10 bg-black/15 shadow-[0_4px_40px_rgba(0,0,0,0.25)] backdrop-blur-2xl";

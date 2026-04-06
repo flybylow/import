@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { KGNode, KGLink } from "@/components/KgForceGraph";
 import KgForceGraph3D from "@/components/KgForceGraph3D";
 import { EPCIS_JSON_SEPARATOR, getEpcisHumanNotesForRow } from "@/lib/timeline/epcis";
@@ -539,11 +539,10 @@ export default function TimelineKbGraph(props: {
   const layoutMode = layoutModeControlled ? layoutModeProp : layoutModeInternal;
   const setLayoutMode = layoutModeControlled ? onLayoutModeChange : setLayoutModeInternal;
 
-  useEffect(() => {
-    if (layoutMode === "materialFlow" && eventsOnly) setEventsOnly(false);
-  }, [layoutMode, eventsOnly]);
+  /** Material-flow layout requires materials on the graph; ignore events-only without an effect. */
+  const eventsOnlyForGraph = layoutMode === "materialFlow" ? false : eventsOnly;
 
-  const suggestedCompact = events.length > 45 && !eventsOnly && layoutMode === "spine";
+  const suggestedCompact = events.length > 45 && !eventsOnlyForGraph && layoutMode === "spine";
 
   const {
     nodes,
@@ -560,10 +559,10 @@ export default function TimelineKbGraph(props: {
       buildGraph(projectId, events, {
         eventCap,
         compact,
-        eventsOnly,
+        eventsOnly: eventsOnlyForGraph,
         layoutMode,
       }),
-    [projectId, events, eventCap, compact, eventsOnly, layoutMode]
+    [projectId, events, eventCap, compact, eventsOnlyForGraph, layoutMode]
   );
 
   if (events.length === 0) {
@@ -644,7 +643,11 @@ export default function TimelineKbGraph(props: {
           <select
             className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
             value={layoutMode}
-            onChange={(e) => setLayoutMode(e.target.value as "spine" | "materialFlow")}
+            onChange={(e) => {
+              const v = e.target.value as "spine" | "materialFlow";
+              setLayoutMode(v);
+              if (v === "materialFlow") setEventsOnly(false);
+            }}
           >
             <option value="spine">Timeline spine</option>
             <option value="materialFlow">Material → work</option>
@@ -654,7 +657,7 @@ export default function TimelineKbGraph(props: {
           <input
             type="checkbox"
             className="rounded border-zinc-300 dark:border-zinc-600"
-            checked={eventsOnly}
+            checked={layoutMode === "materialFlow" ? false : eventsOnly}
             onChange={(e) => setEventsOnly(e.target.checked)}
             disabled={layoutMode === "materialFlow"}
           />

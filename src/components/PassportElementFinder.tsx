@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { PassportEpdRecordBlock } from "@/components/PassportEpdRecordBlock";
 import { formatPassportMaterialGwpLine } from "@/lib/format-passport-material-gwp";
 import {
@@ -12,23 +12,59 @@ import {
   passportMaterialEpdLinks,
 } from "@/lib/passport-navigation-links";
 import type { Phase4ElementPassport } from "@/lib/phase4-passports";
+import { passportFinderTypeKey } from "@/lib/ifc-passport-type-group";
 
 /** Full detail per material in the narrow preview; overflow defers to sidebar. */
 const PREVIEW_MATERIALS_MAX = 8;
+
+function formatIfcQuantityValue(value: number, unit?: string) {
+  const s = String(value);
+  return unit ? `${s} ${unit}` : s;
+}
 
 export type FinderListItem = {
   expressId: number;
   label: string;
   ifcType?: string;
+  /** Passport / URL `?group=` bucket (may be `IfcCovering · betontegels`). */
+  typeGroupKey: string;
   globalId?: string;
 };
 
-function typeKey(ifcType?: string) {
-  const t = ifcType?.trim();
-  return t && t.length > 0 ? t : "—";
+export { passportFinderTypeKey } from "@/lib/ifc-passport-type-group";
+
+/**
+ * Scroll only inside `container` so ancestors (e.g. `main` with overflow-y-auto) do not jump.
+ * `Element.scrollIntoView` walks the full ancestor chain and often scrolls the whole BIM page.
+ */
+function scrollChildIntoViewInContainer(
+  container: HTMLElement | null,
+  child: HTMLElement | null
+) {
+  if (!container || !child || !container.contains(child)) return;
+  const c = container.getBoundingClientRect();
+  const e = child.getBoundingClientRect();
+  let delta = 0;
+  if (e.top < c.top) delta = e.top - c.top;
+  else if (e.bottom > c.bottom) delta = e.bottom - c.bottom;
+  if (delta !== 0) {
+    container.scrollTop += delta;
+  }
 }
 
 const EMPTY_FINDER_COLUMN: FinderListItem[] = [];
+
+/** Single muted line under column border; omit `text` for a blank cap (column 3). */
+function FinderColCap(props: { text?: string }) {
+  const { text } = props;
+  return (
+    <div className="shrink-0 border-b border-zinc-200 px-2 py-1 dark:border-zinc-800">
+      {text ? (
+        <p className="text-[9px] leading-snug text-zinc-500 dark:text-zinc-400">{text}</p>
+      ) : null}
+    </div>
+  );
+}
 
 type Props = {
   /** For “View fire snapshot” link to `/bim/passport-snapshot`. */
@@ -41,16 +77,24 @@ type Props = {
    * Parent should clear this when a single element is selected or URL sets `expressId`.
    */
   onSelectTypeGroup?: (expressIds: number[]) => void;
+  /**
+   * Passports URL: selecting a group updates `?group=` and clears `expressId`.
+   * Prefer this over `onSelectExpressId(null)` on type clicks so the group is shareable.
+   */
+  onCommitGroupToUrl?: (groupKey: string) => void;
+  /** Deep link `?group=` when there is no `expressId` (must match a key in the current batch). */
+  urlGroupKey?: string;
+  /** Override col 1 caption (e.g. inspect mode: no live 3D group highlight). */
+  typeGroupColumnCaption?: string;
+  /** Override col 2 caption. */
+  instancesColumnCaption?: string;
   disabled?: boolean;
   /** Optional: richer preview (materials count, fire rating). */
   passportByExpressId?: Record<number, Phase4ElementPassport>;
   className?: string;
 };
 
-/**
- * Miller-column navigator: IFC type → instances → compact preview.
- * Filter applies to all columns (subset of elements before grouping).
- */
+/** Miller columns: IFC type → instances → detail. Filter narrows all columns. */
 export default function PassportElementFinder(props: Props) {
   const {
     projectId = "",
@@ -58,6 +102,10 @@ export default function PassportElementFinder(props: Props) {
     selectedExpressId,
     onSelectExpressId,
     onSelectTypeGroup,
+    onCommitGroupToUrl,
+    urlGroupKey = "",
+    typeGroupColumnCaption,
+    instancesColumnCaption,
     disabled,
     passportByExpressId,
     className = "",
@@ -68,6 +116,8 @@ export default function PassportElementFinder(props: Props) {
 
   const activeTypeButtonRef = useRef<HTMLButtonElement | null>(null);
   const activeElementButtonRef = useRef<HTMLButtonElement | null>(null);
+  const typeListUlRef = useRef<HTMLUListElement | null>(null);
+  const elementListUlRef = useRef<HTMLUListElement | null>(null);
 
   const filteredItems = useMemo(() => {
     const t = filterQ.trim().toLowerCase();
@@ -77,6 +127,7 @@ export default function PassportElementFinder(props: Props) {
         String(item.expressId),
         item.label,
         item.ifcType ?? "",
+        item.typeGroupKey ?? "",
         item.globalId ?? "",
       ]
         .join(" ")
@@ -88,10 +139,19 @@ export default function PassportElementFinder(props: Props) {
   const { byType, sortedTypeKeys } = useMemo(() => {
     const m = new Map<string, FinderListItem[]>();
     for (const it of filteredItems) {
-      const k = typeKey(it.ifcType);
+      const k = it.typeGroupKey;
       if (!m.has(k)) m.set(k, []);
       m.get(k)!.push(it);
     }
+
+    const coveringLegacyKey = passportFinderTypeKey("IfcCovering");
+    const coveringItems = filteredItems.filter((it) =>
+      /^ifccovering$/i.test(it.ifcType?.trim() ?? "")
+    );
+    if (coveringItems.length > 0) {
+      m.set(coveringLegacyKey, [...coveringItems].sort((a, b) => a.expressId - b.expressId));
+    }
+
     for (const arr of m.values()) {
       arr.sort((a, b) => a.expressId - b.expressId);
     }
@@ -99,6 +159,10 @@ export default function PassportElementFinder(props: Props) {
     keys.sort((a, b) => {
       if (a === "—") return 1;
       if (b === "—") return -1;
+      const la = a === coveringLegacyKey;
+      const lb = b === coveringLegacyKey;
+      if (la && !lb) return 1;
+      if (lb && !la) return -1;
       return a.localeCompare(b);
     });
     return { byType: m, sortedTypeKeys: keys };
@@ -109,8 +173,7 @@ export default function PassportElementFinder(props: Props) {
     if (selectedExpressId == null) return;
     const row = items.find((i) => i.expressId === selectedExpressId);
     if (!row) return;
-    const k = typeKey(row.ifcType);
-    setSelectedTypeKey(k);
+    setSelectedTypeKey(row.typeGroupKey);
   }, [selectedExpressId, items]);
 
   /** If filter removes the selected type bucket, clear type or pick first remaining. */
@@ -139,25 +202,29 @@ export default function PassportElementFinder(props: Props) {
 
   const typeKeysSig = sortedTypeKeys.join("\0");
 
-  /** Keep the selected IFC type and element row scrolled into view (URL sync, filter, long lists). */
+  /** URL `group=` → type column when no element is selected. */
+  useEffect(() => {
+    if (selectedExpressId != null) return;
+    const g = urlGroupKey.trim();
+    if (!g) return;
+    if (!sortedTypeKeys.includes(g)) return;
+    setSelectedTypeKey(g);
+  }, [urlGroupKey, selectedExpressId, typeKeysSig]);
+
+  /** Keep the selected IFC type and element row visible inside their columns only (no page scroll). */
   useEffect(() => {
     const id = requestAnimationFrame(() => {
       if (selectedTypeKey != null) {
-        activeTypeButtonRef.current?.scrollIntoView({
-          block: "nearest",
-          inline: "nearest",
-          behavior: "smooth",
-        });
+        scrollChildIntoViewInContainer(typeListUlRef.current, activeTypeButtonRef.current);
       }
       if (
         selectedExpressId != null &&
         columnItems.some((i) => i.expressId === selectedExpressId)
       ) {
-        activeElementButtonRef.current?.scrollIntoView({
-          block: "nearest",
-          inline: "nearest",
-          behavior: "smooth",
-        });
+        scrollChildIntoViewInContainer(
+          elementListUlRef.current,
+          activeElementButtonRef.current
+        );
       }
     });
     return () => cancelAnimationFrame(id);
@@ -182,28 +249,16 @@ export default function PassportElementFinder(props: Props) {
     "flex min-h-0 min-w-0 flex-col border-r border-zinc-200 bg-zinc-50 last:border-r-0 dark:border-zinc-800 dark:bg-zinc-950/40 @min-[28rem]:h-full @min-[28rem]:max-h-full";
 
   const listClass =
-    "min-h-0 flex-1 overflow-y-auto p-0.5 max-h-[min(28vh,14rem)] @min-[28rem]:max-h-none";
-
-  const finderTitle =
-    "IFC type alone highlights every filtered instance in the 3D preview; pick an element for detail. Three columns: types, elements, preview. Filter narrows all columns. URL follows single-element selection.";
+    "min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-0.5 max-h-[min(48dvh,22rem)] @min-[28rem]:max-h-none";
 
   return (
     <div
-      className={`@container flex h-full min-h-0 w-full min-w-0 flex-col rounded border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950/40 ${className}`.trim()}
-      aria-label="Elements: browse by IFC type and instance"
+      className={`@container flex h-full min-h-0 w-full min-w-0 flex-1 flex-col rounded border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950/40 ${className}`.trim()}
+      aria-label="Passport finder"
     >
-      <div
-        className="flex shrink-0 items-center gap-2 border-b border-zinc-200 px-2 py-1 dark:border-zinc-800"
-        title={finderTitle}
-      >
-        <span className="shrink-0 cursor-help text-xs font-semibold text-zinc-900 dark:text-zinc-50">
-          Elements
-        </span>
-        <span className="hidden min-w-0 shrink truncate text-[10px] font-normal text-zinc-500 sm:inline dark:text-zinc-400">
-          — type = group in 3D; element = detail
-        </span>
+      <div className="flex shrink-0 items-center gap-2 border-b border-zinc-200 px-2 py-1 dark:border-zinc-800">
         <label htmlFor="passport-finder-filter" className="sr-only">
-          Filter by name, expressId, IFC type, or globalId
+          Filter
         </label>
         <input
           id="passport-finder-filter"
@@ -225,17 +280,50 @@ export default function PassportElementFinder(props: Props) {
         </span>
       </div>
 
-      <div className="grid min-h-0 w-full flex-1 grid-cols-1 divide-y divide-zinc-200 overflow-y-auto @min-[28rem]:grid-cols-3 @min-[28rem]:items-stretch @min-[28rem]:divide-x @min-[28rem]:divide-y-0 @min-[28rem]:overflow-hidden dark:divide-zinc-800">
-        {/* Col 1 — IFC type */}
-        <div className={colClass}>
-          <div className="shrink-0 border-b border-zinc-200 px-2 py-1 text-[10px] font-medium text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
-            IFC type
-          </div>
-          <ul className={listClass} aria-label="IFC types">
-            {sortedTypeKeys.length === 0 ? (
-              <li className="px-2 py-2 text-[10px] text-zinc-500">
-                No types match the filter.
+      <nav
+        className="shrink-0 border-b border-zinc-200 bg-zinc-100/80 px-2 py-1 dark:border-zinc-800 dark:bg-zinc-900/50"
+        aria-label="Selection path"
+      >
+        <ol className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] text-zinc-600 dark:text-zinc-300">
+          {selectedTypeKey != null ? (
+            <li className="min-w-0 truncate font-mono text-zinc-800 dark:text-zinc-100" title={selectedTypeKey}>
+              {selectedTypeKey}
+            </li>
+          ) : (
+            <li className="text-zinc-400 dark:text-zinc-500">—</li>
+          )}
+          {previewItem != null ? (
+            <>
+              <li aria-hidden className="text-zinc-400 dark:text-zinc-500">
+                /
               </li>
+              <li className="min-w-0 max-w-[min(100%,12rem)] truncate text-zinc-900 dark:text-zinc-50">
+                {previewItem.label}
+              </li>
+              <li className="shrink-0 font-mono text-zinc-500 dark:text-zinc-400">
+                ({previewItem.expressId})
+              </li>
+            </>
+          ) : null}
+        </ol>
+      </nav>
+
+      <div
+        role="region"
+        aria-label="Three columns: groups, elements, detail"
+        className="grid min-h-0 w-full flex-1 grid-cols-1 divide-y divide-zinc-200 overflow-y-auto overscroll-y-contain @min-[28rem]:grid-cols-3 @min-[28rem]:items-stretch @min-[28rem]:divide-x @min-[28rem]:divide-y-0 @min-[28rem]:overflow-hidden dark:divide-zinc-800"
+      >
+        {/* Col 1 — groups (IFC type) */}
+        <div className={colClass}>
+          <FinderColCap
+            text={
+              typeGroupColumnCaption ??
+              "IFC group · subdivided types (e.g. IfcCovering) · click = all instances in 3D"
+            }
+          />
+          <ul ref={typeListUlRef} className={listClass} aria-label="IFC type groups">
+            {sortedTypeKeys.length === 0 ? (
+              <li className="px-2 py-2 text-[10px] text-zinc-500">—</li>
             ) : (
               sortedTypeKeys.map((key) => {
                 const count = byType.get(key)?.length ?? 0;
@@ -251,7 +339,11 @@ export default function PassportElementFinder(props: Props) {
                         setSelectedTypeKey(key);
                         const nextList = byType.get(key) ?? [];
                         onSelectTypeGroup?.(nextList.map((i) => i.expressId));
-                        onSelectExpressId(null);
+                        if (onCommitGroupToUrl) {
+                          onCommitGroupToUrl(key);
+                        } else {
+                          onSelectExpressId(null);
+                        }
                       }}
                       className={[
                         "flex w-full items-center justify-between gap-1 rounded px-1.5 py-1 text-left text-[10px] transition-colors",
@@ -275,20 +367,19 @@ export default function PassportElementFinder(props: Props) {
           </ul>
         </div>
 
-        {/* Col 2 — instances */}
+        {/* Col 2 — elements (leaf instances) */}
         <div className={colClass}>
-          <div className="shrink-0 border-b border-zinc-200 px-2 py-1 text-[10px] font-medium text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
-            Elements
-          </div>
-          <ul className={listClass} aria-label="Elements for selected IFC type">
+          <FinderColCap
+            text={
+              instancesColumnCaption ??
+              "Instances in the selected group · leaf level"
+            }
+          />
+          <ul ref={elementListUlRef} className={listClass} aria-label="Elements for selected IFC type">
             {selectedTypeKey == null ? (
-              <li className="px-2 py-2 text-[10px] text-zinc-500">
-                Select an IFC type in the first column.
-              </li>
+              <li className="px-2 py-2 text-[10px] text-zinc-500">—</li>
             ) : columnItems.length === 0 ? (
-              <li className="px-2 py-2 text-[10px] text-zinc-500">
-                No elements in this type for the current filter.
-              </li>
+              <li className="px-2 py-2 text-[10px] text-zinc-500">—</li>
             ) : (
               columnItems.map((item) => {
                 const active = selectedExpressId === item.expressId;
@@ -327,35 +418,20 @@ export default function PassportElementFinder(props: Props) {
           </ul>
         </div>
 
-        {/* Col 3 — preview */}
+        {/* Col 3 — detail */}
         <div className={`${colClass} border-r-0`}>
-          <div className="shrink-0 border-b border-zinc-200 px-2 py-1 text-[10px] font-medium text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
-            Preview
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-2 text-[10px] text-zinc-700 dark:text-zinc-200 max-h-[min(28vh,14rem)] @min-[28rem]:max-h-none">
+          <FinderColCap />
+          <div className="min-h-0 max-h-[min(48dvh,22rem)] flex-1 overflow-y-auto overscroll-y-contain p-2 text-[10px] text-zinc-700 dark:text-zinc-200 @min-[28rem]:max-h-none">
             {!previewItem &&
             selectedExpressId == null &&
             selectedTypeKey != null &&
             columnItems.length > 0 ? (
-              <div className="space-y-1 text-zinc-600 dark:text-zinc-300">
-                <p className="font-medium text-zinc-800 dark:text-zinc-100">
-                  IFC type group
-                </p>
-                <p>
-                  <span className="font-mono text-zinc-900 dark:text-zinc-100">{selectedTypeKey}</span>
-                  {" · "}
-                  <span className="tabular-nums">{columnItems.length}</span> instance
-                  {columnItems.length === 1 ? "" : "s"} in this filter
-                </p>
-                <p className="text-zinc-500 dark:text-zinc-400">
-                  Highlighted together in the IFC preview. Pick one in the middle column for passport
-                  detail and links.
-                </p>
-              </div>
-            ) : !previewItem ? (
-              <p className="text-zinc-500 dark:text-zinc-400">
-                Choose an IFC type (group in 3D) or an element for detail.
+              <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                <span className="font-mono text-zinc-700 dark:text-zinc-200">{selectedTypeKey}</span>
+                <span className="tabular-nums"> · {columnItems.length}</span>
               </p>
+            ) : !previewItem ? (
+              <p className="text-[10px] text-zinc-500 dark:text-zinc-400">—</p>
             ) : (
               <dl className="grid min-w-0 grid-cols-[auto_1fr] gap-x-2 gap-y-1">
                 <dt className="text-zinc-500">expressId</dt>
@@ -378,6 +454,20 @@ export default function PassportElementFinder(props: Props) {
                 ) : null}
               </dl>
             )}
+            {previewItem && previewPassport && previewPassport.ifcQuantities.length > 0 ? (
+              <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
+                <dl className="grid min-w-0 grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-[10px]">
+                  {previewPassport.ifcQuantities.map((q, idx) => (
+                    <Fragment key={`${q.quantityName}-${idx}`}>
+                      <dt className="text-zinc-500">{q.quantityName}</dt>
+                      <dd className="min-w-0 break-all font-mono text-zinc-900 dark:text-zinc-100">
+                        {formatIfcQuantityValue(q.value, q.unit)}
+                      </dd>
+                    </Fragment>
+                  ))}
+                </dl>
+              </div>
+            ) : null}
             {previewItem && projectId.trim() && selectedExpressId != null ? (
               <nav
                 className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px]"
@@ -411,9 +501,6 @@ export default function PassportElementFinder(props: Props) {
             ) : null}
             {previewItem && previewPassport ? (
               <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
-                <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                  GWP (A1–A3, EPD unit)
-                </p>
                 {previewPassport.materials.length === 0 ? (
                   <p className="text-[10px] text-zinc-500 dark:text-zinc-400">No material links.</p>
                 ) : (
@@ -550,8 +637,8 @@ export default function PassportElementFinder(props: Props) {
                   </ul>
                 )}
                 {previewPassport.materials.length > PREVIEW_MATERIALS_MAX ? (
-                  <p className="mt-1.5 text-[9px] text-zinc-500 dark:text-zinc-400">
-                    +{previewPassport.materials.length - PREVIEW_MATERIALS_MAX} more in the sidebar below
+                  <p className="mt-1.5 text-[9px] font-mono text-zinc-500 dark:text-zinc-400">
+                    +{previewPassport.materials.length - PREVIEW_MATERIALS_MAX}
                   </p>
                 ) : null}
               </div>
