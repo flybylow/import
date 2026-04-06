@@ -49,6 +49,20 @@ function formatStamp(iso: string): string {
   }).format(d);
 }
 
+function formatStampLong(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(d);
+}
+
 function humanTimelineMessage(message?: string): string | undefined {
   if (!message?.trim()) return undefined;
   const idx = message.indexOf(EPCIS_JSON_SEPARATOR);
@@ -193,12 +207,6 @@ function buildGraph(
   if (spineShowMaterialUnderStrip) {
     matRefToIndices.forEach((indices, uri) => {
       const meanX = eventBaseX0 + indices.reduce((s, idx) => s + idx * rowGap, 0) / indices.length;
-      let hz = 2166136261;
-      for (let c = 0; c < uri.length; c++) {
-        hz ^= uri.charCodeAt(c);
-        hz = Math.imul(hz, 16777619);
-      }
-      const zJitter = ((hz >>> 0) % 48) - 24;
       const linkCount = indices.length;
       const id = stableMaterialNodeId(uri);
       nodes.push({
@@ -207,7 +215,7 @@ function buildGraph(
         kind: "timelineMaterial",
         x: meanX,
         y: -100,
-        z: zJitter - 48,
+        z: 0,
         val: 1.5 + Math.min(linkCount * 0.12, 1.4),
         color: matHubColor,
         meta: {
@@ -226,12 +234,6 @@ function buildGraph(
     sorted.forEach(([uri, indices], mi) => {
       const n = sorted.length;
       const y = (mi - (n - 1) / 2) * 50;
-      let hz = 2166136261;
-      for (let c = 0; c < uri.length; c++) {
-        hz ^= uri.charCodeAt(c);
-        hz = Math.imul(hz, 16777619);
-      }
-      const zJitter = ((hz >>> 0) % 36) - 18;
       const linkCount = indices.length;
       const id = stableMaterialNodeId(uri);
       nodes.push({
@@ -240,7 +242,7 @@ function buildGraph(
         kind: "timelineMaterial",
         x: hubX + 120,
         y,
-        z: zJitter,
+        z: 0,
         val: 1.6 + Math.min(linkCount * 0.12, 1.5),
         color: matHubColor,
         meta: {
@@ -271,11 +273,15 @@ function buildGraph(
 
   const hidePropSatellites = compact || eventsOnly || isMaterialFlow;
 
+  /** Structural graph (hub, events, materials): XY plane at z=0. Field satellites use +Z for 3D notes. */
+  const PLANE_Z = 0;
+  const noteLiftZ = 62;
+  const messageNoteExtraZ = 28;
+
   trimmed.forEach((ev, i) => {
     const baseX = eventBaseX0 + i * rowGap;
     const baseY = isMaterialFlow ? Math.sin(i * 0.2) * 30 : 0;
     const evNodeId = `tev-${ev.eventId}`;
-    const evZ = Math.sin(i * 0.22) * 36;
 
     const isEpcis = ev.eventAction === "epcis_supply_chain_event";
     const compactLabel = `${formatStamp(ev.timestampIso)} · ${TIMELINE_EVENT_LABELS[ev.eventAction]}`;
@@ -285,7 +291,7 @@ function buildGraph(
       kind: "timelineEvent",
       x: baseX,
       y: baseY,
-      z: evZ,
+      z: PLANE_Z,
       val: compact ? 1.85 : 2.2,
       color: isEpcis ? "#fde68a" : "#d8b4fe",
       meta: {
@@ -305,10 +311,14 @@ function buildGraph(
     });
 
     if (i === 0) {
-      links.push({ source: hubId, target: evNodeId });
+      links.push({ source: hubId, target: evNodeId, color: "#64748b" });
     } else {
       const prev = trimmed[i - 1];
-      links.push({ source: `tev-${prev.eventId}`, target: evNodeId });
+      links.push({
+        source: `tev-${prev.eventId}`,
+        target: evNodeId,
+        color: "#f59e0b",
+      });
     }
 
     const matRef = ev.materialReference?.trim();
@@ -462,7 +472,9 @@ function buildGraph(
       props.forEach((p, pi) => {
         const angle = Math.PI * 0.35 + (Math.PI * 0.9 * pi) / Math.max(1, nProps - 0.001);
         const pid = `${evNodeId}-${p.suffix}`;
-        const propZ = evZ + 52 + Math.sin(angle * 1.1) * 14;
+        const zWave = Math.sin(angle * 1.15) * 16;
+        const extra = p.field === "message" ? messageNoteExtraZ : 0;
+        const propZ = PLANE_Z + noteLiftZ + zWave + extra;
         nodes.push({
           id: pid,
           label: p.label,
@@ -480,7 +492,7 @@ function buildGraph(
             value: p.value,
           },
         });
-        links.push({ source: evNodeId, target: pid });
+        links.push({ source: evNodeId, target: pid, color: "#a8a29e" });
       });
     }
   });
@@ -515,10 +527,12 @@ export default function TimelineKbGraph(props: {
   const [eventCap, setEventCap] = useState<number>(TIMELINE_GRAPH_DEFAULT_CAP);
   /** Default on: one node per event; field details in inspector (minimal graph chrome). */
   const [compact, setCompact] = useState(true);
-  /** Default on: chronology spine without material hubs or per-field satellites. */
-  const [eventsOnly, setEventsOnly] = useState(true);
+  /** Default off: show material hubs under the spine when events carry materialReference (still compact). */
+  const [eventsOnly, setEventsOnly] = useState(false);
   /** Progressive disclosure: legend, long control hints, material-flow explainer. */
   const [showGraphHelp, setShowGraphHelp] = useState(false);
+  /** Graph presentation: fixed timeline layout vs draggable 3D nodes (same data). */
+  const [graphViz, setGraphViz] = useState<"timeline" | "force3d">("timeline");
   const [layoutModeInternal, setLayoutModeInternal] = useState<"spine" | "materialFlow">("spine");
   const layoutModeControlled =
     layoutModeProp !== undefined && typeof onLayoutModeChange === "function";
@@ -676,6 +690,45 @@ export default function TimelineKbGraph(props: {
             ) : null}
           </span>
         </label>
+        <div
+          className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto"
+          role="group"
+          aria-label="Graph visualization"
+        >
+          <button
+            type="button"
+            className={
+              graphViz === "timeline"
+                ? "rounded-md border border-zinc-400 bg-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-900 dark:border-zinc-500 dark:bg-zinc-700 dark:text-zinc-50"
+                : "rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            }
+            aria-pressed={graphViz === "timeline"}
+            onClick={() => setGraphViz("timeline")}
+          >
+            Timeline layout
+          </button>
+          <button
+            type="button"
+            className={
+              graphViz === "force3d"
+                ? "rounded-md border border-zinc-400 bg-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-900 dark:border-zinc-500 dark:bg-zinc-700 dark:text-zinc-50"
+                : "rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            }
+            aria-pressed={graphViz === "force3d"}
+            title="Native d3-force-3d: no preset node coords, zoomToFit, drag reheats simulation (react-force-graph docs)."
+            onClick={() => setGraphViz("force3d")}
+          >
+            Force 3D
+          </button>
+          <button
+            type="button"
+            disabled
+            className="cursor-not-allowed rounded-md border border-dashed border-zinc-300 px-2.5 py-1 text-xs text-zinc-400 dark:border-zinc-600 dark:text-zinc-500"
+            title="More graph views later"
+          >
+            More…
+          </button>
+        </div>
         <button
           type="button"
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
@@ -712,7 +765,8 @@ export default function TimelineKbGraph(props: {
             <span className="font-medium text-zinc-800 dark:text-zinc-200">Inspector</span> — Click any
             node for RDF-style fields. With <span className="font-medium">Compact</span> on (default), the
             graph shows one sphere per event; satellites for timestamp, actor, message, etc. are hidden to
-            reduce clutter.
+            reduce clutter. With satellites on, hub/events/materials stay on a flat plane (XY); field notes
+            are offset in depth (Z), with message bubbles a bit farther out.
           </p>
           {layoutMode === "materialFlow" ? (
             <p className="mb-2 text-[11px] leading-snug">
@@ -773,17 +827,21 @@ export default function TimelineKbGraph(props: {
                 </span>
               )}
               <span
-                className="inline-flex items-center gap-1.5 text-amber-400"
+                className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-zinc-600 dark:text-zinc-400"
                 title={
                   layoutModeActive === "materialFlow"
-                    ? "Amber: hub → newest event, then each event → next older (time order)."
-                    : eventsOnlyActive
-                      ? "Edges: hub → newest event, then older events in time order."
-                      : "Edges: hub → events in time order; events → shared DPP material hubs when set; events → property satellites when not compact."
+                    ? "Teal / green / amber edges as above."
+                    : "Slate: hub → newest event. Orange: each event → next older. Stone: event → field satellites when shown."
                 }
               >
-                <span aria-hidden className="inline-block h-0.5 w-6 bg-amber-400" />
-                Event chain
+                <span className="inline-flex items-center gap-1.5">
+                  <span aria-hidden className="inline-block h-0.5 w-6 bg-slate-500" />
+                  Hub → event
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-amber-500">
+                  <span aria-hidden className="inline-block h-0.5 w-6 bg-amber-500" />
+                  Event chain
+                </span>
               </span>
               {layoutModeActive === "materialFlow" ? (
                 <>
@@ -811,61 +869,43 @@ export default function TimelineKbGraph(props: {
       <div
         className={
           fillViewport
-            ? "flex min-h-0 flex-1 flex-col gap-3 overflow-hidden lg:flex-row lg:items-stretch"
-            : "flex flex-col gap-4 lg:flex-row lg:items-start"
+            ? "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            : "relative min-h-[min(520px,70vh)] w-full"
         }
       >
-        <div
-          className={
-            fillViewport ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" : "min-w-0 flex-1"
-          }
-        >
-          <KgForceGraph3D
-            nodes={nodes}
-            links={links}
-            onNodeClick={(n) => {
-              if (!n) return;
-              setSelectedNode({
-                id: n.id,
-                kind: n.kind,
-                label: n.label,
-                meta: n.meta,
-              });
-            }}
-            onBackgroundClick={() => {}}
-            graphOuterClassName={graphOuter}
-          />
-        </div>
-
-        <div
-          className={
-            fillViewport
-              ? "flex min-h-0 w-full shrink-0 flex-col lg:max-h-full lg:w-[min(100%,280px)] lg:flex-shrink-0"
-              : "w-full shrink-0 lg:w-[280px]"
-          }
-        >
-          <div className="shrink-0 text-sm font-medium text-zinc-900 dark:text-zinc-50">
-            Inspector
-          </div>
-          <div
-            className={
-              fillViewport
-                ? "mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
-                : "mt-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950"
-            }
-          >
+        <KgForceGraph3D
+          nodes={nodes}
+          links={links}
+          forceDirected={graphViz === "force3d"}
+          onNodeClick={(n) => {
+            if (!n) return;
+            setSelectedNode({
+              id: n.id,
+              kind: n.kind,
+              label: n.label,
+              meta: n.meta,
+            });
+          }}
+          onBackgroundClick={() => {}}
+          graphOuterClassName={graphOuter}
+        />
+        <div className="pointer-events-none absolute right-2 top-12 z-10 w-[min(100%,280px)] max-w-[calc(100%-1rem)] sm:right-3 sm:top-14">
+          <div className="pointer-events-auto flex max-h-[min(72dvh,560px)] w-full flex-col overflow-hidden rounded-lg border border-zinc-200/90 bg-white/95 shadow-lg backdrop-blur-sm dark:border-zinc-700/90 dark:bg-zinc-950/95">
+            <div className="shrink-0 border-b border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-900 dark:border-zinc-800 dark:text-zinc-50">
+              Summary
+            </div>
             <div
               className={
                 fillViewport
                   ? "min-h-0 flex-1 overflow-y-auto overscroll-contain p-3"
-                  : "p-3"
+                  : "max-h-[min(60dvh,480px)] overflow-y-auto overscroll-contain p-3"
               }
             >
               {selectedNode ? (
                 <TimelineNodeInspector node={selectedNode} projectId={projectId} />
               ) : (
                 <div className="text-xs text-zinc-600 dark:text-zinc-300">
-                  Select a node for full fields.
+                  Click a node in the graph for fields.
                 </div>
               )}
             </div>
@@ -957,13 +997,24 @@ function parseIfcExpressId(raw: unknown): number | null {
   return null;
 }
 
-function InspectorBimElementLinks(props: { projectId: string; expressId: number }) {
+function InspectorBimElementLinks(props: {
+  projectId: string;
+  expressId: number;
+  /** Omit top rule when nested under another “Links” block */
+  embed?: boolean;
+}) {
   const pid = encodeURIComponent(props.projectId.trim() || "example");
   const ex = encodeURIComponent(String(props.expressId));
   const passportHref = `/bim?projectId=${pid}&view=passports&expressId=${ex}`;
   const viewerHref = `/bim?projectId=${pid}&view=building&expressId=${ex}`;
   return (
-    <div className="space-y-1 border-t border-zinc-200 pt-2 dark:border-zinc-700">
+    <div
+      className={
+        props.embed
+          ? "space-y-1"
+          : "space-y-1 border-t border-zinc-200 pt-2 dark:border-zinc-700"
+      }
+    >
       <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         IFC element
       </div>
@@ -985,16 +1036,40 @@ function InspectorBimElementLinks(props: { projectId: string; expressId: number 
   );
 }
 
-/** DPP material slug → BIM 3D sample group + raw KB inspect (same project). */
-function InspectorBimMaterialReferenceLinks(props: { projectId: string; materialReference: string }) {
+/** DPP material slug → BIM Building viewer material group + raw KB inspect (same project). */
+function InspectorTimelineEventLink(props: { projectId: string; eventId: string }) {
+  const pid = encodeURIComponent(props.projectId.trim() || "example");
+  const eid = encodeURIComponent(props.eventId.trim());
+  const href = `/timeline?projectId=${pid}&eventId=${eid}&view=graph`;
+  return (
+    <Link
+      href={href}
+      className="text-[11px] font-medium text-violet-700 underline underline-offset-2 hover:text-violet-900 dark:text-violet-400 dark:hover:text-violet-300"
+    >
+      Open in timeline (this event)
+    </Link>
+  );
+}
+
+function InspectorBimMaterialReferenceLinks(props: {
+  projectId: string;
+  materialReference: string;
+  embed?: boolean;
+}) {
   const slug = materialSlugFromReference(props.materialReference);
   const pid = encodeURIComponent(props.projectId.trim() || "example");
   if (!slug) return null;
   const encSlug = encodeURIComponent(slug);
-  const sampleHref = `/bim?projectId=${pid}&view=3dtest&materialSlug=${encSlug}`;
+  const sampleHref = `/bim?projectId=${pid}&view=building&materialSlug=${encSlug}`;
   const inspectHref = `/bim?projectId=${pid}&view=inspect`;
   return (
-    <div className="space-y-1 border-t border-zinc-200 pt-2 dark:border-zinc-700">
+    <div
+      className={
+        props.embed
+          ? "space-y-1"
+          : "space-y-1 border-t border-zinc-200 pt-2 dark:border-zinc-700"
+      }
+    >
       <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         Open in BIM
       </div>
@@ -1003,7 +1078,7 @@ function InspectorBimMaterialReferenceLinks(props: { projectId: string; material
           href={sampleHref}
           className="text-[11px] font-medium text-cyan-700 underline underline-offset-2 hover:text-cyan-900 dark:text-cyan-400 dark:hover:text-cyan-300"
         >
-          Highlight material in 3D sample
+          Highlight material in viewer
         </Link>
         <Link
           href={inspectHref}
@@ -1012,12 +1087,34 @@ function InspectorBimMaterialReferenceLinks(props: { projectId: string; material
           Inspect API (KB)
         </Link>
       </div>
-      <p className="text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
-        3D sample loads passport materials and highlights every IFC instance whose material name matches
-        this slug (same heuristic as timeline construction buildup).
-      </p>
+      {!props.embed ? (
+        <p className="text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+          Building view loads passport materials and highlights every IFC instance whose material name matches
+          this slug (same heuristic as timeline construction buildup).
+        </p>
+      ) : null}
     </div>
   );
+}
+
+const TIMELINE_PROP_FIELD_TITLES: Record<string, string> = {
+  timestamp: "When",
+  actor: "Actor",
+  eventAction: "Event type",
+  targetExpressId: "IFC element",
+  bimReference: "BIM reference",
+  message: "Message",
+  epcisBizStep: "EPCIS biz step",
+  epcisDisposition: "EPCIS disposition",
+  epcisQuantityListJson: "EPCIS quantity",
+  epcisGs1EventId: "GS1 event id",
+  epcisReadPointId: "Read point",
+  epcisBizLocationId: "Business location",
+};
+
+function timelinePropFieldTitle(field: string | undefined): string {
+  if (!field) return "Detail";
+  return TIMELINE_PROP_FIELD_TITLES[field] ?? field.replace(/_/g, " ");
 }
 
 function TimelineNodeInspector(props: { node: any; projectId: string }) {
@@ -1027,222 +1124,210 @@ function TimelineNodeInspector(props: { node: any; projectId: string }) {
 
   if (nt === "timelineHub") {
     return (
-      <div className="space-y-2 text-xs text-zinc-800 dark:text-zinc-50">
-        <div className="font-medium">timeline:TimelineRoot</div>
-        <div>
-          <span className="font-mono text-zinc-500">projectId</span>{" "}
-          <span className="font-mono">{meta.projectId ?? "—"}</span>
-        </div>
+      <div className="space-y-2 text-zinc-800 dark:text-zinc-50">
+        <h3 className="text-sm font-semibold leading-snug">Project timeline</h3>
+        <p className="text-xs text-zinc-600 dark:text-zinc-400">
+          Root node for this graph — events chain from here in time order.
+        </p>
+        <p className="break-all font-mono text-[10px] text-zinc-500 dark:text-zinc-400">
+          {meta.projectId ?? "—"}
+        </p>
       </div>
     );
   }
 
   if (nt === "timelineMaterial") {
-    const flow = meta.layoutHint === "materialFlow";
     return (
-      <div className="space-y-2 text-xs text-zinc-800 dark:text-zinc-50">
-        <div className="font-medium">Shared material (DPP)</div>
-        <p className="text-[11px] leading-snug text-zinc-600 dark:text-zinc-300">
-          One node per distinct <span className="font-mono">timeline:materialReference</span> on audit
-          events in this cap window. Data line: RDF{" "}
-          <span className="font-mono">timeline:materialReference</span> → API{" "}
-          <span className="font-mono">materialReference</span>.
-          {flow ? (
-            <>
-              {" "}
-              In <span className="font-medium">Material → work</span>, green edges go{" "}
-              <span className="font-medium">material → activity</span>; the timeline hub also links to
-              each material for orientation.
-            </>
-          ) : (
-            <>
-              {" "}
-              In the spine layout, edges run <span className="font-medium">activity → material</span>{" "}
-              under the time strip.
-            </>
-          )}
+      <div className="space-y-2 text-zinc-800 dark:text-zinc-50">
+        <h3 className="text-sm font-semibold leading-snug">Material</h3>
+        <p className="text-xs font-medium text-zinc-700 dark:text-zinc-200">
+          {props.node?.label ?? "DPP reference"}
         </p>
-        <div>
-          <span className="font-mono text-zinc-500">materialReference</span>
-          <p className="mt-0.5 break-all font-mono text-[10px] text-zinc-700 dark:text-zinc-200">
-            {meta.materialReference ?? "—"}
-          </p>
-        </div>
-        <div>
-          <span className="font-mono text-zinc-500">events linked (cap window)</span>{" "}
-          <span className="tabular-nums">{meta.linkCount ?? "—"}</span>
-        </div>
+        <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+          Linked from <span className="tabular-nums">{meta.linkCount ?? "—"}</span> event
+          {Number(meta.linkCount) === 1 ? "" : "s"} in this view.
+        </p>
         <InspectorBimMaterialReferenceLinks
           projectId={projectId}
           materialReference={String(meta.materialReference ?? "")}
+          embed
         />
+        <details className="rounded-md border border-zinc-200 dark:border-zinc-700">
+          <summary className="cursor-pointer select-none px-2 py-1.5 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+            Full material reference
+          </summary>
+          <p className="border-t border-zinc-200 px-2 py-2 break-all font-mono text-[10px] text-zinc-600 dark:text-zinc-300 dark:border-zinc-700">
+            {meta.materialReference ?? "—"}
+          </p>
+        </details>
       </div>
     );
   }
 
   if (nt === "timelineEvent") {
     const eventExpressId = parseIfcExpressId(meta.targetExpressId);
+    const action = meta.eventAction as TimelineEventAction | undefined;
+    const title =
+      action && TIMELINE_EVENT_LABELS[action] ? TIMELINE_EVENT_LABELS[action] : "Audit event";
+    const ts = typeof meta.timestampIso === "string" ? meta.timestampIso.trim() : "";
+    const ef = meta.epcisFields as TimelineEpcisFields | undefined;
+    const epcisNotes =
+      ef != null
+        ? getEpcisHumanNotesForRow({ message: meta.message, epcisFields: ef })
+        : meta.eventAction === "epcis_supply_chain_event"
+          ? getEpcisHumanNotesForRow({ message: meta.message, epcisFields: undefined })
+          : [];
+    const hm = humanTimelineMessageWithoutBimTail(meta.message);
+    const bimR = bimReferenceFromMessage(meta.message);
+    const bimIsUrl = typeof bimR === "string" && /^https?:\/\//i.test(bimR.trim());
+    const hasLiterals = ef != null && epcisFieldsHasLiteralRows(ef);
+    const actorLine = [
+      meta.actorSystem ? "Automated" : meta.actorLabel?.trim() || null,
+      meta.source?.trim() || null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    const eid = typeof meta.eventId === "string" ? meta.eventId.trim() : "";
+    const matRef = typeof meta.materialReference === "string" ? meta.materialReference.trim() : "";
+    const hasLinks =
+      Boolean(eid) ||
+      eventExpressId != null ||
+      Boolean(matRef) ||
+      bimIsUrl;
+
     return (
-      <div className="space-y-2 text-xs text-zinc-800 dark:text-zinc-50">
-        <div className="font-medium">timeline:AuditEvent</div>
-        <div>
-          <span className="font-mono text-zinc-500">eventId</span>{" "}
-          <span className="break-all font-mono">{meta.eventId ?? "—"}</span>
-        </div>
-        <div>
-          <span className="font-mono text-zinc-500">timestamp</span>{" "}
-          <span className="font-mono">{meta.timestampIso ?? "—"}</span>
-        </div>
-        <div>
-          <span className="font-mono text-zinc-500">eventAction</span>{" "}
-          <span className="font-mono">{meta.eventAction ?? "—"}</span>
-        </div>
-        <div>
-          <span className="font-mono text-zinc-500">label</span>{" "}
-          <span>
-            {meta.eventAction
-              ? TIMELINE_EVENT_LABELS[meta.eventAction as TimelineEventAction]
-              : "—"}
-          </span>
-        </div>
-        <div>
-          <span className="font-mono text-zinc-500">actorSystem</span>{" "}
-          <span>{meta.actorSystem ? "true" : "false"}</span>
-        </div>
-        <div>
-          <span className="font-mono text-zinc-500">actorLabel</span>{" "}
-          <span>{meta.actorLabel ?? "—"}</span>
-        </div>
-        {meta.targetExpressId !== undefined ? (
-          <div>
-            <span className="font-mono text-zinc-500">targetExpressId</span>{" "}
-            <span className="font-mono">{meta.targetExpressId}</span>
-          </div>
-        ) : null}
-        {eventExpressId != null ? (
-          <InspectorBimElementLinks projectId={projectId} expressId={eventExpressId} />
-        ) : null}
-        {meta.source ? (
-          <div>
-            <span className="font-mono text-zinc-500">source</span>{" "}
-            <span className="font-mono">{meta.source}</span>
-          </div>
-        ) : null}
-        {meta.confidence !== undefined ? (
-          <div>
-            <span className="font-mono text-zinc-500">confidence</span>{" "}
-            <span>{(Number(meta.confidence) * 100).toFixed(0)}%</span>
-          </div>
-        ) : null}
-        {meta.materialReference ? (
-          <div>
-            <span className="font-mono text-zinc-500">materialReference</span>
-            <p className="mt-0.5 break-all font-mono text-[11px] text-zinc-700 dark:text-zinc-300">
-              {meta.materialReference}
+      <div className="space-y-3 text-zinc-800 dark:text-zinc-50">
+        <header className="space-y-1">
+          <h3 className="text-sm font-semibold leading-snug text-zinc-900 dark:text-zinc-50">{title}</h3>
+          {ts ? (
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              <time dateTime={ts}>{formatStampLong(ts)}</time>
             </p>
-          </div>
+          ) : null}
+          {actorLine ? (
+            <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{actorLine}</p>
+          ) : null}
+          {meta.confidence !== undefined && Number.isFinite(Number(meta.confidence)) ? (
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              Match confidence {(Number(meta.confidence) * 100).toFixed(0)}%
+            </p>
+          ) : null}
+        </header>
+
+        {epcisNotes.length > 0 || hm || (bimR && !bimIsUrl) ? (
+          <section className="space-y-2">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Notes
+            </div>
+            {epcisNotes.length > 0 ? (
+              <ul className="list-disc space-y-1 pl-4 text-[12px] leading-snug text-zinc-800 dark:text-zinc-200">
+                {epcisNotes.map((n, i) => (
+                  <li key={i}>{n}</li>
+                ))}
+              </ul>
+            ) : null}
+            {hm ? (
+              <p className="whitespace-pre-wrap text-[12px] leading-snug text-zinc-800 dark:text-zinc-200">
+                {hm}
+              </p>
+            ) : null}
+            {bimR && !bimIsUrl ? (
+              <p className="break-all font-mono text-[10px] text-zinc-600 dark:text-zinc-300">{bimR}</p>
+            ) : null}
+          </section>
         ) : null}
-        {meta.epcisFields ? (
-          (() => {
-            const ef = meta.epcisFields as TimelineEpcisFields;
-            const epcisNotes = getEpcisHumanNotesForRow({
-              message: meta.message,
-              epcisFields: ef,
-            });
-            const hasLiterals = epcisFieldsHasLiteralRows(ef);
-            return (
-              <div className="space-y-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
-                {epcisNotes.length > 0 ? (
-                  <div>
-                    <div className="font-medium text-zinc-700 dark:text-zinc-300">EPCIS summary</div>
-                    <ul className="mt-1 list-disc space-y-0.5 pl-4 text-zinc-700 dark:text-zinc-300">
-                      {epcisNotes.map((n, i) => (
-                        <li key={i}>{n}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                {hasLiterals ? (
-                  <details
-                    open={epcisNotes.length === 0}
-                    className="rounded-md border border-zinc-200 bg-zinc-50/80 dark:border-zinc-700 dark:bg-zinc-900/40"
-                  >
-                    <summary className="cursor-pointer select-none px-2 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                      RDF literals (<span className="font-mono">timeline:epcis*</span>)
-                    </summary>
-                    <div className="border-t border-zinc-200 px-2 py-2 dark:border-zinc-700">
-                      <EpcisFieldsInspector e={ef} />
-                    </div>
-                  </details>
-                ) : null}
-                {typeof meta.message === "string" && meta.message.includes(EPCIS_JSON_SEPARATOR) ? (
-                  <details className="rounded-md border border-zinc-200 dark:border-zinc-700">
-                    <summary className="cursor-pointer select-none px-2 py-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      Raw ObjectEvent JSON in <span className="font-mono">timeline:message</span>
-                    </summary>
-                    <p className="border-t border-zinc-200 px-2 py-2 text-[11px] leading-snug text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-                      Stored after the <span className="font-mono">--- EPCIS JSON ---</span> separator.
-                      Expand the event in the <strong>Selected event</strong> or event log panel to read
-                      the full <span className="font-mono">timeline:message</span>.
-                    </p>
-                  </details>
-                ) : null}
+
+        {hasLinks ? (
+          <section className="space-y-1.5 border-t border-zinc-200 pt-2 dark:border-zinc-700">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Links
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {eid ? (
+                <InspectorTimelineEventLink projectId={projectId} eventId={eid} />
+              ) : null}
+              {eventExpressId != null ? (
+                <InspectorBimElementLinks
+                  projectId={projectId}
+                  expressId={eventExpressId}
+                  embed
+                />
+              ) : null}
+              {matRef ? (
+                <InspectorBimMaterialReferenceLinks
+                  projectId={projectId}
+                  materialReference={matRef}
+                  embed
+                />
+              ) : null}
+              {bimR && bimIsUrl ? (
+                <a
+                  href={bimR.trim()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] font-medium text-sky-700 underline underline-offset-2 hover:text-sky-900 dark:text-sky-400 dark:hover:text-sky-300"
+                >
+                  Open linked BIM reference
+                </a>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
+
+        <details className="rounded-md border border-zinc-200 dark:border-zinc-700">
+          <summary className="cursor-pointer select-none px-2 py-1.5 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+            Technical details
+          </summary>
+          <div className="space-y-2 border-t border-zinc-200 px-2 py-2 text-[10px] dark:border-zinc-700">
+            <dl className="space-y-1.5">
+              <div>
+                <dt className="text-zinc-500">eventId</dt>
+                <dd className="break-all font-mono text-zinc-800 dark:text-zinc-200">{eid || "—"}</dd>
               </div>
-            );
-          })()
-        ) : null}
-        {!meta.epcisFields
-          ? (() => {
-              const notes =
-                meta.eventAction === "epcis_supply_chain_event"
-                  ? getEpcisHumanNotesForRow({
-                      message: meta.message,
-                      epcisFields: undefined,
-                    })
-                  : [];
-              if (notes.length > 0) {
-                return (
-                  <div>
-                    <span className="font-mono text-zinc-500">summary notes</span>
-                    <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-zinc-700 dark:text-zinc-300">
-                      {notes.map((n, i) => (
-                        <li key={i}>{n}</li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              }
-              const bimR = bimReferenceFromMessage(meta.message);
-              const hm = humanTimelineMessageWithoutBimTail(meta.message);
-              if (!hm && !bimR) return null;
-              return (
-                <>
-                  {hm ? (
-                    <div>
-                      <span className="font-mono text-zinc-500">message</span>
-                      <p className="mt-0.5 whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">{hm}</p>
-                    </div>
-                  ) : null}
-                  {bimR ? (
-                    <div>
-                      <span className="font-mono text-zinc-500">bimReference</span>
-                      <p className="mt-0.5 break-all font-mono text-[11px] text-zinc-700 dark:text-zinc-300">
-                        {bimR}
-                      </p>
-                    </div>
-                  ) : null}
-                </>
-              );
-            })()
-          : null}
-        {!meta.epcisFields &&
-        typeof meta.message === "string" &&
-        meta.message.includes(EPCIS_JSON_SEPARATOR) ? (
-          <p className="text-zinc-500 dark:text-zinc-400">
-            Full EPCIS JSON is in <span className="font-mono">timeline:message</span> after the
-            separator — expand the event in the list or selected panel.
-          </p>
-        ) : null}
+              <div>
+                <dt className="text-zinc-500">eventAction</dt>
+                <dd className="font-mono text-zinc-800 dark:text-zinc-200">{meta.eventAction ?? "—"}</dd>
+              </div>
+              {meta.targetExpressId !== undefined ? (
+                <div>
+                  <dt className="text-zinc-500">targetExpressId</dt>
+                  <dd className="font-mono text-zinc-800 dark:text-zinc-200">{meta.targetExpressId}</dd>
+                </div>
+              ) : null}
+              <div>
+                <dt className="text-zinc-500">actor</dt>
+                <dd className="text-zinc-800 dark:text-zinc-200">
+                  {meta.actorSystem ? "system" : meta.actorLabel ?? "—"}
+                </dd>
+              </div>
+              {meta.source ? (
+                <div>
+                  <dt className="text-zinc-500">source</dt>
+                  <dd className="font-mono text-zinc-800 dark:text-zinc-200">{meta.source}</dd>
+                </div>
+              ) : null}
+              {matRef ? (
+                <div>
+                  <dt className="text-zinc-500">materialReference</dt>
+                  <dd className="break-all font-mono text-zinc-800 dark:text-zinc-200">{matRef}</dd>
+                </div>
+              ) : null}
+            </dl>
+            {ef && hasLiterals ? (
+              <div className="border-t border-zinc-200 pt-2 dark:border-zinc-700">
+                <div className="mb-1 text-zinc-500">EPCIS fields (RDF)</div>
+                <EpcisFieldsInspector e={ef} />
+              </div>
+            ) : null}
+            {typeof meta.message === "string" && meta.message.includes(EPCIS_JSON_SEPARATOR) ? (
+              <p className="border-t border-zinc-200 pt-2 text-[10px] leading-snug text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                Raw ObjectEvent JSON is stored in <span className="font-mono">timeline:message</span> after
+                the <span className="font-mono">--- EPCIS JSON ---</span> separator. Use the timeline event
+                list to expand the full message.
+              </p>
+            ) : null}
+          </div>
+        </details>
       </div>
     );
   }
@@ -1250,26 +1335,64 @@ function TimelineNodeInspector(props: { node: any; projectId: string }) {
   if (nt === "timelineProp") {
     const propExpressId =
       meta.field === "targetExpressId" ? parseIfcExpressId(meta.value) : null;
+    const pid = typeof meta.parentEventId === "string" ? meta.parentEventId.trim() : "";
+    const val = String(meta.value ?? "—");
+    const fieldKey = typeof meta.field === "string" ? meta.field : undefined;
     return (
-      <div className="space-y-2 text-xs text-zinc-800 dark:text-zinc-50">
-        <div className="font-medium">Property</div>
-        <div>
-          <span className="font-mono text-zinc-500">field</span>{" "}
-          <span className="font-mono">{meta.field ?? "—"}</span>
-        </div>
-        <div>
-          <span className="font-mono text-zinc-500">value</span>
-          <p className="mt-0.5 break-words font-mono text-zinc-700 dark:text-zinc-300">
-            {String(meta.value ?? "—")}
+      <div className="space-y-3 text-zinc-800 dark:text-zinc-50">
+        <header className="space-y-1">
+          <h3 className="text-sm font-semibold leading-snug text-zinc-900 dark:text-zinc-50">
+            {timelinePropFieldTitle(fieldKey)}
+          </h3>
+          {fieldKey === "timestamp" ? (
+            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+              <time dateTime={val}>{formatStampLong(val)}</time>
+            </p>
+          ) : null}
+        </header>
+        {fieldKey !== "timestamp" ? (
+          <p className="whitespace-pre-wrap text-[12px] leading-snug text-zinc-800 dark:text-zinc-200">
+            {val}
           </p>
-        </div>
-        <div>
-          <span className="font-mono text-zinc-500">eventId</span>{" "}
-          <span className="break-all font-mono">{meta.parentEventId ?? "—"}</span>
-        </div>
-        {propExpressId != null ? (
-          <InspectorBimElementLinks projectId={projectId} expressId={propExpressId} />
         ) : null}
+        {pid || propExpressId != null ? (
+          <section className="space-y-1.5 border-t border-zinc-200 pt-2 dark:border-zinc-700">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              Links
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {pid ? (
+                <InspectorTimelineEventLink projectId={projectId} eventId={pid} />
+              ) : null}
+              {propExpressId != null ? (
+                <InspectorBimElementLinks
+                  projectId={projectId}
+                  expressId={propExpressId}
+                  embed
+                />
+              ) : null}
+            </div>
+          </section>
+        ) : null}
+        <details className="rounded-md border border-zinc-200 dark:border-zinc-700">
+          <summary className="cursor-pointer select-none px-2 py-1.5 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+            Technical details
+          </summary>
+          <dl className="space-y-1.5 border-t border-zinc-200 px-2 py-2 text-[10px] dark:border-zinc-700">
+            <div>
+              <dt className="text-zinc-500">field</dt>
+              <dd className="font-mono text-zinc-800 dark:text-zinc-200">{fieldKey ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-zinc-500">eventId</dt>
+              <dd className="break-all font-mono text-zinc-800 dark:text-zinc-200">{pid || "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-zinc-500">raw value</dt>
+              <dd className="break-all font-mono text-zinc-800 dark:text-zinc-200">{val}</dd>
+            </div>
+          </dl>
+        </details>
       </div>
     );
   }
