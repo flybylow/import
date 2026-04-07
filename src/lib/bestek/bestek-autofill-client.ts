@@ -3,7 +3,7 @@ import {
   findDictionaryCategoryForSlug,
   suggestBestekUnitAndQuantity,
 } from "@/lib/bestek/bestek-autofill-units";
-import { defaultMaterialSlugForIfcType } from "@/lib/bestek/ifc-type-material-defaults";
+import { suggestedMaterialSlugForBestekGroup } from "@/lib/bestek/ifc-type-material-defaults";
 
 export type BestekAutofillCatalogEntry = {
   epdSlug: string;
@@ -48,6 +48,8 @@ function nlLabelForSlugAndStandardName(slug: string, standardName: string): stri
 export type BestekAutofillRowInput = {
   group_id: string;
   ifc_type: string;
+  /** Phase-0 partition (e.g. `gipsplafond`, `CEILING`) — drives Auto-match slug for `IfcCovering`. */
+  partition?: string | null;
   element_count: number;
 };
 
@@ -71,7 +73,8 @@ export function computeBestekAutofillDraft(
   currentMaterialSlug: string
 ): BestekAutofillDraft {
   const slug =
-    currentMaterialSlug.trim() || defaultMaterialSlugForIfcType(group.ifc_type);
+    currentMaterialSlug.trim() ||
+    suggestedMaterialSlugForBestekGroup(group.ifc_type, group.partition);
   const entry = slug ? findCatalogEntry(catalog, slug) : undefined;
   const standardName = entry?.standardName ?? "";
   const architect_name =

@@ -10,6 +10,7 @@ import {
   bimPassportsElementHref,
   kbGraphElementHref,
 } from "@/lib/passport-navigation-links";
+import { appContentWidthClass } from "@/lib/app-page-layout";
 
 function PassportSnapshotPageContent() {
   const searchParams = useSearchParams();
@@ -73,7 +74,7 @@ function PassportSnapshotPageContent() {
   const kbMissing = error != null && error.includes("No linked KB");
 
   return (
-    <div className="mx-auto min-h-0 w-full max-w-2xl min-w-0 flex-1 overflow-y-auto px-4 py-6">
+    <div className={`${appContentWidthClass} min-h-0 flex-1 overflow-y-auto py-6`}>
       <p className="text-sm">
         <Link
           href={backHref}
@@ -193,7 +194,7 @@ export default function PassportSnapshotPage() {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto w-full max-w-2xl px-4 py-6 text-sm text-zinc-500">Loading…</div>
+        <div className={`${appContentWidthClass} py-6 text-sm text-zinc-500`}>Loading…</div>
       }
     >
       <PassportSnapshotPageContent />

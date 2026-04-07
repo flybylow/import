@@ -28,13 +28,18 @@ const BuildingIfcViewer = dynamic(
 import BimIfcElementInfoPanel from "@/components/BimIfcElementInfoPanel";
 import BimPassportApiInspect from "@/features/bim-viewer/components/BimPassportApiInspect";
 import BimPassportWorkspace from "@/features/bim-viewer/components/BimPassportWorkspace";
-import { BIM_GLASS_ISLAND } from "@/lib/bim-glass-ui";
 import { bimSearchParamsSummary } from "@/lib/bim-search-params-summary";
 import {
   elementSummariesByMaterialSlug,
   loadPhase4PassportsAllInstancesCached,
   type Phase4ElementPassport,
 } from "@/lib/phase4-passports";
+import { appContentWidthClass } from "@/lib/app-page-layout";
+import {
+  capExpressIdsForHighlighter,
+  ifcHighlightTierFromFocusCount,
+  IFC_HIGHLIGHT_TIER_C_HIGHLIGHT_CAP,
+} from "@/lib/ifc-highlight-tiers";
 import { useProjectId } from "@/lib/useProjectId";
 
 type BimViewMode = "building" | "passports" | "inspect";
@@ -72,11 +77,16 @@ function BimFacePageInner() {
   /** Last `materialSlug` we fully applied (avoids replace→effect loops). */
   const materialSlugSyncedRef = useRef<string | null>(null);
   const ifcViewerRef = useRef<BuildingIfcViewerHandle | null>(null);
+  /**
+   * `router.replace` can lag `useSearchParams()` by a frame. Without this, the layout effect that
+   * syncs `expressId` from the URL would see an empty `qExpressId` right after a passports row
+   * click and call `setSelectedExpressId(null)`, which clears IFC focus and tears down ghost/alpha
+   * in `BuildingIfcViewer` before the URL catches up.
+   */
+  const expressIdOptimisticUntilUrlRef = useRef(false);
   const [wholeGraphAlphaDebug, setWholeGraphAlphaDebug] = useState(false);
   /** Demo: That Open `Highlighter` overlay groups (multi-color) alongside focus ghosting. */
   const [highlighterOverlayDemoOn, setHighlighterOverlayDemoOn] = useState(false);
-  /** Single inspect panel (materials + carbon + links). */
-  const [dockElementOpen, setDockElementOpen] = useState(true);
   /** Building viewer: uniform ghost vs full-opacity materials (`BuildingIfcViewer`). */
   const [uniformGhost, setUniformGhost] = useState(true);
 
@@ -86,8 +96,21 @@ function BimFacePageInner() {
       setUniformGhost(false);
     } else if (g === "1" || g === "true" || g === "on" || g === "ghost") {
       setUniformGhost(true);
+    } else {
+      const qv = searchParams.get("view")?.trim().toLowerCase() ?? "";
+      const isBuilding = qv === "" || qv === "building";
+      const fromWorkflow = searchParams.get("from")?.trim().toLowerCase() === "workflow";
+      if (fromWorkflow && isBuilding) {
+        setUniformGhost(false);
+        const p = new URLSearchParams(searchParams.toString());
+        if (!p.has("ghost")) {
+          p.set("ghost", "0");
+          p.set("projectId", projectId);
+          router.replace(`${pathname}?${p.toString()}`, { scroll: false });
+        }
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, pathname, projectId, router]);
 
   const setGhostUrlMode = useCallback(
     (ghost: boolean) => {
@@ -117,6 +140,19 @@ function BimFacePageInner() {
     [qMaterialSlug, visualizerExpressIds]
   );
 
+  const materialHighlightTierInfo = useMemo(() => {
+    if (!visualizerExpressIds?.length) return null;
+    const unique = [...new Set(visualizerExpressIds)].sort((a, b) => a - b);
+    const tier = ifcHighlightTierFromFocusCount(unique.length);
+    if (!tier) return null;
+    const cap = capExpressIdsForHighlighter(unique, tier);
+    return { tier, ...cap };
+  }, [visualizerExpressIds]);
+
+  const showLargeSelectionBanner =
+    materialHighlightTierInfo != null &&
+    (materialHighlightTierInfo.tier === "B" || materialHighlightTierInfo.tier === "C");
+
   const handleIfcStatusChange = useCallback((payload: BuildingIfcViewerStatusPayload) => {
     setIfcStatus(payload);
   }, []);
@@ -139,6 +175,12 @@ function BimFacePageInner() {
   const onPassportNavigate = useCallback(
     (patch: { expressId?: number | null; groupKey?: string | null }) => {
       if (patch.expressId !== undefined) {
+        const ex = patch.expressId;
+        if (ex != null && Number.isFinite(Number(ex))) {
+          expressIdOptimisticUntilUrlRef.current = true;
+        } else {
+          expressIdOptimisticUntilUrlRef.current = false;
+        }
         setSelectedExpressId(patch.expressId);
       }
       if (viewMode !== "passports") return;
@@ -160,6 +202,11 @@ function BimFacePageInner() {
 
   const onSelectIfcSidebarExpressId = useCallback(
     (id: number | null) => {
+      if (id != null && Number.isFinite(id)) {
+        expressIdOptimisticUntilUrlRef.current = true;
+      } else {
+        expressIdOptimisticUntilUrlRef.current = false;
+      }
       setSelectedExpressId(id);
       if (viewMode !== "building") return;
       const p = new URLSearchParams(searchParams.toString());
@@ -177,9 +224,12 @@ function BimFacePageInner() {
     setVisualizerExpressIds(null);
     setVisualizerLabel(null);
     setVisualizerActiveKey(null);
+    expressIdOptimisticUntilUrlRef.current = false;
+    setSelectedExpressId(null);
     const p = new URLSearchParams(searchParams.toString());
     if (!p.has("materialSlug")) return;
     p.delete("materialSlug");
+    p.delete("expressId");
     p.set("projectId", projectId);
     router.replace(`${pathname}?${p.toString()}`, { scroll: false });
   }, [pathname, projectId, router, searchParams]);
@@ -209,16 +259,34 @@ function BimFacePageInner() {
         if (cancelled) return;
         const summaries = elementSummariesByMaterialSlug(ordered, slug);
         const ids = summaries.map((s) => s.expressId);
-        setVisualizerExpressIds(ids.length ? ids : null);
+        const uniqueSorted = ids.length ? [...new Set(ids)].sort((a, b) => a - b) : [];
+        setVisualizerExpressIds(uniqueSorted.length ? uniqueSorted : null);
         setVisualizerLabel(
-          ids.length ? `Material · ${slug} · ${ids.length} instances` : `Material · ${slug} · 0 instances`
+          uniqueSorted.length
+            ? `Material · ${slug} · ${uniqueSorted.length} instances`
+            : `Material · ${slug} · 0 instances`
         );
         setVisualizerActiveKey(`material:${slug}`);
-        setSelectedExpressId(null);
+        const urlExRaw = searchParams.get("expressId")?.trim() ?? "";
+        const urlEx = Number(urlExRaw);
+        const inGroup =
+          uniqueSorted.length > 0 && Number.isFinite(urlEx) && uniqueSorted.includes(urlEx);
+        const representativeId = inGroup
+          ? urlEx
+          : uniqueSorted.length
+            ? uniqueSorted[0]!
+            : null;
+        if (representativeId != null && Number.isFinite(representativeId)) {
+          expressIdOptimisticUntilUrlRef.current = true;
+        } else {
+          expressIdOptimisticUntilUrlRef.current = false;
+        }
+        setSelectedExpressId(representativeId);
         const p = new URLSearchParams(searchParams.toString());
         p.set("projectId", projectId);
         p.set("view", "building");
-        p.delete("expressId");
+        if (representativeId != null) p.set("expressId", String(representativeId));
+        else p.delete("expressId");
         p.set("materialSlug", slug);
         router.replace(`${pathname}?${p.toString()}`, { scroll: false });
         if (!cancelled) materialSlugSyncedRef.current = slug;
@@ -252,6 +320,33 @@ function BimFacePageInner() {
     [clearIfcVisualizer, onSelectIfcSidebarExpressId]
   );
 
+  /** Keep `materialSlug` + group highlight; only change Inspect target (canvas pick still clears group). */
+  const onPickInstanceWithinMaterialGroup = useCallback(
+    (id: number) => {
+      expressIdOptimisticUntilUrlRef.current = true;
+      setSelectedExpressId(id);
+      const p = new URLSearchParams(searchParams.toString());
+      p.set("projectId", projectId);
+      p.set("view", "building");
+      p.set("expressId", String(id));
+      const slug = qMaterialSlug.trim().toLowerCase();
+      if (slug) p.set("materialSlug", slug);
+      router.replace(`${pathname}?${p.toString()}`, { scroll: false });
+    },
+    [pathname, projectId, qMaterialSlug, router, searchParams]
+  );
+
+  const materialGroupContextForPanel = useMemo(() => {
+    if (!qMaterialSlug.trim() || !visualizerExpressIds?.length) return null;
+    const slug = qMaterialSlug.trim().toLowerCase();
+    const unique = [...new Set(visualizerExpressIds)].sort((a, b) => a - b);
+    return {
+      slug,
+      instanceCount: unique.length,
+      expressIds: unique,
+    };
+  }, [qMaterialSlug, visualizerExpressIds]);
+
   /** Lime pick / Ctrl+multi in the viewer: sync primary id to URL + KB (Element panel) — no separate “In nav” step. */
   const handleCanvasSelectionChange = useCallback(
     (sel: BuildingIfcCanvasSelection) => {
@@ -283,6 +378,7 @@ function BimFacePageInner() {
   useEffect(() => {
     visualizerRawPassportsRef.current = null;
     materialSlugSyncedRef.current = null;
+    expressIdOptimisticUntilUrlRef.current = false;
     setVisualizerExpressIds(null);
     setVisualizerLabel(null);
     setVisualizerActiveKey(null);
@@ -301,11 +397,15 @@ function BimFacePageInner() {
   /** Layout: keep nav selection aligned with the URL before child effects run (avoids IFC focus racing null). */
   useLayoutEffect(() => {
     if (!qExpressId) {
+      if (expressIdOptimisticUntilUrlRef.current) {
+        return;
+      }
       setSelectedExpressId(null);
       return;
     }
     const n = Number(qExpressId);
     if (Number.isFinite(n)) {
+      expressIdOptimisticUntilUrlRef.current = false;
       console.log("[bim][focus-pipeline] URL → selectedExpressId (layout)", {
         expressId: n,
         view: qView || "(default)",
@@ -413,96 +513,35 @@ function BimFacePageInner() {
           </button>
         </div>
       ) : null}
-    </div>
-  );
-
-  /** Glass toolbar over the canvas (same look from first paint). */
-  const bimOverlayModeToolbar = (
-    <div className="flex shrink-0 flex-nowrap items-center gap-2">
-      <button
-        type="button"
-        onClick={() => navigateView("building")}
-        className={
-          viewMode === "building"
-            ? "shrink-0 rounded px-3 py-1.5 text-xs bg-white/90 text-zinc-900"
-            : "shrink-0 rounded border border-white/20 bg-black/25 px-3 py-1.5 text-xs text-zinc-100"
-        }
-      >
-        Building
-      </button>
-      <button
-        type="button"
-        onClick={() => navigateView("passports")}
-        className={
-          viewMode === "passports"
-            ? "shrink-0 rounded px-3 py-1.5 text-xs bg-white/90 text-zinc-900"
-            : "shrink-0 rounded border border-white/20 bg-black/25 px-3 py-1.5 text-xs text-zinc-100"
-        }
-      >
-        Passports
-      </button>
-      <button
-        type="button"
-        onClick={() => navigateView("inspect")}
-        className={
-          viewMode === "inspect"
-            ? "shrink-0 rounded px-3 py-1.5 text-xs bg-white/90 text-zinc-900"
-            : "shrink-0 rounded border border-white/20 bg-black/25 px-3 py-1.5 text-xs text-zinc-100"
-        }
-      >
-        Inspect
-      </button>
-      <div className="ml-0.5 flex shrink-0 items-center gap-1 rounded border border-white/20 bg-black/25 p-1">
-        <button
-          type="button"
-          onClick={() => setIfcSource("project")}
-          className={
-            ifcSource === "project"
-              ? "rounded px-2 py-1 text-xs bg-white/90 text-zinc-900"
-              : "rounded px-2 py-1 text-xs text-zinc-200"
-          }
+      {isIfcViewerMode ? (
+        <div
+          className="ml-1 flex items-center gap-1 rounded border border-zinc-300 dark:border-zinc-700 p-1"
+          title="Ghost dims the whole model so picks and focus read clearly; Solid uses full IFC materials."
         >
-          Project IFC
-        </button>
-        <button
-          type="button"
-          onClick={() => setIfcSource("test")}
-          className={
-            ifcSource === "test"
-              ? "rounded px-2 py-1 text-xs bg-white/90 text-zinc-900"
-              : "rounded px-2 py-1 text-xs text-zinc-200"
-          }
-        >
-          Test IFC
-        </button>
-      </div>
-      <div
-        className="ml-0.5 flex shrink-0 items-center gap-1 rounded border border-white/20 bg-black/25 p-1"
-        title="Ghost dims the whole model so picks and focus read clearly; Solid uses full IFC materials."
-      >
-        <button
-          type="button"
-          onClick={() => setGhostUrlMode(true)}
-          className={
-            uniformGhost
-              ? "rounded px-2 py-1 text-xs bg-white/90 text-zinc-900"
-              : "rounded px-2 py-1 text-xs text-zinc-200"
-          }
-        >
-          Ghost
-        </button>
-        <button
-          type="button"
-          onClick={() => setGhostUrlMode(false)}
-          className={
-            !uniformGhost
-              ? "rounded px-2 py-1 text-xs bg-white/90 text-zinc-900"
-              : "rounded px-2 py-1 text-xs text-zinc-200"
-          }
-        >
-          Solid
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => setGhostUrlMode(true)}
+            className={
+              uniformGhost
+                ? "rounded px-2 py-1 text-xs bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                : "rounded px-2 py-1 text-xs"
+            }
+          >
+            Ghost
+          </button>
+          <button
+            type="button"
+            onClick={() => setGhostUrlMode(false)}
+            className={
+              !uniformGhost
+                ? "rounded px-2 py-1 text-xs bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                : "rounded px-2 py-1 text-xs"
+            }
+          >
+            Solid
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 
@@ -510,7 +549,7 @@ function BimFacePageInner() {
 
   return (
     <div
-      className={`mx-auto flex w-full max-w-none flex-1 flex-col px-3 sm:px-4 lg:px-6 ${
+      className={`${appContentWidthClass} flex flex-1 flex-col ${
         isIfcViewerMode
           ? "min-h-0 gap-0 pt-0 pb-0"
           : isPassportsMode
@@ -518,7 +557,62 @@ function BimFacePageInner() {
             : "min-h-min gap-2 pt-2 pb-4"
       }`}
     >
-      {!isIfcViewerMode ? (
+      {isIfcViewerMode ? (
+        <div
+          className="shrink-0 space-y-2 border-b border-zinc-200 bg-zinc-50/95 py-2 dark:border-zinc-800 dark:bg-zinc-950/80 -mx-6 px-6"
+          aria-label="BIM building toolbar"
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            {bimModeAndIfcButtons}
+            {ifcStatus && ifcStatus.status !== "idle" ? (
+              <div
+                className={`min-w-0 max-w-[min(72vw,24rem)] shrink-0 ${ifcToolbarClass}`}
+                title={ifcStatus.message}
+              >
+                <div className="flex items-center gap-2 px-2 py-1">
+                  {ifcStatus.status === "loading" ? (
+                    <span
+                      className="inline-block h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-500"
+                      aria-hidden
+                    />
+                  ) : null}
+                  <span className="min-w-0 truncate font-mono text-[10px] leading-snug">
+                    {ifcStatus.message}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+          </div>
+          {qMaterialSlug.trim() || visualizerLabel ? (
+            <div className="flex min-w-0 max-w-full flex-col gap-2 text-[10px] leading-snug text-zinc-700 dark:text-zinc-300">
+              <p className="min-w-0 max-w-[min(100%,48rem)] break-all font-mono text-[10px] text-zinc-500 dark:text-zinc-400">
+                {bimUrlFromLocation}
+              </p>
+              {visualizerLabel ? (
+                <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px] text-cyan-800 dark:text-cyan-200">
+                  <span className="rounded border border-cyan-500/50 bg-cyan-100/80 px-2 py-1 dark:bg-cyan-950/60">
+                    Group: <span className="font-medium">{visualizerLabel}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearIfcVisualizer}
+                    className="rounded border border-zinc-400 px-2 py-1 font-medium text-zinc-800 hover:bg-zinc-200/80 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800/80"
+                  >
+                    Clear group
+                  </button>
+                </div>
+              ) : null}
+              {showLargeSelectionBanner && materialHighlightTierInfo ? (
+                <p className="max-w-[min(100%,48rem)] text-[11px] leading-snug text-amber-900 dark:text-amber-100/95">
+                  {materialHighlightTierInfo.tier === "C"
+                    ? `Very large group (${materialHighlightTierInfo.total} elements): 3D highlights up to ${IFC_HIGHLIGHT_TIER_C_HIGHLIGHT_CAP} ids; camera frames that subset. Uniform ghost stays off for this selection.`
+                    : `Large group (${materialHighlightTierInfo.total} elements): uniform ghost is off for this selection (solid materials + Highlighter only) to protect the IFC worker.`}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : (
         <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2">
           {bimModeAndIfcButtons}
           {viewMode === "passports" && selectedExpressId != null ? (
@@ -541,7 +635,7 @@ function BimFacePageInner() {
             </div>
           ) : null}
         </div>
-      ) : null}
+      )}
 
       <div
         className={`flex w-full flex-col overflow-x-hidden ${
@@ -553,122 +647,65 @@ function BimFacePageInner() {
         {isIfcViewerMode ? (
           <div
             id="bim-ifc-viewer-root"
-            className="relative min-h-0 min-w-0 flex-1 overflow-hidden -mx-3 sm:-mx-4 lg:-mx-6"
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden -mx-6 sm:flex-row"
           >
-            <Suspense
-              fallback={
-                <BimIfcHousePreloader variant="overlay" message="Loading 3D viewer…" />
-              }
+            <aside
+              className="pointer-events-auto z-50 flex max-h-[42vh] min-h-0 w-full shrink-0 flex-col border-b border-zinc-200/80 dark:border-zinc-800 sm:max-h-none sm:w-[min(17.5rem,36vw)] sm:shrink-0 sm:border-b-0 sm:border-r"
+              aria-label="Inspect element"
             >
-              <BuildingIfcViewer
-                ref={ifcViewerRef}
+              <BimIfcElementInfoPanel
+                layout="leftRail"
                 projectId={projectId}
-                ifcSource={ifcSource}
-                focusExpressId={selectedExpressId}
-                focusExpressIds={visualizerExpressIds}
-                visualGroups={ifcVisualGroups}
-                uniformGhost={uniformGhost}
-                onStatusChange={handleIfcStatusChange}
-                onCanvasSelectionChange={handleCanvasSelectionChange}
-                className="absolute inset-0 z-0 min-h-0 min-w-0"
+                selectedExpressId={selectedExpressId}
+                onNavigateExpressId={
+                  hasMaterialGroupFocus
+                    ? onSelectIfcRowClearingVisualizer
+                    : onSelectIfcSidebarExpressId
+                }
+                materialGroupContext={materialGroupContextForPanel}
+                onPickMaterialGroupInstance={
+                  hasMaterialGroupFocus ? onPickInstanceWithinMaterialGroup : undefined
+                }
+                className="min-h-0 min-w-0 flex-1"
               />
-            </Suspense>
-            {showIfcHousePreloader ? (
-              <BimIfcHousePreloader variant="overlay" message={ifcHousePreloaderMessage} />
-            ) : null}
-            {/* Glass UI above the canvas (higher z than viewer); pointer-events only on islands + dock. */}
-            <div
-              id="bim-ifc-chrome-overlay"
-              role="region"
-              aria-label="IFC viewer controls"
-              className="pointer-events-none absolute inset-x-0 top-0 z-40 flex flex-wrap items-start gap-2 px-3 py-1.5 sm:px-4 sm:gap-2.5 lg:px-6"
-            >
-                <div
-                  className={`pointer-events-auto relative z-40 flex min-w-0 max-w-full shrink-0 flex-wrap items-center gap-2 px-2 py-1.5 transition-opacity duration-300 ease-out ${BIM_GLASS_ISLAND} ${
-                    ifcStatus?.status === "loading" ? "opacity-80" : "opacity-100"
-                  }`}
-                >
-                  <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain">
-                    {bimOverlayModeToolbar}
-                  </div>
-                  {ifcStatus && ifcStatus.status !== "idle" ? (
-                    <div
-                      className={`min-w-0 max-w-[min(72vw,22rem)] shrink-0 ${ifcToolbarClass}`}
-                      title={ifcStatus.message}
-                    >
-                      <div className="flex items-center gap-2 px-2 py-1">
-                        {ifcStatus.status === "loading" ? (
-                          <span
-                            className="inline-block h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-500"
-                            aria-hidden
-                          />
-                        ) : null}
-                        <span className="min-w-0 truncate font-mono text-[10px] leading-snug">
-                          {ifcStatus.message}
-                        </span>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-
-                {qMaterialSlug.trim() || visualizerLabel ? (
-                  <div
-                    className={`pointer-events-auto relative z-40 flex min-w-0 max-w-full shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-2 py-1.5 text-[10px] leading-snug text-zinc-300 ${BIM_GLASS_ISLAND}`}
-                  >
-                    <p className="min-w-0 max-w-[min(100%,36rem)] break-all font-mono text-[10px] text-zinc-400">
-                      {bimUrlFromLocation}
-                    </p>
-                    {visualizerLabel ? (
-                      <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px] text-cyan-100">
-                        <span className="rounded border border-cyan-500/50 bg-cyan-950/60 px-2 py-1">
-                          Group: <span className="font-medium">{visualizerLabel}</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={clearIfcVisualizer}
-                          className="rounded border border-zinc-500/60 px-2 py-1 font-medium text-zinc-100 hover:bg-zinc-800/80"
-                        >
-                          Clear group
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <div
-                  id="bim-ifc-tools-dock"
-                  role="region"
-                  aria-label="IFC element inspection"
-                  className="pointer-events-auto relative z-50 flex min-w-0 max-w-full shrink-0 items-start gap-2 overflow-x-auto overscroll-x-contain"
-                >
-                  <BimIfcElementInfoPanel
-                    open={dockElementOpen}
-                    onOpenChange={setDockElementOpen}
-                    projectId={projectId}
-                    selectedExpressId={selectedExpressId}
-                    onNavigateExpressId={
-                      hasMaterialGroupFocus
-                        ? onSelectIfcRowClearingVisualizer
-                        : onSelectIfcSidebarExpressId
-                    }
-                    className="shrink-0"
-                  />
-                </div>
+            </aside>
+            <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+              <Suspense
+                fallback={
+                  <BimIfcHousePreloader variant="overlay" message="Loading 3D viewer…" />
+                }
+              >
+                <BuildingIfcViewer
+                  ref={ifcViewerRef}
+                  projectId={projectId}
+                  ifcSource={ifcSource}
+                  focusExpressId={selectedExpressId}
+                  focusExpressIds={visualizerExpressIds}
+                  visualGroups={ifcVisualGroups}
+                  uniformGhost={uniformGhost}
+                  onStatusChange={handleIfcStatusChange}
+                  onCanvasSelectionChange={handleCanvasSelectionChange}
+                  className="absolute inset-0 z-0 min-h-0 min-w-0"
+                />
+              </Suspense>
+              {showIfcHousePreloader ? (
+                <BimIfcHousePreloader variant="overlay" message={ifcHousePreloaderMessage} />
+              ) : null}
+              <BimIfcAlphaDebugPanel
+                viewerRef={ifcViewerRef}
+                projectId={projectId}
+                viewQuery={viewMode}
+                ifcSource={ifcSource}
+                selectedExpressId={selectedExpressId}
+                visualizerExpressIds={visualizerExpressIds}
+                visualizerActiveKey={visualizerActiveKey}
+                ifcStatus={ifcStatus}
+                wholeGraphAlphaOn={wholeGraphAlphaDebug}
+                onWholeGraphAlphaOnChange={setWholeGraphAlphaDebug}
+                highlighterOverlayDemoOn={highlighterOverlayDemoOn}
+                onHighlighterOverlayDemoOnChange={setHighlighterOverlayDemoOn}
+              />
             </div>
-            <BimIfcAlphaDebugPanel
-              viewerRef={ifcViewerRef}
-              projectId={projectId}
-              viewQuery={viewMode}
-              ifcSource={ifcSource}
-              selectedExpressId={selectedExpressId}
-              visualizerExpressIds={visualizerExpressIds}
-              visualizerActiveKey={visualizerActiveKey}
-              ifcStatus={ifcStatus}
-              wholeGraphAlphaOn={wholeGraphAlphaDebug}
-              onWholeGraphAlphaOnChange={setWholeGraphAlphaDebug}
-              highlighterOverlayDemoOn={highlighterOverlayDemoOn}
-              onHighlighterOverlayDemoOnChange={setHighlighterOverlayDemoOn}
-            />
           </div>
         ) : viewMode === "passports" ? (
           <BimPassportWorkspace
@@ -691,7 +728,7 @@ export default function BimFacePage() {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-3 px-6 pt-3 pb-3">
+        <div className={`${appContentWidthClass} flex flex-1 flex-col gap-3 py-3`}>
           <BimIfcHousePreloader variant="inline" message="Loading BIM…" />
         </div>
       }

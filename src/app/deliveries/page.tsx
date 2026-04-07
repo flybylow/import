@@ -5,12 +5,20 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Button from "@/components/Button";
 import DeliveriesBestekPanel from "@/components/DeliveriesBestekPanel";
+import DeliveriesPidPanel from "@/components/DeliveriesPidPanel";
 import LeveringsbonFicheVisual, {
   type LeveringsbonFicheData,
 } from "@/components/LeveringsbonFicheVisual";
 import { CollapseSection, InfoDetails } from "@/components/InfoDetails";
 import ProjectIdField from "@/components/ProjectIdField";
 import { useToast } from "@/components/ToastProvider";
+import { appContentWidthClass } from "@/lib/app-page-layout";
+import {
+  deliveriesOpenSavedSpecificationFiche,
+  deliveriesTabFromQueryParam,
+  deliveriesTabQueryValue,
+  type DeliveriesTabId,
+} from "@/lib/deliveries-tabs";
 import { useProjectId } from "@/lib/useProjectId";
 
 const SAMPLE_JSON = `{
@@ -117,15 +125,19 @@ function DeepDocumentationPanel() {
   );
 }
 
-type DeliveriesTabId = "leveringsbon" | "bestek";
-
-/** Order matters: Leveringsbon is always the first tab (left in LTR; `dir="ltr"` on the tablist keeps that in RTL too). */
+/** Order matters: Ingest is first (left in LTR; `dir="ltr"` on the tablist keeps that in RTL too). */
 const TAB_DEFS: { id: DeliveriesTabId; label: string; title: string }[] = [
-  { id: "leveringsbon", label: "Leveringsbon", title: "Flow, JSON ingest, matches & Turtle" },
-  { id: "bestek", label: "Bestek", title: "Bestek dictionary, bindings & preview" },
+  { id: "ingest", label: "Ingest", title: "Leveringsbon JSON ingest, matches & Turtle" },
+  {
+    id: "specification",
+    label: "Specification",
+    title: "Bestek / opmeting: dictionary, bindings & preview",
+  },
+  { id: "pid", label: "PID", title: "Process lifecycle milestones and timeline links" },
 ];
 
-function leveringsbonFicheFromParsed(parsed: unknown): LeveringsbonFicheData | null {
+/** Build fiche preview data from parsed leveringsbon ingest JSON (items[]). */
+function leveringsbonFicheFromParsedJson(parsed: unknown): LeveringsbonFicheData | null {
   if (!parsed || typeof parsed !== "object" || parsed === null) return null;
   const p = parsed as Record<string, unknown>;
   const items = p.items;
@@ -161,20 +173,17 @@ function DeliveriesPageInner() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const activeTab = useMemo((): DeliveriesTabId => {
-    const t = searchParams.get("tab")?.trim().toLowerCase();
-    if (t === "bestek") return "bestek";
-    /** Legacy ?tab=flow|ingest and default: one leveringsbon workspace */
-    return "leveringsbon";
-  }, [searchParams]);
+  const activeTab = useMemo(
+    () => deliveriesTabFromQueryParam(searchParams.get("tab")),
+    [searchParams]
+  );
 
   const setActiveTab = useCallback(
     (id: DeliveriesTabId) => {
       const q = new URLSearchParams(searchParams.toString());
-      if (id === "leveringsbon") q.delete("tab");
-      else q.set("tab", id);
+      q.set("tab", deliveriesTabQueryValue(id));
       const qs = q.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      router.replace(`${pathname}?${qs}`, { scroll: false });
     },
     [pathname, router, searchParams]
   );
@@ -182,8 +191,7 @@ function DeliveriesPageInner() {
   /** Bestek table filter: absent sp/pr = hide those IFC buckets; sp=1 / pr=1 = show them (survives reload). */
   const hideSpatialTypes = searchParams.get("sp") !== "1";
   const hideMetaTypes = searchParams.get("pr") !== "1";
-  /** Expand read-only bestek fiche (timeline deep link uses `bestekFiche=1`). */
-  const openSavedBestekFiche = searchParams.get("bestekFiche") === "1";
+  const openSavedSpecificationFiche = deliveriesOpenSavedSpecificationFiche(searchParams);
 
   const onHideSpatialTypesChange = useCallback(
     (hide: boolean) => {
@@ -234,10 +242,7 @@ function DeliveriesPageInner() {
     return Array.isArray(items) ? items.length : null;
   }, [parsedPreview]);
 
-  const ficheData = useMemo(
-    () => leveringsbonFicheFromParsed(parsedPreview),
-    [parsedPreview]
-  );
+  const ficheData = useMemo(() => leveringsbonFicheFromParsedJson(parsedPreview), [parsedPreview]);
 
   const runIngest = useCallback(async () => {
     setFetchError(null);
@@ -309,7 +314,7 @@ function DeliveriesPageInner() {
   }, [result?.turtle, showToast]);
 
   return (
-    <div className="mx-auto box-border w-full min-w-0 max-w-[1100px] px-4 py-4 space-y-3">
+    <div className={`${appContentWidthClass} box-border space-y-3 py-4`}>
       <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-0.5">
@@ -399,9 +404,9 @@ function DeliveriesPageInner() {
 
       <div
         role="tabpanel"
-        id="deliveries-panel-leveringsbon"
-        aria-labelledby="deliveries-tab-leveringsbon"
-        hidden={activeTab !== "leveringsbon"}
+        id="deliveries-panel-ingest"
+        aria-labelledby="deliveries-tab-ingest"
+        hidden={activeTab !== "ingest"}
         className="space-y-4 pt-3"
       >
         <section aria-label="Leveringsbon ingest" className="space-y-3">
@@ -668,20 +673,30 @@ function DeliveriesPageInner() {
 
       <div
         role="tabpanel"
-        id="deliveries-panel-bestek"
-        aria-labelledby="deliveries-tab-bestek"
-        hidden={activeTab !== "bestek"}
+        id="deliveries-panel-specification"
+        aria-labelledby="deliveries-tab-specification"
+        hidden={activeTab !== "specification"}
         className="pt-2"
       >
         <DeliveriesBestekPanel
           projectId={projectId}
           setProjectId={setProjectId}
-          initialOpenSavedBestekFiche={openSavedBestekFiche}
+          initialOpenSavedSpecificationFiche={openSavedSpecificationFiche}
           hideSpatialTypes={hideSpatialTypes}
           hideMetaTypes={hideMetaTypes}
           onHideSpatialTypesChange={onHideSpatialTypesChange}
           onHideMetaTypesChange={onHideMetaTypesChange}
         />
+      </div>
+
+      <div
+        role="tabpanel"
+        id="deliveries-panel-pid"
+        aria-labelledby="deliveries-tab-pid"
+        hidden={activeTab !== "pid"}
+        className="pt-2"
+      >
+        <DeliveriesPidPanel projectId={projectId} />
       </div>
     </div>
   );
@@ -691,7 +706,7 @@ export default function DeliveriesPage() {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto box-border w-full min-w-0 max-w-[1100px] px-4 py-10 text-base text-zinc-500 dark:text-zinc-400">
+        <div className={`${appContentWidthClass} box-border py-10 text-base text-zinc-500 dark:text-zinc-400`}>
           Loading…
         </div>
       }

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { appendTimelineAuditEvent, timelineTtlPath } from "@/lib/timeline/append-event";
 import { isSafeProjectId } from "@/lib/clean-pipeline-artifacts";
+import { isPidMilestoneKey } from "@/lib/timeline-pid-milestones";
 import { isTimelineEventAction } from "@/lib/timeline-events-vocab";
 import { parseTimelineTtl } from "@/lib/timeline-events";
 import type { TimelineEventPayload } from "@/lib/timeline-events";
@@ -23,6 +24,12 @@ type PostBody = {
   materialReference?: string | null;
   /** Optional ISO timestamp (e.g. back-dated manual log). Defaults to now. */
   timestampIso?: string;
+  /** Required when `eventAction` is `pid_reference_milestone`. */
+  pidMilestoneKey?: string | null;
+  /** Optional `"0"`…`"9"` process phase index. */
+  pidLifecyclePhase?: string | null;
+  /** Optional narrative state hint for UI (not authoritative). */
+  pidStateHint?: string | null;
 };
 
 export async function GET(request: Request) {
@@ -89,6 +96,34 @@ export async function POST(request: Request) {
       ? body.materialReference.trim()
       : undefined;
 
+  let pidReferenceFields: TimelineEventPayload["pidReferenceFields"];
+  if (actionRaw === "pid_reference_milestone") {
+    const rawKey =
+      typeof body.pidMilestoneKey === "string" ? body.pidMilestoneKey.trim() : "";
+    if (!rawKey || !isPidMilestoneKey(rawKey)) {
+      return NextResponse.json(
+        {
+          error: "Invalid or missing `pidMilestoneKey` for pid_reference_milestone",
+          details: "Must be an allowlisted milestone key (see src/lib/timeline-pid-milestones.ts)",
+        },
+        { status: 400 }
+      );
+    }
+    const phaseRaw =
+      typeof body.pidLifecyclePhase === "string" ? body.pidLifecyclePhase.trim() : "";
+    const phase =
+      phaseRaw && /^[0-9]$/.test(phaseRaw) ? phaseRaw : undefined;
+    const hintRaw =
+      typeof body.pidStateHint === "string" && body.pidStateHint.trim()
+        ? body.pidStateHint.trim()
+        : undefined;
+    pidReferenceFields = {
+      milestoneKey: rawKey,
+      ...(phase ? { lifecyclePhase: phase } : {}),
+      ...(hintRaw ? { stateHint: hintRaw } : {}),
+    };
+  }
+
   const eventId = randomUUID();
   let timestampIso = new Date().toISOString();
   if (typeof body.timestampIso === "string" && body.timestampIso.trim()) {
@@ -107,6 +142,7 @@ export async function POST(request: Request) {
     ...(message ? { message } : {}),
     ...(targetExpressId !== undefined ? { targetExpressId } : {}),
     ...(materialReference ? { materialReference } : {}),
+    ...(pidReferenceFields ? { pidReferenceFields } : {}),
     source: "form",
   };
 

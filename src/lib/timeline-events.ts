@@ -57,6 +57,16 @@ export type TimelineProductCouplingFields = {
   couplingSignatureSha256?: string;
 };
 
+/** Belgian reference lifecycle milestone — `pid_reference_milestone` only. */
+export type TimelinePidReferenceFields = {
+  /** Optional process phase index as string `"0"`…`"9"` */
+  lifecyclePhase?: string;
+  /** Allowlisted key, e.g. `pid_opened` — see `timeline-pid-milestones.ts` */
+  milestoneKey: string;
+  /** Optional UI hint (OPENED, ACCUMULATING, …) — not authoritative state */
+  stateHint?: string;
+};
+
 export function parseBcfIfcGuidsJsonField(raw?: string): string[] {
   if (!raw?.trim()) return [];
   try {
@@ -112,6 +122,7 @@ export type TimelineEventPayload = {
   /** Present on `bestek_bindings_milestone` — same id as `bindingBatchId` on row events. */
   bestekBindingSaveBatchId?: string;
   productCouplingFields?: TimelineProductCouplingFields;
+  pidReferenceFields?: TimelinePidReferenceFields;
 };
 
 export type ParsedTimelineEvent = {
@@ -132,6 +143,7 @@ export type ParsedTimelineEvent = {
   bestekBindingFields?: TimelineBestekBindingFields;
   bestekBindingSaveBatchId?: string;
   productCouplingFields?: TimelineProductCouplingFields;
+  pidReferenceFields?: TimelinePidReferenceFields;
 };
 
 function turtleString(s: string): string {
@@ -269,6 +281,19 @@ export function timelineEventToTurtle(p: TimelineEventPayload): string {
     addPc("productCouplingRowsJson", pc.couplingRowsJson);
     addPc("productCouplingSignatureSha256", pc.couplingSignatureSha256);
   }
+  if (p.pidReferenceFields) {
+    const pr = p.pidReferenceFields;
+    const addPr = (pred: string, val?: string) => {
+      if (val === undefined) return;
+      const s = val.trim();
+      if (!s) return;
+      lines[lines.length - 1] += " ;";
+      lines.push(`    timeline:${pred} ${turtleString(s)}`);
+    };
+    addPr("pidLifecyclePhase", pr.lifecyclePhase);
+    addPr("pidMilestoneKey", pr.milestoneKey);
+    addPr("pidStateHint", pr.stateHint);
+  }
   lines[lines.length - 1] += " .";
   return `${lines.join("\n")}\n`;
 }
@@ -299,6 +324,20 @@ function litInt(store: $rdf.Store, subj: unknown, pred: unknown): number | undef
 
 function litDecimal(store: $rdf.Store, subj: unknown, pred: unknown): number | undefined {
   return litInt(store, subj, pred);
+}
+
+/** Parsed instant for ascending sort; invalid / empty timestamps sink to the end. */
+function timelineTimestampSortKeyAsc(iso: string): number {
+  const t = Date.parse(iso.trim());
+  return Number.isNaN(t) ? Number.POSITIVE_INFINITY : t;
+}
+
+/** Oldest-first (chronological); stable tie-break on `eventId` (ascending) when instants match. */
+export function compareParsedTimelineEventsAsc(a: ParsedTimelineEvent, b: ParsedTimelineEvent): number {
+  const diff =
+    timelineTimestampSortKeyAsc(a.timestampIso) - timelineTimestampSortKeyAsc(b.timestampIso);
+  if (diff !== 0) return diff;
+  return a.eventId.localeCompare(b.eventId);
 }
 
 function parseEpcisFieldsFromStore(
@@ -458,6 +497,20 @@ function parseProductCouplingFieldsFromStore(
   return o;
 }
 
+function parsePidReferenceFieldsFromStore(
+  store: $rdf.Store,
+  subj: unknown
+): TimelinePidReferenceFields | undefined {
+  const milestoneKey = lit(store, subj, TL("pidMilestoneKey"));
+  const lifecyclePhase = lit(store, subj, TL("pidLifecyclePhase"));
+  const stateHint = lit(store, subj, TL("pidStateHint"));
+  if (!milestoneKey?.trim()) return undefined;
+  const o: TimelinePidReferenceFields = { milestoneKey: milestoneKey.trim() };
+  if (lifecyclePhase?.trim()) o.lifecyclePhase = lifecyclePhase.trim();
+  if (stateHint?.trim()) o.stateHint = stateHint.trim();
+  return o;
+}
+
 /**
  * Best-effort parse of `data/<projectId>-timeline.ttl` for listing in UI.
  */
@@ -501,6 +554,7 @@ export function parseTimelineTtl(ttl: string): ParsedTimelineEvent[] {
     const bestekBindingFields = parseBestekBindingFieldsFromStore(store, subj);
     const productCouplingFields = parseProductCouplingFieldsFromStore(store, subj);
     const bestekBindingSaveBatchId = lit(store, subj, TL("bestekBindingSaveBatchId"));
+    const pidReferenceFields = parsePidReferenceFieldsFromStore(store, subj);
 
     out.push({
       uri: key,
@@ -520,9 +574,10 @@ export function parseTimelineTtl(ttl: string): ParsedTimelineEvent[] {
       ...(bestekBindingFields ? { bestekBindingFields } : {}),
       ...(bestekBindingSaveBatchId ? { bestekBindingSaveBatchId } : {}),
       ...(productCouplingFields ? { productCouplingFields } : {}),
+      ...(pidReferenceFields ? { pidReferenceFields } : {}),
     });
   }
 
-  out.sort((a, b) => b.timestampIso.localeCompare(a.timestampIso));
+  out.sort(compareParsedTimelineEventsAsc);
   return out;
 }

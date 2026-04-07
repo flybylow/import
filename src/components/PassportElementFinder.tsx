@@ -12,7 +12,10 @@ import {
   passportMaterialEpdLinks,
 } from "@/lib/passport-navigation-links";
 import type { Phase4ElementPassport } from "@/lib/phase4-passports";
-import { passportFinderTypeKey } from "@/lib/ifc-passport-type-group";
+import {
+  passportFinderTypeKey,
+  resolvePassportGroupKeyFromUrl,
+} from "@/lib/ifc-passport-type-group";
 
 /** Full detail per material in the narrow preview; overflow defers to sidebar. */
 const PREVIEW_MATERIALS_MAX = 8;
@@ -168,12 +171,16 @@ export default function PassportElementFinder(props: Props) {
     return { byType: m, sortedTypeKeys: keys };
   }, [filteredItems]);
 
-  /** If filter removes the selected type bucket, clear type or pick first remaining. */
+  /**
+   * If filter removes the selected type bucket, clear type or pick first remaining.
+   * Skip while `items` is empty so we do not stomp a URL-driven key before buckets exist.
+   */
   useEffect(() => {
+    if (items.length === 0) return;
     if (selectedTypeKey != null && !byType.has(selectedTypeKey)) {
       setSelectedTypeKey(sortedTypeKeys[0] ?? null);
     }
-  }, [byType, selectedTypeKey, sortedTypeKeys]);
+  }, [byType, items.length, selectedTypeKey, sortedTypeKeys]);
 
   const columnItems = useMemo(() => {
     if (selectedTypeKey == null) return EMPTY_FINDER_COLUMN;
@@ -194,16 +201,29 @@ export default function PassportElementFinder(props: Props) {
 
   const typeKeysSig = sortedTypeKeys.join("\0");
 
+  const resolvedUrlGroupKey = useMemo(
+    () => resolvePassportGroupKeyFromUrl(urlGroupKey.trim(), sortedTypeKeys),
+    [urlGroupKey, typeKeysSig]
+  );
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      const raw = urlGroupKey.trim();
+      if (raw && items.length > 0 && sortedTypeKeys.length > 0 && resolvedUrlGroupKey == null) {
+        console.warn("[PassportElementFinder] ?group= did not match any IFC bucket:", raw);
+      }
+    }
+  }, [urlGroupKey, items.length, sortedTypeKeys.length, resolvedUrlGroupKey]);
+
   /**
    * URL `group=` selects the finder bucket. With `expressId`, still honor `group` when that element
    * appears in that bucket (deep links from workflow / KB); otherwise fall back to the row’s type.
    */
   useEffect(() => {
-    const g = urlGroupKey.trim();
-    const hasGroup = g.length > 0 && sortedTypeKeys.includes(g);
+    const g = resolvedUrlGroupKey;
 
     if (selectedExpressId != null) {
-      if (hasGroup) {
+      if (g != null) {
         const inGroup = byType.get(g)?.some((i) => i.expressId === selectedExpressId) === true;
         if (inGroup) {
           setSelectedTypeKey(g);
@@ -217,10 +237,10 @@ export default function PassportElementFinder(props: Props) {
       return;
     }
 
-    if (hasGroup) {
+    if (g != null) {
       setSelectedTypeKey(g);
     }
-  }, [urlGroupKey, selectedExpressId, items, sortedTypeKeys, typeKeysSig, byType]);
+  }, [resolvedUrlGroupKey, selectedExpressId, items, typeKeysSig, byType]);
 
   /** Keep the selected IFC type and element row visible inside their columns only (no page scroll). */
   useEffect(() => {

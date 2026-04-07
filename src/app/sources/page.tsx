@@ -3,6 +3,7 @@ import Link from "next/link";
 import path from "path";
 
 import SourcesMatchingPanel from "@/components/SourcesMatchingPanel";
+import { appContentWidthClass } from "@/lib/app-page-layout";
 import { loadSourcesConfig, resolveSourceTtlPath } from "@/lib/sources-config";
 import SourcesImportToast from "./SourcesImportToast";
 
@@ -133,7 +134,7 @@ export default async function SourcesPage({
   });
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto p-6 flex flex-col gap-4">
+    <div className={`${appContentWidthClass} flex flex-col gap-4 py-6`}>
       <SourcesImportToast
         imported={qImported === "1"}
         importError={qImportError}

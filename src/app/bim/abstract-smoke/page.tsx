@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import BimViewer3D from "@/components/BimViewer3D";
+import { appContentWidthClass } from "@/lib/app-page-layout";
 
 /**
  * Minimal check that WebGL + Three.js draw in this app (no KB / passports).
@@ -20,7 +21,7 @@ export default function BimAbstractThreeSmokePage() {
   );
 
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col gap-3 px-6 py-4">
+    <div className={`${appContentWidthClass} flex min-h-0 flex-1 flex-col gap-3 py-4`}>
       <div>
         <h1 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           Abstract 3D smoke test

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import ProjectIdField from "@/components/ProjectIdField";
+import { appContentWidthClass } from "@/lib/app-page-layout";
 import { useProjectId } from "@/lib/useProjectId";
 
 type Step = {
@@ -71,7 +72,7 @@ export default function PipelineJourneyPage() {
   const { projectId, setProjectId } = useProjectId();
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-10 space-y-10">
+    <div className={`${appContentWidthClass} space-y-10 py-10`}>
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
           From BIM to what you have now

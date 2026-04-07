@@ -41,6 +41,10 @@ type Props = {
    * drive the same drill-down. On `/sources`, leave false — URL stays clean.
    */
   matchedSourceUrlSync?: boolean;
+  /**
+   * When true with `matchedSourceUrlSync`, hide the LCA bucket chips here (shown in the KB sticky bar only).
+   */
+  suppressAttributionChips?: boolean;
 };
 
 function matchedBucketChipClass(active: boolean): string {
@@ -56,6 +60,7 @@ export default function SourcesMatchingPanel({
   dictionaryVersion,
   dictionaryPath,
   matchedSourceUrlSync = false,
+  suppressAttributionChips = false,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -71,6 +76,10 @@ export default function SourcesMatchingPanel({
   const [rowsMeta, setRowsMeta] = useState<{ total: number; truncated: boolean } | null>(null);
   const [loadingRows, setLoadingRows] = useState(false);
   const [rowsErr, setRowsErr] = useState<string | null>(null);
+
+  /** Active bucket: URL param on `/kb`, or local selection on `/sources`. */
+  const drillKey = matchedSourceUrlSync ? matchedSourceParam : selectedKey;
+  const hideAttributionChips = suppressAttributionChips && matchedSourceUrlSync;
 
   const pid = encodeURIComponent(projectId);
 
@@ -176,16 +185,25 @@ export default function SourcesMatchingPanel({
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             Dictionary + KB matching
           </h2>
-          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 max-w-prose leading-snug">
-            <strong className="text-zinc-700 dark:text-zinc-300">Material dictionary</strong> (
-            <code className="font-mono">{dictionaryPath}</code>, version{" "}
-            <code className="font-mono">{dictionaryVersion}</code>) runs{" "}
-            <strong>before</strong> TTL sources. It maps IFC layer names to EPD slugs; sources then try
-            to fill in real GWP / units.{" "}
-            <code className="font-mono">dictionary-no-lca</code> means: dictionary link exists, but no
-            source hydration (or only placeholder) — not “from BIM” alone; it is still driven by IFC
-            material text → dictionary → stub EPD until a source hits.
-          </p>
+          {hideAttributionChips ? (
+            <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 max-w-prose leading-snug">
+              LCA bucket chips live in the <span className="font-medium text-zinc-700 dark:text-zinc-300">sticky bar</span>.{" "}
+              Dictionary <code className="font-mono">{dictionaryPath}</code> v{" "}
+              <code className="font-mono">{dictionaryVersion}</code> — then TTL sources hydrate GWP where
+              they match.
+            </p>
+          ) : (
+            <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 max-w-prose leading-snug">
+              <strong className="text-zinc-700 dark:text-zinc-300">Material dictionary</strong> (
+              <code className="font-mono">{dictionaryPath}</code>, version{" "}
+              <code className="font-mono">{dictionaryVersion}</code>) runs{" "}
+              <strong>before</strong> TTL sources. It maps IFC layer names to EPD slugs; sources then try
+              to fill in real GWP / units.{" "}
+              <code className="font-mono">dictionary-no-lca</code> means: dictionary link exists, but no
+              source hydration (or only placeholder) — not “from BIM” alone; it is still driven by IFC
+              material text → dictionary → stub EPD until a source hits.
+            </p>
+          )}
         </div>
         <Link
           href={`/kb?projectId=${pid}`}
@@ -204,47 +222,49 @@ export default function SourcesMatchingPanel({
         </p>
       ) : breakdownEntries.length ? (
         <>
-          <div>
-            <div className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 mb-1">
-              LCA attribution (materials with EPD, {status?.epdCoverage?.materialsWithEPD ?? "—"}{" "}
-              total linked)
-            </div>
-            <p className="mb-1.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400 max-w-prose">
-              Buckets show where real LCA came from on the EPD node, or{" "}
-              <code className="font-mono text-[10px]">dictionary-no-lca</code> when the dictionary linked a
-              slug but <span className="font-medium">no enabled TTL snapshot</span> hydrated it — not an
-              extra source left on beside KBOB / ICE / …
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {breakdownEntries.map(([key, count]) => {
-                const active = matchedSourceUrlSync
-                  ? matchedSourceParam === key
-                  : selectedKey === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    title={SOURCE_HELP[key] ?? `Bucket: ${key}. Click again to turn off.`}
-                    onClick={() => onBucketClick(key)}
-                    className={matchedBucketChipClass(active)}
-                  >
-                    {key} <span className="text-zinc-500 dark:text-zinc-400">{count}</span>
-                  </button>
-                );
-              })}
-            </div>
-            {selectedKey && SOURCE_HELP[selectedKey] ? (
-              <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
-                {SOURCE_HELP[selectedKey]}
+          {!hideAttributionChips ? (
+            <div>
+              <div className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 mb-1">
+                LCA attribution (materials with EPD, {status?.epdCoverage?.materialsWithEPD ?? "—"}{" "}
+                total linked)
+              </div>
+              <p className="mb-1.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400 max-w-prose">
+                Buckets show where real LCA came from on the EPD node, or{" "}
+                <code className="font-mono text-[10px]">dictionary-no-lca</code> when the dictionary linked a
+                slug but <span className="font-medium">no enabled TTL snapshot</span> hydrated it — not an
+                extra source left on beside KBOB / ICE / …
               </p>
-            ) : null}
-          </div>
+              <div className="flex flex-wrap gap-2">
+                {breakdownEntries.map(([key, count]) => {
+                  const active = matchedSourceUrlSync
+                    ? matchedSourceParam === key
+                    : selectedKey === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      title={SOURCE_HELP[key] ?? `Bucket: ${key}. Click again to turn off.`}
+                      onClick={() => onBucketClick(key)}
+                      className={matchedBucketChipClass(active)}
+                    >
+                      {key} <span className="text-zinc-500 dark:text-zinc-400">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedKey && SOURCE_HELP[selectedKey] ? (
+                <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
+                  {SOURCE_HELP[selectedKey]}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
-          {selectedKey ? (
+          {drillKey ? (
             <div className="rounded border border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 p-2">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <span className="font-medium text-zinc-800 dark:text-zinc-100">
-                  Materials in <code className="font-mono">{selectedKey}</code>
+                  Materials in <code className="font-mono">{drillKey}</code>
                 </span>
                 {loadingRows ? <span className="text-zinc-500">Loading…</span> : null}
               </div>
@@ -307,9 +327,11 @@ export default function SourcesMatchingPanel({
             </div>
           ) : (
             <p className="text-[11px] text-zinc-500">
-              {matchedSourceUrlSync
-                ? "Click a bucket in the sticky bar or here to list materials; click again to turn off."
-                : "Click a bucket above to list IFC materials counted in that slice."}
+              {hideAttributionChips
+                ? "Pick an LCA chip in the sticky bar to list materials here; click the chip again to clear."
+                : matchedSourceUrlSync
+                  ? "Click a bucket in the sticky bar or here to list materials; click again to turn off."
+                  : "Click a bucket above to list IFC materials counted in that slice."}
             </p>
           )}
         </>

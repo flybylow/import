@@ -24,7 +24,7 @@ import {
   bestekCategoryChipClass,
   bestekCategoryDisplayLabel,
 } from "@/lib/bestek/bestek-category-ui";
-import { defaultMaterialSlugForIfcType } from "@/lib/bestek/ifc-type-material-defaults";
+import { suggestedMaterialSlugForBestekGroup } from "@/lib/bestek/ifc-type-material-defaults";
 import { filterBestekFormGroupsByIfcType } from "@/lib/bestek/phase0-excluded-ifc-types";
 import {
   extractArticleTokenCandidates,
@@ -332,8 +332,8 @@ function stableBestekBindingsDocumentRef(projectId: string): string {
   return `${safe}-bindings`;
 }
 
-/** Rebuild read-only fiche from disk bindings (deep link / reload / after hydrate). */
-function bestekFicheFromPersistedBindings(
+/** Rebuild read-only opmeting fiche from persisted specification bindings (deep link / reload / hydrate). */
+function opmetingFicheFromPersistedBindings(
   projectId: string,
   bindings: BestekBinding[],
   groups: ElementGroup[],
@@ -389,10 +389,10 @@ export default function DeliveriesBestekPanel(props: {
   projectId: string;
   setProjectId: (v: string) => void;
   /**
-   * When true (e.g. `/deliveries?tab=bestek&bestekFiche=1`), the read-only fiche block starts expanded.
+   * When true (e.g. `/deliveries?tab=specification&specificationFiche=1`; legacy `bestekFiche=1`), the read-only fiche block starts expanded.
    * Default collapsed keeps step 2 usable without scrolling past the full document.
    */
-  initialOpenSavedBestekFiche?: boolean;
+  initialOpenSavedSpecificationFiche?: boolean;
   /**
    * Client-side row filter only (JSON on disk unchanged).
    * Checked = hide that IFC category from the tables.
@@ -405,7 +405,7 @@ export default function DeliveriesBestekPanel(props: {
   const {
     projectId,
     setProjectId,
-    initialOpenSavedBestekFiche = false,
+    initialOpenSavedSpecificationFiche = false,
     hideSpatialTypes,
     hideMetaTypes,
     onHideSpatialTypesChange,
@@ -439,12 +439,20 @@ export default function DeliveriesBestekPanel(props: {
   const [expandedBindingDetailIds, setExpandedBindingDetailIds] = useState<Set<string>>(
     () => new Set()
   );
-  const [savedFicheExpanded, setSavedFicheExpanded] = useState(initialOpenSavedBestekFiche);
+  const [savedFicheExpanded, setSavedFicheExpanded] = useState(initialOpenSavedSpecificationFiche);
+  /** Bumped after successful Save bindings so we scroll the saved fiche into view (layout effect). */
+  const [savedFicheScrollNonce, setSavedFicheScrollNonce] = useState(0);
+  const savedFicheDetailsRef = useRef<HTMLDetailsElement>(null);
   const architectKbDatalistId = useId().replace(/:/g, "");
 
   useEffect(() => {
-    setSavedFicheExpanded(initialOpenSavedBestekFiche);
-  }, [initialOpenSavedBestekFiche, projectId]);
+    setSavedFicheExpanded(initialOpenSavedSpecificationFiche);
+  }, [initialOpenSavedSpecificationFiche, projectId]);
+
+  useLayoutEffect(() => {
+    if (savedFicheScrollNonce === 0) return;
+    savedFicheDetailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [savedFicheScrollNonce]);
 
   const toggleBindingDetailRow = useCallback((groupId: string) => {
     setExpandedBindingDetailIds((prev) => {
@@ -511,9 +519,26 @@ export default function DeliveriesBestekPanel(props: {
     [bestekPreviewChapters]
   );
 
-  const bestekFicheFromDisk = useMemo(
-    () => bestekFicheFromPersistedBindings(projectId, persistedBindings, groups, catalog),
-    [projectId, persistedBindings, groups, catalog]
+  /** Same IFC-type scope as the table, preview, and Save — not “all bindings on disk”. */
+  const persistedBindingsForVisibleGroups = useMemo(() => {
+    const visibleIds = new Set(visibleGroups.map((g) => g.group_id));
+    return persistedBindings.filter((b) => visibleIds.has(b.group_id));
+  }, [persistedBindings, visibleGroups]);
+
+  const savedBindingsHiddenByIfcFilter = Math.max(
+    0,
+    persistedBindings.length - persistedBindingsForVisibleGroups.length
+  );
+
+  const persistedOpmetingFicheData = useMemo(
+    () =>
+      opmetingFicheFromPersistedBindings(
+        projectId,
+        persistedBindingsForVisibleGroups,
+        groups,
+        catalog
+      ),
+    [projectId, persistedBindingsForVisibleGroups, groups, catalog]
   );
 
   const hydrateFromServer = useCallback(
@@ -612,7 +637,10 @@ export default function DeliveriesBestekPanel(props: {
       setDrafts((prev) => {
         const next = { ...prev };
         for (const row of g) {
-          const materialDefault = defaultMaterialSlugForIfcType(row.ifc_type);
+          const materialDefault = suggestedMaterialSlugForBestekGroup(
+            row.ifc_type,
+            row.partition
+          );
           if (!next[row.group_id]) {
             next[row.group_id] = {
               architect_name: row.architect_name?.trim() ?? "",
@@ -758,7 +786,8 @@ export default function DeliveriesBestekPanel(props: {
   const saveBindings = useCallback(async () => {
     const pid = projectId.trim();
     if (!pid) return;
-    const rowsToSave = groups
+    /** Same scope as the table and Auto-match: − spatial / − proxy hides rows → they are not POSTed. */
+    const rowsToSave = visibleGroups
       .map((g) => {
         const d = drafts[g.group_id] ?? emptyDraftBinding();
         if (!d.article_unit.trim() || !d.article_quantity.trim()) return null;
@@ -770,7 +799,9 @@ export default function DeliveriesBestekPanel(props: {
       showToast({
         type: "error",
         message:
-          "Geen rijen om op te slaan — vul minstens één rij met eenheid én hoeveelheid (Architect / bestek mag leeg blijven).",
+          visibleGroups.length === 0
+            ? "Geen zichtbare rijen — zet − spatial / − proxy uit of vul rijen in de tabel."
+            : "Geen rijen om op te slaan — vul minstens één zichtbare rij met eenheid én hoeveelheid (Architect / bestek mag leeg blijven).",
       });
       return;
     }
@@ -805,13 +836,29 @@ export default function DeliveriesBestekPanel(props: {
         showToast({ type: "error", message: j.error ?? res.statusText });
         return;
       }
-      showToast({ type: "success", message: "Bestek bindings saved" });
+      const scopeNote =
+        hideSpatialTypes || hideMetaTypes
+          ? ` — ${rowsToSave.length} visible row${rowsToSave.length === 1 ? "" : "s"} (hidden − spatial / − proxy types not written)`
+          : "";
       await loadGroups();
       await loadStats();
+      showToast({ type: "success", message: `Bestek bindings saved${scopeNote}` });
+      setSavedFicheExpanded(true);
+      setSavedFicheScrollNonce((n) => n + 1);
     } finally {
       setSavingBindings(false);
     }
-  }, [projectId, groups, drafts, createdBy, catalog, loadGroups, loadStats, showToast]);
+  }, [
+    projectId,
+    visibleGroups,
+    drafts,
+    createdBy,
+    hideSpatialTypes,
+    hideMetaTypes,
+    loadGroups,
+    loadStats,
+    showToast,
+  ]);
 
   const autoMatchVisibleRows = useCallback(() => {
     if (!catalog.length) {
@@ -830,6 +877,7 @@ export default function DeliveriesBestekPanel(props: {
           {
             group_id: g.group_id,
             ifc_type: g.ifc_type,
+            partition: g.partition,
             element_count: g.element_count,
           },
           i,
@@ -854,7 +902,7 @@ export default function DeliveriesBestekPanel(props: {
       for (const g of groups) {
         next[g.group_id] = {
           architect_name: "",
-          material_slug: defaultMaterialSlugForIfcType(g.ifc_type),
+          material_slug: suggestedMaterialSlugForBestekGroup(g.ifc_type, g.partition),
           article_number: "",
           article_unit: "",
           article_quantity: "",
@@ -866,7 +914,7 @@ export default function DeliveriesBestekPanel(props: {
     });
     showToast({
       type: "success",
-      message: `Cleared ${groups.length} row(s) — kept IFC defaults for Material`,
+      message: `Cleared ${groups.length} row(s) — reset Material from IFC type + partition rules`,
     });
   }, [groups, showToast]);
 
@@ -969,8 +1017,9 @@ export default function DeliveriesBestekPanel(props: {
 
       <CollapseSection title="1 · Regroup IFC">
         <p className="mb-2 text-[14px] text-zinc-500 dark:text-zinc-400">
-          Writes the <span className="font-medium">full</span> IFC-type list (all elements). Use the row
-          filter in step 2 to hide spatial / proxy types in the form only.
+          Writes the <span className="font-medium">full</span> IFC-type list (all elements). Use{" "}
+          <strong>− spatial</strong> / <strong>− proxy</strong> in step 2 to hide those IFC rows in the
+          table, preview, saved fiche, and Save (disk still stores every binding you saved earlier).
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -1004,9 +1053,10 @@ export default function DeliveriesBestekPanel(props: {
       </CollapseSection>
 
       <CollapseSection title="2 · Architect bindings" defaultOpen>
-        {bestekFicheFromDisk ? (
+        {persistedOpmetingFicheData ? (
           <details
-            className="mb-5 rounded-lg border border-zinc-200 bg-zinc-50/50 dark:border-zinc-700 dark:bg-zinc-900/30"
+            ref={savedFicheDetailsRef}
+            className="mb-5 scroll-mt-4 rounded-lg border border-zinc-200 bg-zinc-50/50 dark:border-zinc-700 dark:bg-zinc-900/30"
             open={savedFicheExpanded}
             onToggle={(e) => {
               setSavedFicheExpanded(e.currentTarget.open);
@@ -1019,21 +1069,42 @@ export default function DeliveriesBestekPanel(props: {
                 </span>
                 Opgeslagen — documentreferentie
                 <span className="font-normal normal-case text-zinc-500 dark:text-zinc-400">
-                  ({bestekFicheFromDisk.lines.length} regels)
+                  ({persistedOpmetingFicheData.lines.length} regels)
                 </span>
               </span>
             </summary>
             <div className="space-y-2 border-t border-zinc-200 px-3 pb-4 pt-3 dark:border-zinc-700">
               <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
                 Geladen uit{" "}
-                <code className="font-mono text-[12px]">{projectId.trim()}-bestek-bindings.json</code>.
-                Zelfde inhoud als na <strong>Save bindings</strong>. Open dit blok standaard via URL{" "}
-                <code className="font-mono text-[11px]">?tab=bestek&amp;bestekFiche=1</code> (zoals
-                vanaf de timeline).
+                <code className="font-mono text-[12px]">{projectId.trim()}-bestek-bindings.json</code>
+                {savedBindingsHiddenByIfcFilter > 0 ? (
+                  <>
+                    {" "}
+                    — <strong>{persistedOpmetingFicheData.lines.length}</strong> regel(s) zichtbaar met huidige
+                    filter; <strong>{savedBindingsHiddenByIfcFilter}</strong> opgeslagen regel(s) voor
+                    spatial/proxy-groepen zijn verborgen (zet <strong>− spatial</strong> /{" "}
+                    <strong>− proxy</strong> uit om ze te tonen).
+                  </>
+                ) : (
+                  <>
+                    . Zelfde inhoud als na <strong>Save bindings</strong> (voor de zichtbare
+                    IFC-rijen). Open dit blok standaard via URL{" "}
+                    <code className="font-mono text-[11px]">?tab=specification&amp;specificationFiche=1</code>{" "}
+                    (legacy: <code className="font-mono text-[11px]">bestekFiche=1</code>) — zoals
+                    vanaf de timeline.
+                  </>
+                )}
               </p>
-              <BestekOpmetingFicheVisual data={bestekFicheFromDisk} />
+              <BestekOpmetingFicheVisual data={persistedOpmetingFicheData} />
             </div>
           </details>
+        ) : persistedBindings.length > 0 ? (
+          <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
+            <strong>Opgeslagen bindings</strong> staan op schijf, maar{" "}
+            <strong>geen enkele rij</strong> valt binnen de huidige tabel (alleen spatial/proxy?). Zet{" "}
+            <strong>− spatial</strong> en <strong>− proxy</strong> uit om het vaste document en de tabel
+            te zien ({persistedBindings.length} regel(s) op schijf).
+          </p>
         ) : null}
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <InfoDetails label="Material column">
@@ -1594,6 +1665,14 @@ export default function DeliveriesBestekPanel(props: {
           >
             {savingBindings ? "…" : "Save bindings"}
           </Button>
+          <InfoDetails label="Save bindings scope">
+            <p>
+              Only <strong>rows shown</strong> in step 2 are written: when <strong>− spatial</strong> or{" "}
+              <strong>− proxy</strong> is checked, those IFC types stay out of this save (same as Auto-match).
+              Existing entries for hidden groups in <code className="font-mono text-[12px]">*-bestek-bindings.json</code>{" "}
+              are left unchanged unless you uncheck the filters and save again.
+            </p>
+          </InfoDetails>
         </div>
       </CollapseSection>
 

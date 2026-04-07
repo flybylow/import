@@ -1,16 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KGNode, KGLink } from "@/components/KgForceGraph";
 import KgForceGraph3D from "@/components/KgForceGraph3D";
 import { EPCIS_JSON_SEPARATOR, getEpcisHumanNotesForRow } from "@/lib/timeline/epcis";
 import type {
   TimelineBcfFields,
   TimelineEpcisFields,
+  TimelinePidReferenceFields,
   TimelineScheduleFields,
 } from "@/lib/timeline-events";
 import { materialSlugFromReference } from "@/lib/timeline/construction-buildup";
+import {
+  PID_MILESTONE_LABELS,
+  isPidMilestoneKey,
+} from "@/lib/timeline-pid-milestones";
 import {
   TIMELINE_EVENT_LABELS,
   type TimelineEventAction,
@@ -30,6 +35,7 @@ export type TimelineGraphEventRow = {
   epcisFields?: TimelineEpcisFields;
   scheduleFields?: TimelineScheduleFields;
   bcfFields?: TimelineBcfFields;
+  pidReferenceFields?: TimelinePidReferenceFields;
 };
 
 /** Hard upper bound to protect WebGL / layout from pathological TTL files. */
@@ -93,6 +99,52 @@ function humanTimelineMessageWithoutBimTail(message?: string): string | undefine
   return out || undefined;
 }
 
+/** One-line headline for graph tooltips / node labels (not the full message). */
+function graphEventHeadline(ev: TimelineGraphEventRow): string | undefined {
+  if (ev.eventAction === "pid_reference_milestone" && ev.pidReferenceFields?.milestoneKey) {
+    const mk = ev.pidReferenceFields.milestoneKey.trim();
+    if (isPidMilestoneKey(mk)) return PID_MILESTONE_LABELS[mk];
+    return mk || undefined;
+  }
+  const epcisNotes =
+    ev.epcisFields != null
+      ? getEpcisHumanNotesForRow({ message: ev.message, epcisFields: ev.epcisFields })
+      : ev.eventAction === "epcis_supply_chain_event"
+        ? getEpcisHumanNotesForRow({ message: ev.message, epcisFields: undefined })
+        : [];
+  if (epcisNotes.length > 0) {
+    const first = epcisNotes[0]!.trim();
+    return first || undefined;
+  }
+  const raw =
+    humanTimelineMessageWithoutBimTail(ev.message) ?? humanTimelineMessage(ev.message);
+  if (!raw?.trim()) return undefined;
+  return raw.split(/\n/).map((l) => l.trim()).find(Boolean);
+}
+
+const GRAPH_EVENT_HEADLINE_MAX = 52;
+
+/**
+ * Hover / WebGL tooltip text: time, event type, and a short human headline (first message line, PID title, …).
+ */
+function timelineEventGraphNodeLabel(ev: TimelineGraphEventRow): string {
+  const action = TIMELINE_EVENT_LABELS[ev.eventAction];
+  const t = formatStamp(ev.timestampIso);
+  let headline = graphEventHeadline(ev);
+  if (headline && headline.length > GRAPH_EVENT_HEADLINE_MAX) {
+    headline = `${headline.slice(0, GRAPH_EVENT_HEADLINE_MAX - 1)}…`;
+  }
+  const actionShort = action.length > 42 ? `${action.slice(0, 40)}…` : action;
+  if (headline) {
+    const hLower = headline.toLowerCase();
+    const aLower = actionShort.toLowerCase();
+    if (!aLower.includes(hLower.slice(0, Math.min(14, hLower.length))) && headline !== actionShort) {
+      return `${t} · ${actionShort} — ${headline}`;
+    }
+  }
+  return `${t} · ${actionShort}`;
+}
+
 function shortGs1EventId(id?: string): string | undefined {
   if (!id?.trim()) return undefined;
   const u = id.trim();
@@ -130,7 +182,7 @@ function shortMaterialLabel(uri: string): string {
 }
 
 export type TimelineGraphBuildOpts = {
-  /** Max events in graph (newest first). Clamped to `TIMELINE_GRAPH_MAX_CAP`. */
+  /** Max events in graph (after cap: keep the latest slice, still chronological). Clamped to `TIMELINE_GRAPH_MAX_CAP`. */
   eventCap: number;
   /**
    * Full: each event has satellite property nodes (rich but heavy).
@@ -157,13 +209,13 @@ function buildGraph(
   const nodes: KGNode[] = [];
   const links: KGLink[] = [];
 
-  /** Same order as API: newest first (left / low index); cap keeps the most recent events. */
+  /** Same order as API: chronological (oldest left); cap keeps the latest `cap` events. */
   const ordered = events;
   const cap = Math.max(
     10,
     Math.min(TIMELINE_GRAPH_MAX_CAP, Math.floor(opts.eventCap))
   );
-  const trimmed = ordered.length > cap ? ordered.slice(0, cap) : ordered;
+  const trimmed = ordered.length > cap ? ordered.slice(-cap) : ordered;
   const dropped = ordered.length - trimmed.length;
   const compact = opts.compact;
   const eventsOnly = opts.eventsOnly;
@@ -211,7 +263,7 @@ function buildGraph(
       const id = stableMaterialNodeId(uri);
       nodes.push({
         id,
-        label: shortMaterialLabel(uri),
+        label: `Material · ${shortMaterialLabel(uri)}`,
         kind: "timelineMaterial",
         x: meanX,
         y: -100,
@@ -238,7 +290,7 @@ function buildGraph(
       const id = stableMaterialNodeId(uri);
       nodes.push({
         id,
-        label: shortMaterialLabel(uri),
+        label: `Material · ${shortMaterialLabel(uri)}`,
         kind: "timelineMaterial",
         x: hubX + 120,
         y,
@@ -284,10 +336,10 @@ function buildGraph(
     const evNodeId = `tev-${ev.eventId}`;
 
     const isEpcis = ev.eventAction === "epcis_supply_chain_event";
-    const compactLabel = `${formatStamp(ev.timestampIso)} · ${TIMELINE_EVENT_LABELS[ev.eventAction]}`;
+    const eventNodeLabel = timelineEventGraphNodeLabel(ev);
     nodes.push({
       id: evNodeId,
-      label: compact ? compactLabel : TIMELINE_EVENT_LABELS[ev.eventAction],
+      label: eventNodeLabel,
       kind: "timelineEvent",
       x: baseX,
       y: baseY,
@@ -520,9 +572,20 @@ export default function TimelineKbGraph(props: {
    */
   layoutMode?: "spine" | "materialFlow";
   onLayoutModeChange?: (mode: "spine" | "materialFlow") => void;
+  /**
+   * When set (e.g. `?eventId=` on `/timeline?view=graph`), fit camera to this event and open the inspector.
+   */
+  focusEventId?: string | null;
 }) {
-  const { projectId, events, fillViewport, layoutMode: layoutModeProp, onLayoutModeChange } =
-    props;
+  const {
+    projectId,
+    events,
+    fillViewport,
+    layoutMode: layoutModeProp,
+    onLayoutModeChange,
+    focusEventId: focusEventIdProp,
+  } = props;
+  const focusEventId = focusEventIdProp?.trim() || null;
   const [selectedNode, setSelectedNode] = useState<any | null>(null);
   const [eventCap, setEventCap] = useState<number>(TIMELINE_GRAPH_DEFAULT_CAP);
   /** Default on: one node per event; field details in inspector (minimal graph chrome). */
@@ -564,6 +627,31 @@ export default function TimelineKbGraph(props: {
       }),
     [projectId, events, eventCap, compact, eventsOnlyForGraph, layoutMode]
   );
+
+  const focusGraphNodeId = focusEventId ? `tev-${focusEventId}` : null;
+  const lastInspectorSyncedEventIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!focusGraphNodeId || !focusEventId) {
+      lastInspectorSyncedEventIdRef.current = null;
+      return;
+    }
+    const n = nodes.find((x) => x.id === focusGraphNodeId);
+    if (!n || n.kind !== "timelineEvent") return;
+
+    const sync =
+      lastInspectorSyncedEventIdRef.current !== focusEventId ||
+      lastInspectorSyncedEventIdRef.current === null;
+    if (!sync) return;
+
+    lastInspectorSyncedEventIdRef.current = focusEventId;
+    setSelectedNode({
+      id: n.id,
+      kind: n.kind,
+      label: n.label,
+      meta: n.meta,
+    });
+  }, [focusGraphNodeId, focusEventId, nodes]);
 
   if (events.length === 0) {
     return (
@@ -766,10 +854,12 @@ export default function TimelineKbGraph(props: {
         >
           <p className="mb-2 leading-snug">
             <span className="font-medium text-zinc-800 dark:text-zinc-200">Inspector</span> — Click any
-            node for RDF-style fields. With <span className="font-medium">Compact</span> on (default), the
-            graph shows one sphere per event; satellites for timestamp, actor, message, etc. are hidden to
-            reduce clutter. With satellites on, hub/events/materials stay on a flat plane (XY); field notes
-            are offset in depth (Z), with message bubbles a bit farther out.
+            node for RDF-style fields. <span className="font-medium">Hover</span> an event for a tooltip
+            (time · type — short headline from notes / PID / EPCIS). With{" "}
+            <span className="font-medium">Compact</span> on (default), the graph shows one sphere per
+            event; satellites for timestamp, actor, message, etc. are hidden to reduce clutter. With
+            Compact is off, hub/events/materials stay on a flat plane (XY); field notes are offset
+            in depth (Z), with message bubbles a bit farther out.
           </p>
           {layoutMode === "materialFlow" ? (
             <p className="mb-2 text-[11px] leading-snug">
@@ -834,7 +924,7 @@ export default function TimelineKbGraph(props: {
                 title={
                   layoutModeActive === "materialFlow"
                     ? "Teal / green / amber edges as above."
-                    : "Slate: hub → newest event. Orange: each event → next older. Stone: event → field satellites when shown."
+                    : "Slate: hub → oldest event. Orange: each event → next newer. Stone: event → field satellites when shown."
                 }
               >
                 <span className="inline-flex items-center gap-1.5">
@@ -879,6 +969,7 @@ export default function TimelineKbGraph(props: {
         <KgForceGraph3D
           nodes={nodes}
           links={links}
+          focusNodeId={graphViz === "timeline" ? focusGraphNodeId : null}
           forceDirected={graphViz === "force3d"}
           onNodeClick={(n) => {
             if (!n) return;
@@ -892,7 +983,7 @@ export default function TimelineKbGraph(props: {
           onBackgroundClick={() => {}}
           graphOuterClassName={graphOuter}
         />
-        <div className="pointer-events-none absolute right-2 top-12 z-10 w-[min(100%,280px)] max-w-[calc(100%-1rem)] sm:right-3 sm:top-14">
+        <div className="pointer-events-none absolute right-2 top-12 z-10 w-[min(100%,min(22rem,calc(100%-1rem)))] max-w-[calc(100%-1rem)] sm:right-3 sm:top-14">
           <div className="pointer-events-auto flex max-h-[min(72dvh,560px)] w-full flex-col overflow-hidden rounded-lg border border-zinc-200/90 bg-white/95 shadow-lg backdrop-blur-sm dark:border-zinc-700/90 dark:bg-zinc-950/95">
             <div className="shrink-0 border-b border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-900 dark:border-zinc-800 dark:text-zinc-50">
               Summary
@@ -907,8 +998,13 @@ export default function TimelineKbGraph(props: {
               {selectedNode ? (
                 <TimelineNodeInspector node={selectedNode} projectId={projectId} />
               ) : (
-                <div className="text-xs text-zinc-600 dark:text-zinc-300">
-                  Click a node in the graph for fields.
+                <div className="text-xs leading-snug text-zinc-600 dark:text-zinc-300">
+                  Click an event sphere for the full summary. Hover nodes for a short label (time, type,
+                  first line of notes). Open this page with{" "}
+                  <code className="rounded bg-zinc-100 px-0.5 font-mono text-[10px] dark:bg-zinc-800">
+                    ?eventId=
+                  </code>{" "}
+                  to jump here in graph view.
                 </div>
               )}
             </div>

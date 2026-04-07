@@ -9,9 +9,18 @@ import {
   useMemo,
   useRef,
   useState,
+  type ForwardedRef,
   type MutableRefObject,
 } from "react";
 import * as THREE from "three";
+
+import {
+  capExpressIdsForHighlighter,
+  effectiveUniformGhostForTier,
+  ifcHighlightTierFromFocusCount,
+  IFC_HIGHLIGHT_TIER_B_MAX,
+  type IfcHighlightTier,
+} from "@/lib/ifc-highlight-tiers";
 
 /** Hard cap for `ifcLoader.load` — large IFCs can exceed a few minutes on a laptop. */
 const IFC_LOAD_TIMEOUT_MS = 600_000;
@@ -46,6 +55,16 @@ const IFC_FOCUS_VIEW_PADDING = 1.06;
 /** Initial full-model frame after load (same padding); tighter than legacy 1.8×. */
 const IFC_INITIAL_FRAME_FACTOR = 1.08;
 
+/**
+ * While post-load `fragments.core.update` streams LOD/tiles, materials are often rebuilt opaque.
+ * Re-touch uniform ghost every N frames (cheap `setOpacity(undefined, ghost)`) so the canvas does not
+ * “snap back” to full textures until the user orbits (camera `rest` alone is insufficient when static).
+ */
+const IFC_FRAGMENT_GHOST_RETICK_FRAMES = 45;
+
+/** Coalesce rapid URL/sidebar focus changes so each click does not enqueue a full ghost + bbox + highlight pass. */
+const IFC_NAV_FOCUS_DEBOUNCE_MS = 200;
+
 export type BuildingIfcViewerStatus = "idle" | "loading" | "ready" | "error";
 
 export type BuildingIfcViewerStatusPayload = {
@@ -61,6 +80,10 @@ export type BuildingIfcAlphaDiagSnapshot = {
   uniformGhostOpacity: number | null;
   lastEventAtMs: number;
   lastEventLabel: string;
+  /** Nav focus tier from express-id count; null when no URL/sidebar focus. */
+  highlightTier: IfcHighlightTier | null;
+  /** Set when tier C caps ids passed to the Highlighter. */
+  highlightCap: { shown: number; total: number } | null;
 };
 
 /** Click selection from That Open Highlighter (`select` style — lime mesh highlight). */
@@ -162,12 +185,17 @@ type FocusCtx = {
    * Mirrors parent prop; updated every render so queued ops see the latest value.
    */
   uniformGhostEnabledRef: MutableRefObject<boolean>;
+  /**
+   * Effective uniform ghost for **opacity** baseline: tier B/C forces false when many ids are focused
+   * (see `effectiveUniformGhostForTier`). Click re-apply uses this so large selections do not re-dim.
+   */
+  uniformGhostForOpacityRef: MutableRefObject<boolean>;
 };
 
 /** Baseline mesh opacity when not in timeline construction mode (stress → always default). */
 function baselineOpacityIntent(ctx: FocusCtx): FragmentOpacityIntent {
   if (ctx.fragmentsOpacityStressRef.current) return { kind: "default" };
-  if (!ctx.uniformGhostEnabledRef.current) return { kind: "default" };
+  if (!ctx.uniformGhostForOpacityRef.current) return { kind: "default" };
   return { kind: "uniform", opacity: IFC_GHOST_OPACITY };
 }
 
@@ -345,12 +373,14 @@ async function syncFragmentOpacityFromIntent(
   }
 }
 
-/** Clear highlights; restore baseline opacity (ghost or solid per `uniformGhostEnabledRef`). */
+/** Clear highlights; restore baseline opacity (ghost or solid per `uniformGhostForOpacityRef`). */
 async function resetIfcFocusVisualsFull(
   ctx: FocusCtx,
   overlayStyleKeysRef?: MutableRefObject<string[]>
 ) {
   ctx.lastFocusElevateExpressIdsRef.current = null;
+  ctx.alphaDiagRef.current.highlightTier = null;
+  ctx.alphaDiagRef.current.highlightCap = null;
   ctx.lastSyncedOpacityIntentRef.current = null;
   ctx.fragmentOpacityIntentRef.current = baselineOpacityIntent(ctx);
   const { fragments, highlighter } = ctx;
@@ -383,6 +413,8 @@ async function resetIfcFocusVisualsFull(
  */
 async function resetIfcFocusTargetVisuals(ctx: FocusCtx) {
   ctx.lastFocusElevateExpressIdsRef.current = null;
+  ctx.alphaDiagRef.current.highlightTier = null;
+  ctx.alphaDiagRef.current.highlightCap = null;
   ctx.fragmentOpacityIntentRef.current = baselineOpacityIntent(ctx);
   await resetIfcHighlightOnly(ctx);
   await syncFragmentOpacityFromIntent(ctx);
@@ -467,6 +499,26 @@ async function touchUniformOpacityIfNeeded(ctx: FocusCtx): Promise<void> {
   recordAlphaDiag(ctx, "touch: setOpacity(undefined, ghost) — orbit / cheap path");
 }
 
+/**
+ * One “cheap Go” after nav focus: fragments often rematerialize opaque slightly after highlight;
+ * two delayed `touchUniformOpacityIfNeeded` calls (serialized on the ghost queue) without adding
+ * per-frame work or reversing tier/stress modes.
+ */
+function scheduleDeferredUniformGhostTouches(
+  ctx: FocusCtx,
+  ghostQueueRef: MutableRefObject<((op: () => Promise<void>) => Promise<void>) | null>
+) {
+  if (ctx.fragmentsOpacityStressRef.current) return;
+  const runTouch = () => {
+    if (ctx.fragmentOpacityIntentRef.current.kind !== "uniform") return;
+    const enq = ghostQueueRef.current;
+    if (enq) void enq(() => touchUniformOpacityIfNeeded(ctx));
+    else void touchUniformOpacityIfNeeded(ctx);
+  };
+  window.setTimeout(runTouch, 140);
+  window.setTimeout(runTouch, 480);
+}
+
 /** After any bulk `setOpacity(undefined, ghost)` restores uniform dim, lift last nav-focus ids to 1 again. */
 async function reElevateFocusedIdsIfStored(ctx: FocusCtx): Promise<void> {
   const elevated = ctx.lastFocusElevateExpressIdsRef.current;
@@ -529,28 +581,49 @@ async function elevateFocusedExpressIdsOpacity(ctx: FocusCtx, expressIds: number
  */
 async function applyFocusGhostHighlightOnly(
   ctx: FocusCtx,
-  focusExpressIds: number[],
-  idsWithGeom: number[]
+  focusIdsFullSorted: number[],
+  idsWithGeom: number[],
+  tier: IfcHighlightTier,
+  capResult: { capped: number[]; total: number; truncated: boolean }
 ) {
-  const focusSet = new Set(focusExpressIds);
-  if (focusSet.size === 0) {
+  const { capped, total, truncated } = capResult;
+  const focusSetFull = new Set(focusIdsFullSorted);
+  if (focusSetFull.size === 0) {
     ctx.lastFocusElevateExpressIdsRef.current = null;
     return;
   }
 
   console.log("[BuildingIfcViewer][focus-pipeline] applyFocusGhostHighlightOnly: dim → highlightByID → elevate → pump", {
-    expressIds: focusExpressIds.slice(0, 12),
-    total: focusExpressIds.length,
+    expressIds: focusIdsFullSorted.slice(0, 12),
+    total: focusIdsFullSorted.length,
+    tier,
+    highlightIds: capped.slice(0, 12),
+    highlightCount: capped.length,
+    capTruncated: truncated,
   });
 
   const { model, fragments } = ctx;
   const geomSet = new Set(idsWithGeom);
   const hasGeomIndex = idsWithGeom.length > 0;
-  const anyInGeom = [...focusSet].some((id) => !hasGeomIndex || geomSet.has(id));
+  const anyInGeom = focusIdsFullSorted.some((id) => !hasGeomIndex || geomSet.has(id));
   if (hasGeomIndex && !anyInGeom) {
     ctx.lastFocusElevateExpressIdsRef.current = null;
     return;
   }
+
+  const idsForHighlighter = hasGeomIndex
+    ? capped.filter((id) => geomSet.has(id))
+    : [...capped];
+  const focusSetHighlight = new Set(idsForHighlighter);
+  if (focusSetHighlight.size === 0) {
+    ctx.lastFocusElevateExpressIdsRef.current = null;
+    return;
+  }
+
+  ctx.alphaDiagRef.current.highlightTier = tier;
+  ctx.alphaDiagRef.current.highlightCap = truncated
+    ? { shown: idsForHighlighter.length, total }
+    : null;
 
   const skipAllOpacity = ctx.fragmentsOpacityStressRef.current;
 
@@ -564,7 +637,7 @@ async function applyFocusGhostHighlightOnly(
   }
 
   const mid = model.modelId as string;
-  const map: ModelIdMap = { [mid]: focusSet };
+  const map: ModelIdMap = { [mid]: focusSetHighlight };
   if (ctx.highlighter) {
     try {
       await ctx.highlighter.highlightByID(BIM_HIGHLIGHT_STYLE_FOCUS, map, true, false);
@@ -597,9 +670,9 @@ async function applyFocusGhostHighlightOnly(
     !skipAllOpacity &&
     typeof model.setOpacity === "function" &&
     !ctx.fragmentsOpacityStressRef.current &&
-    ctx.uniformGhostEnabledRef.current
+    ctx.uniformGhostForOpacityRef.current
   ) {
-    const toElevate = [...focusSet].sort((a, b) => a - b);
+    const toElevate = [...focusSetHighlight].sort((a, b) => a - b);
     await elevateFocusedExpressIdsOpacity(ctx, toElevate);
   } else {
     ctx.lastFocusElevateExpressIdsRef.current = null;
@@ -757,6 +830,14 @@ async function applyVisualGroupsOverlay(
     if (reservedHighlighterStyleKey(g.styleKey)) continue;
     if (g.expressIds.length === 0) continue;
 
+    const sortedG = [...new Set(g.expressIds)].sort((a, b) => a - b);
+    const overlayTier =
+      sortedG.length > IFC_HIGHLIGHT_TIER_B_MAX
+        ? ifcHighlightTierFromFocusCount(sortedG.length)
+        : null;
+    const overlayCap =
+      overlayTier != null ? capExpressIdsForHighlighter(sortedG, overlayTier).capped : sortedG;
+
     const fallbackHex = `#${OVERLAY_GROUP_PALETTE[paletteIdx % OVERLAY_GROUP_PALETTE.length]
       .toString(16)
       .padStart(6, "0")}`;
@@ -776,7 +857,7 @@ async function applyVisualGroupsOverlay(
       /* noop */
     }
 
-    const map: ModelIdMap = { [mid]: new Set(g.expressIds) };
+    const map: ModelIdMap = { [mid]: new Set(overlayCap) };
     try {
       await highlighter.highlightByID(g.styleKey, map, true, false);
     } catch (e) {
@@ -822,12 +903,25 @@ async function focusCameraOnExpressIds(
     );
   }
   debugManualWholeAlphaRef.current = false;
+
+  const sortedUnique = [...new Set(focusExpressIds)].sort((a, b) => a - b);
+  const tier = ifcHighlightTierFromFocusCount(sortedUnique.length);
+  if (tier == null) {
+    console.warn("[BuildingIfcViewer] focusCameraOnExpressIds: empty tier after non-empty ids");
+    return;
+  }
+  const capResult = capExpressIdsForHighlighter(sortedUnique, tier);
+  const bboxIds = tier === "C" ? capResult.capped : sortedUnique;
+
   console.log("[BuildingIfcViewer][alpha] focusCameraOnExpressIds: focus", {
-    targetCount: focusExpressIds.length,
-    head: focusExpressIds.slice(0, 8),
+    targetCount: sortedUnique.length,
+    head: sortedUnique.slice(0, 8),
+    tier,
+    bboxCount: bboxIds.length,
   });
   console.log("[BuildingIfcViewer][focus-pipeline] focusCameraOnExpressIds: pre-queue (clear bimFocus only)", {
-    targetCount: focusExpressIds.length,
+    targetCount: sortedUnique.length,
+    tier,
   });
 
   await resetIfcHighlightOnly(ctx);
@@ -843,13 +937,12 @@ async function focusCameraOnExpressIds(
   }
   geomIdsCache.current = idsWithGeom;
 
-  const focusSet = new Set(focusExpressIds);
   if (idsWithGeom.length > 0) {
-    const overlap = focusExpressIds.some((id) => idsWithGeom.includes(id));
+    const overlap = sortedUnique.some((id) => idsWithGeom.includes(id));
     if (!overlap) {
       console.warn(
         "[BuildingIfcViewer] no focus expressId intersects items with geometry",
-        focusExpressIds.slice(0, 8)
+        sortedUnique.slice(0, 8)
       );
       geomIdsCache.current = [];
       ctx.lastFocusElevateExpressIdsRef.current = null;
@@ -888,9 +981,9 @@ async function focusCameraOnExpressIds(
     console.log("[BuildingIfcViewer][focus-pipeline] ghost queue: uniform ghost re-applied after updates");
     if (shouldAbort?.()) return;
 
-    const box = await model.getMergedBox(focusExpressIds);
+    const box = await model.getMergedBox(bboxIds);
     if (box.isEmpty()) {
-      console.warn("[BuildingIfcViewer] empty merged bbox for expressIds", focusExpressIds.length);
+      console.warn("[BuildingIfcViewer] empty merged bbox for expressIds", bboxIds.length);
       return;
     }
     if (shouldAbort?.()) return;
@@ -902,8 +995,8 @@ async function focusCameraOnExpressIds(
     // `setLookAt(..., true)` returns a Promise that resolves when the camera rests; applying ghost
     // opacity before that finishes lets animated moves + fragment updates wipe transparency.
     console.log("[BuildingIfcViewer][focus-pipeline] ghost queue: camera fly to merged bbox (targets)", {
-      expressIds: focusExpressIds.slice(0, 6),
-      count: focusExpressIds.length,
+      expressIds: bboxIds.slice(0, 6),
+      count: bboxIds.length,
     });
     await Promise.resolve(
       world.camera.controls.setLookAt(
@@ -920,9 +1013,13 @@ async function focusCameraOnExpressIds(
 
     if (shouldAbort?.()) return;
 
-    await applyFocusGhostHighlightOnly(ctx, focusExpressIds, idsWithGeom);
+    await applyFocusGhostHighlightOnly(ctx, sortedUnique, idsWithGeom, tier, capResult);
     console.log("[BuildingIfcViewer][focus-pipeline] ghost queue: highlight + final ghost/pump done");
   });
+
+  if (!shouldAbort?.()) {
+    scheduleDeferredUniformGhostTouches(ctx, ghostQueueRef);
+  }
 }
 
 type Props = {
@@ -960,10 +1057,15 @@ type Props = {
    * When false, full-opacity materials (Highlighter still shows picks / nav focus).
    */
   uniformGhost?: boolean;
+  /**
+   * With `uniformGhost`, tier **B** (33–256 ids) still uses baseline dim + lift; tier **C** stays solid.
+   * Passports mini preview enables this; main Building tab keeps default **false** (worker safety).
+   */
+  alphaBaselineIgnoreHighlightTier?: boolean;
   className?: string;
 };
 
-const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function BuildingIfcViewer(
+const BuildingIfcViewer = forwardRef(function BuildingIfcViewer(
   {
     projectId,
     ifcSource,
@@ -975,12 +1077,39 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
     onStatusChange,
     onCanvasSelectionChange,
     uniformGhost = true,
+    alphaBaselineIgnoreHighlightTier = false,
     className = "",
   }: Props,
-  ref
+  ref: ForwardedRef<BuildingIfcViewerHandle>
 ) {
   const uniformGhostEnabledRef = useRef(uniformGhost);
   uniformGhostEnabledRef.current = uniformGhost;
+
+  const focusExpressIdsKey =
+    focusExpressIds != null && focusExpressIds.length > 0 ? focusExpressIds.join(",") : "";
+
+  const navFocusTargetIds = useMemo(() => {
+    if (focusExpressIds != null && focusExpressIds.length > 0) {
+      return [...new Set(focusExpressIds)].sort((a, b) => a - b);
+    }
+    if (focusExpressId != null) return [focusExpressId];
+    return null;
+  }, [focusExpressIdsKey, focusExpressId]);
+
+  const navFocusTier = useMemo(
+    () =>
+      navFocusTargetIds != null && navFocusTargetIds.length > 0
+        ? ifcHighlightTierFromFocusCount(navFocusTargetIds.length)
+        : null,
+    [navFocusTargetIds]
+  );
+
+  const uniformGhostForOpacityRef = useRef(uniformGhost);
+  uniformGhostForOpacityRef.current = effectiveUniformGhostForTier(
+    uniformGhost,
+    navFocusTier,
+    alphaBaselineIgnoreHighlightTier
+  );
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const loadRunRef = useRef(0);
@@ -999,6 +1128,8 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
     uniformGhostOpacity: null,
     lastEventAtMs: 0,
     lastEventLabel: "—",
+    highlightTier: null,
+    highlightCap: null,
   });
   const lastOverlayStyleKeysRef = useRef<string[]>([]);
   /** Geometry ids from last full focus; reapply ghost after fragments.core.update clears materials. */
@@ -1011,6 +1142,7 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
   const focusGenerationRef = useRef(0);
   /** When true, keep-alive / debounced ghost reapplies whole-model alpha instead of focus ghost. */
   const debugManualWholeAlphaRef = useRef(false);
+  const focusDebounceTimerRef = useRef<number | null>(null);
   focusExpressIdRef.current = focusExpressId ?? null;
   focusExpressIdsRef.current =
     focusExpressIds != null && focusExpressIds.length > 0 ? focusExpressIds : null;
@@ -1051,6 +1183,8 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
       uniformGhostOpacity: null,
       lastEventAtMs: Date.now(),
       lastEventLabel: "IFC load run started",
+      highlightTier: null,
+      highlightCap: null,
     };
     let disposed = false;
     let cleanup: (() => void) | null = null;
@@ -1074,6 +1208,7 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
       let cancelFocusGateRaf2 = 0;
       let removeCanvasSelectListeners: (() => void) | null = null;
       let removeControlsRestListener: (() => void) | null = null;
+      let removeVisibilityListener: (() => void) | null = null;
       const startedAt = performance.now();
       const debug = (...args: unknown[]) => console.log("[BuildingIfcViewer]", `run#${runId}`, ...args);
       let stallNoticeTimer: number | undefined;
@@ -1248,7 +1383,7 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
                   const c = focusCtxRef.current;
                   if (
                     !c ||
-                    !c.uniformGhostEnabledRef.current ||
+                    !c.uniformGhostForOpacityRef.current ||
                     c.fragmentOpacityIntentRef.current.kind === "default" ||
                     c.fragmentsOpacityStressRef.current
                   ) {
@@ -1472,39 +1607,6 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
         // Focus ghost/highlight runs only when `focusExpressId(s)` / visualGroups change (effects +
         // debug API), not on camera orbit — reapplies were redundant and could OOM the worker.
 
-        // Pump fragments updates for a while after load so tiles/materialized meshes
-        // can be requested and attached even when the camera is initially static.
-        let frameUpdates = 0;
-        let rafId = 0;
-        const tickFragments = () => {
-          frameUpdates += 1;
-          void fragments.core.update(false);
-          if (frameUpdates % 60 === 0) {
-            debug("fragments heartbeat", {
-              frameUpdates,
-              modelChildren: model.object.children.length,
-              modelBusy: Boolean((model as any).isBusy),
-              sceneChildren: world.scene.three.children.length,
-              knownModels: Array.from(fragments.list.values()).map((m: any) => ({
-                modelId: m?.modelId,
-                objectChildren: m?.object?.children?.length ?? 0,
-                isBusy: Boolean(m?.isBusy),
-              })),
-            });
-          }
-          // ~8 seconds at 60fps is usually enough for first visible tiles.
-          if (frameUpdates < 480) {
-            rafId = window.requestAnimationFrame(tickFragments);
-          } else {
-            debug("fragments heartbeat done", {
-              frameUpdates,
-              modelChildren: model.object.children.length,
-              modelBusy: Boolean((model as any).isBusy),
-            });
-          }
-        };
-        rafId = window.requestAnimationFrame(tickFragments);
-
         let geometryItemCount = 0;
         if (typeof (model as any).getItemsIdsWithGeometry === "function") {
           try {
@@ -1586,6 +1688,7 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
           lastFocusElevateExpressIdsRef,
           alphaDiagRef,
           uniformGhostEnabledRef,
+          uniformGhostForOpacityRef,
         };
 
         if (!fragmentsOpacityStressRef.current) {
@@ -1594,6 +1697,10 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
             await syncFragmentOpacityFromIntent(focusCtxRef.current);
           } catch (e) {
             console.warn("[BuildingIfcViewer][alpha] initial mesh opacity sync failed", e);
+            const c0 = focusCtxRef.current;
+            if (c0 && isFragmentsMemoryOverflowError(e)) {
+              markFragmentsOpacityStress(c0, "initial syncFragmentOpacityFromIntent");
+            }
             fragmentOpacityIntentRef.current = { kind: "default" };
             lastSyncedOpacityIntentRef.current = null;
             if (focusCtxRef.current) {
@@ -1602,6 +1709,73 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
             }
           }
         }
+
+        // Pump `fragments.core.update` after baseline ghost is applied so LOD/tiles keep loading.
+        // Each update can rematerialize opaque IFC; re-touch ghost on a throttled cadence and once
+        // when the heartbeat ends (camera `rest` alone misses the static-camera case).
+        let frameUpdates = 0;
+        let rafId = 0;
+        const tickFragments = () => {
+          if (disposed) return;
+          frameUpdates += 1;
+          if (fragments.core && typeof fragments.core.update === "function") {
+            void fragments.core.update(false);
+          }
+          if (frameUpdates % 60 === 0) {
+            debug("fragments heartbeat", {
+              frameUpdates,
+              modelChildren: model.object.children.length,
+              modelBusy: Boolean((model as any).isBusy),
+              sceneChildren: world.scene.three.children.length,
+              knownModels: Array.from(fragments.list.values()).map((m: any) => ({
+                modelId: m?.modelId,
+                objectChildren: m?.object?.children?.length ?? 0,
+                isBusy: Boolean(m?.isBusy),
+              })),
+            });
+          }
+          const ctxTick = focusCtxRef.current;
+          const enqTick = ghostQueueRef.current;
+          if (
+            ctxTick &&
+            enqTick &&
+            ctxTick.fragmentOpacityIntentRef.current.kind === "uniform" &&
+            !ctxTick.fragmentsOpacityStressRef.current &&
+            frameUpdates % IFC_FRAGMENT_GHOST_RETICK_FRAMES === 0
+          ) {
+            void enqTick(async () => {
+              if (disposed) return;
+              const c = focusCtxRef.current;
+              if (!c || c.fragmentOpacityIntentRef.current.kind !== "uniform") return;
+              await touchUniformOpacityIfNeeded(c);
+            });
+          }
+          if (frameUpdates < 480) {
+            rafId = window.requestAnimationFrame(tickFragments);
+          } else {
+            debug("fragments heartbeat done", {
+              frameUpdates,
+              modelChildren: model.object.children.length,
+              modelBusy: Boolean((model as any).isBusy),
+            });
+            const enqDone = ghostQueueRef.current;
+            const cDone = focusCtxRef.current;
+            if (
+              enqDone &&
+              cDone &&
+              cDone.fragmentOpacityIntentRef.current.kind === "uniform" &&
+              !cDone.fragmentsOpacityStressRef.current
+            ) {
+              void enqDone(async () => {
+                if (disposed) return;
+                const c = focusCtxRef.current;
+                if (!c || c.fragmentOpacityIntentRef.current.kind !== "uniform") return;
+                await reapplyUniformGhost(c);
+              });
+            }
+          }
+        };
+        rafId = window.requestAnimationFrame(tickFragments);
 
         const ctrl = world.camera.controls;
         if (ctrl && typeof ctrl.addEventListener === "function") {
@@ -1624,6 +1798,25 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
             ctrl.removeEventListener("rest", onControlsRest);
           };
         }
+
+        const onVisibilityForGhost = () => {
+          if (disposed || document.visibilityState !== "visible") return;
+          const ctxNow = focusCtxRef.current;
+          const enq = ghostQueueRef.current;
+          if (!ctxNow || !enq) return;
+          if (ctxNow.fragmentOpacityIntentRef.current.kind === "default") return;
+          if (ctxNow.fragmentsOpacityStressRef.current) return;
+          void enq(async () => {
+            if (disposed) return;
+            const c = focusCtxRef.current;
+            if (!c || c.fragmentOpacityIntentRef.current.kind === "default") return;
+            await reapplyUniformGhost(c);
+          });
+        };
+        document.addEventListener("visibilitychange", onVisibilityForGhost);
+        removeVisibilityListener = () => {
+          document.removeEventListener("visibilitychange", onVisibilityForGhost);
+        };
 
         console.log(
           "[BuildingIfcViewer][focus-pipeline] load: initial mesh opacity applied → status ready → nav-focus gate in 2× rAF",
@@ -1650,6 +1843,8 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
             setSceneReadyForNavFocus(false);
             removeControlsRestListener?.();
             removeControlsRestListener = null;
+            removeVisibilityListener?.();
+            removeVisibilityListener = null;
             removeCanvasSelectListeners?.();
             removeCanvasSelectListeners = null;
             fragmentOpacityIntentRef.current = { kind: "default" };
@@ -1692,6 +1887,10 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
 
     void run();
     return () => {
+      if (focusDebounceTimerRef.current != null) {
+        window.clearTimeout(focusDebounceTimerRef.current);
+        focusDebounceTimerRef.current = null;
+      }
       console.warn = originalWarn;
       console.log = originalLog;
       disposed = true;
@@ -1701,8 +1900,6 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
     };
   }, [projectId, ifcSource, ifcFetchUrl]);
 
-  const focusExpressIdsKey =
-    focusExpressIds != null && focusExpressIds.length > 0 ? focusExpressIds.join(",") : "";
   const overlayVisualGroupsKey = visualGroupsDependencyKey(visualGroups ?? null);
 
   const constructionVisibleExpressIdsKey = useMemo(() => {
@@ -1763,33 +1960,50 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
       focusExpressIds != null && focusExpressIds.length > 0 ? focusExpressIds : null;
     const single = focusExpressId ?? null;
     const targets = multi ?? (single != null ? [single] : null);
-    console.log("[BuildingIfcViewer][focus-pipeline] focus effect → queue focus job", {
+    console.log("[BuildingIfcViewer][focus-pipeline] focus effect → schedule focus job", {
       mode: multi ? "multi (group)" : single != null ? "single (URL/sidebar)" : "clear",
       targetCount: targets?.length ?? 0,
       head: targets?.slice(0, 6),
+      debounceMs: IFC_NAV_FOCUS_DEBOUNCE_MS,
     });
-    focusGenerationRef.current += 1;
-    const gen = focusGenerationRef.current;
-    const shouldAbort = () => gen !== focusGenerationRef.current;
-    void (async () => {
-      try {
-        await focusCameraOnExpressIds(
-          ctx,
-          targets,
-          geomIdsCacheRef,
-          ghostQueueRef,
-          debugManualWholeAlphaRef,
-          shouldAbort
-        );
-        console.log("[BuildingIfcViewer][focus-pipeline] focus job finished", {
-          generation: gen,
-          aborted: shouldAbort(),
-        });
-      } catch (e) {
-        console.warn("[BuildingIfcViewer] focus expressId(s)", e);
+    if (focusDebounceTimerRef.current != null) {
+      window.clearTimeout(focusDebounceTimerRef.current);
+      focusDebounceTimerRef.current = null;
+    }
+    focusDebounceTimerRef.current = window.setTimeout(() => {
+      focusDebounceTimerRef.current = null;
+      const ctxLive = focusCtxRef.current;
+      if (!ctxLive) {
+        console.log("[BuildingIfcViewer][focus-pipeline] debounced focus skipped: no focus ctx");
+        return;
       }
-    })();
+      focusGenerationRef.current += 1;
+      const gen = focusGenerationRef.current;
+      const shouldAbort = () => gen !== focusGenerationRef.current;
+      void (async () => {
+        try {
+          await focusCameraOnExpressIds(
+            ctxLive,
+            targets,
+            geomIdsCacheRef,
+            ghostQueueRef,
+            debugManualWholeAlphaRef,
+            shouldAbort
+          );
+          console.log("[BuildingIfcViewer][focus-pipeline] focus job finished", {
+            generation: gen,
+            aborted: shouldAbort(),
+          });
+        } catch (e) {
+          console.warn("[BuildingIfcViewer] focus expressId(s)", e);
+        }
+      })();
+    }, IFC_NAV_FOCUS_DEBOUNCE_MS);
     return () => {
+      if (focusDebounceTimerRef.current != null) {
+        window.clearTimeout(focusDebounceTimerRef.current);
+        focusDebounceTimerRef.current = null;
+      }
       focusGenerationRef.current += 1;
     };
   }, [
@@ -1799,6 +2013,7 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
     sceneReadyForNavFocus,
     constructionVisibleExpressIds,
     uniformGhost,
+    alphaBaselineIgnoreHighlightTier,
   ]);
 
   useEffect(() => {
@@ -1865,6 +2080,8 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
         overlayStyleKeys: [...lastOverlayStyleKeysRef.current],
         debugWholeGraphAlphaMode: debugManualWholeAlphaRef.current,
         uniformGhostEnabled: uniformGhostEnabledRef.current,
+        uniformGhostForOpacity: uniformGhostForOpacityRef.current,
+        navFocusTier,
         geomIdsCacheLength: geomIdsCacheRef.current.length,
         focusExpressId: focusExpressIdRef.current,
         focusExpressIdsHead:
@@ -1874,7 +2091,7 @@ const BuildingIfcViewer = forwardRef<BuildingIfcViewerHandle, Props>(function Bu
         focusExpressIdsTotal: focusExpressIdsRef.current?.length ?? 0,
       }),
     }),
-    [message, status]
+    [message, status, navFocusTier]
   );
 
   return (

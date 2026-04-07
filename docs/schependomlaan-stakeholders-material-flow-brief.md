@@ -113,6 +113,7 @@ That **`Material`** string is the **event-log convention** tying schedule rows t
 
 - **`data/schependomlaan-2015-deliveries.ttl`** contains **example / demo** delivery lines (e.g. **Wienerberger NV**, **Porotherm 38 T Profi**, etc.) used to exercise **`dpp:DeliveryNote`** / **`dpp:DeliveryLine`** and EPD matching — **not** proven in-repo as OCR of a real Schependomlaan leveringsbon tied to `expressId` 1004073.
 - For a **real** leveringsbon workflow, see **`docs/deliveries-importer-integration.md`** and the ingest API described in `docs/BASE.md`.
+- How leveringsbon and **werfverslag**-style evidence land on **`/timeline`** (sort order, `eventAction`): **`docs/timeline-first-and-document-matching.md`**.
 
 ### Werkbon (site work order)
 

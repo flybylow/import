@@ -189,3 +189,42 @@ export function passportPartitionFromPassportRow(args: {
   }
   return undefined;
 }
+
+/** Characters often confused with the passport middle dot (` · `) in URLs or copy-paste. */
+const PASSPORT_GROUP_DOT_CLASS = "[\u00B7\u2219\u2022\u30FB\u2027\u22C5]";
+
+/**
+ * NFC, NBSP→space, collapse whitespace, and canonicalize the IFC-type / partition separator to ` · `
+ * so `?group=` survives encoding and copy-paste variants.
+ */
+export function normalizePassportGroupLookupKey(raw: string): string {
+  const s = raw.normalize("NFC").replace(/\u00a0/g, " ").trim();
+  const collapsed = s.replace(/\s+/g, " ");
+  const re = new RegExp(`^(.+?)\\s*${PASSPORT_GROUP_DOT_CLASS}\\s*(.+)$`);
+  const m = collapsed.match(re);
+  if (m) {
+    return `${m[1].trim()} · ${m[2].trim()}`.replace(/\s+/g, " ");
+  }
+  return collapsed;
+}
+
+/**
+ * Map deep-link `?group=` to the exact `typeGroupKey` present in the current batch (exact → normalized → case-insensitive).
+ */
+export function resolvePassportGroupKeyFromUrl(
+  urlGroupKey: string,
+  sortedTypeKeys: readonly string[],
+): string | null {
+  const g = (urlGroupKey ?? "").trim();
+  if (!g) return null;
+  if (sortedTypeKeys.includes(g)) return g;
+  const want = normalizePassportGroupLookupKey(g);
+  for (const k of sortedTypeKeys) {
+    if (normalizePassportGroupLookupKey(k) === want) return k;
+  }
+  const wantLo = want.toLowerCase();
+  for (const k of sortedTypeKeys) {
+    if (normalizePassportGroupLookupKey(k).toLowerCase() === wantLo) return k;
+  }
+  return null;
+}

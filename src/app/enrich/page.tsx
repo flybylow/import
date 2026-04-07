@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { appContentWidthClass } from "@/lib/app-page-layout";
 
 type EnrichResponse = {
   projectId: string;
@@ -298,7 +299,7 @@ export default function EnrichMvpPage() {
   }, [result?.ttlPath]);
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto p-6 flex flex-col gap-4">
+    <div className={`${appContentWidthClass} flex flex-col gap-4 py-6`}>
       <h1 className="text-2xl font-semibold">Phase 2 - Link</h1>
       <p className="text-sm text-zinc-700 dark:text-zinc-200">
         MVP for Phase 2: run enrich/translate and prepare link results. Graph and

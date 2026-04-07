@@ -1,6 +1,6 @@
 {
   "projectId": "f01adaf1-a660-46d2-aecd-8ad95505207f",
-  "calculationId": "2026-04-06T12:53:10.568Z",
+  "calculationId": "2026-04-06T17:45:37.567Z",
   "cached": false,
   "totalKgCO2e": 1687718.419165,
   "selectedCount": 319,
@@ -8036,8 +8036,9 @@
   ],
   "meta": {
     "methodology": "IFC quantity totals (from enriched graph) × GWP/density from Phase 2 KB TTL (`ont:gwpPerUnit`, `ont:density`, `ont:declaredUnit`). Phase A gate: EPD must not be `ont:epdDataProvenance` placeholder routing-only and must have `ont:gwpPerUnit`.",
-    "calculatedAt": "2026-04-06T12:53:10.568Z",
+    "calculatedAt": "2026-04-06T17:45:37.567Z",
     "apiVersion": 2,
-    "kbPathUsed": "data/f01adaf1-a660-46d2-aecd-8ad95505207f-kb.ttl"
+    "kbPathUsed": "data/f01adaf1-a660-46d2-aecd-8ad95505207f-kb.ttl",
+    "bestekCouplingSignatureSha256": "ec42eace48cbc1498f4e65844c73751fbff3275ce01c02ea9478c28480a0d80e"
   }
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { appContentWidthClass } from "@/lib/app-page-layout";
 import {
   provenanceLinkIsExternal,
   timelineProvenanceForEvent,
@@ -66,7 +67,7 @@ function BundlePrimaryLinks(props: { bundle: TimelineProvenanceBundle }) {
 
 export default function TimelineProvenancePage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <div className={`${appContentWidthClass} py-8`}>
       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         Timeline
       </p>

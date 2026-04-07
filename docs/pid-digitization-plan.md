@@ -8,7 +8,9 @@ This document ties the **Postinterventiedossier (PID)** digitization vision to *
 - Close the gap between **design/BIM**, **delivered products**, and **evidence** (EPD, leveringsbon, site reports).
 - Reuse the existing **IFC → enriched TTL → KB → passports → calculate** pipeline where possible.
 
-Related internal docs: `docs/bim-to-kg-journey.md`, `docs/sources-contract.md`, `docs/kg-expansion-sources-benelux-eu.md`, `docs/deliveries-importer-integration.md` (leveringsbon ingest, `data/` persistence, timeline).
+Related internal docs: `docs/bim-to-kg-journey.md`, `docs/sources-contract.md`, `docs/kg-expansion-sources-benelux-eu.md`, `docs/deliveries-importer-integration.md` (leveringsbon ingest, `data/` persistence, timeline), `docs/timeline-first-and-document-matching.md` (timeline sort order; leveringsbon vs werfverslag → `eventAction`; `src/lib/timeline-document-matching.ts`), `docs/pid-lifecycle-timeline-events.md` (Belgian reference lifecycle Phase 0–9 → timeline mapping plan), [`docs/unified-construction-lifecycle-tabulas.md`](unified-construction-lifecycle-tabulas.md) (full stakeholder lifecycle + Tabulas capture summary).
+
+**Current snapshot (shipped / near-term / milestone IDs):** [`docs/roadmap-milestones.md`](roadmap-milestones.md).
 
 ---
 
@@ -120,5 +122,6 @@ Use this as a standing checklist; track answers in PRs or a short `docs/` addend
 
 ## Revision history
 
+- 2026-04-06: Linked **`docs/roadmap-milestones.md`** as the living “what’s shipped / what’s next” snapshot (see Related internal docs above).
 - 2026-04-03: Initial plan (product tiers + repo alignment + phased roadmap).
 - 2026-04-03: Phase A pilot shipped in-app: **`/calculate` → Compliance (pilot)** (`src/lib/compliance-pilot.ts`, `ifcFireRating` on element passports). See **`docs/compliance-data-checklist.md`** for external data tasks.

@@ -1,0 +1,354 @@
+[
+  {
+    "group_id": "group_beam_unspecified_001",
+    "ifc_type": "IfcBeam",
+    "element_count": 174,
+    "material_slug": "concrete_general",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_building_unspecified_002",
+    "ifc_type": "IfcBuilding",
+    "element_count": 1,
+    "material_slug": "concrete_general",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_buildingelementpart_unspecified_003",
+    "ifc_type": "IfcBuildingElementPart",
+    "element_count": 277,
+    "material_slug": "masonry_brick",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_buildingelementproxy_unspecified_004",
+    "ifc_type": "IfcBuildingElementProxy",
+    "element_count": 27,
+    "material_slug": "masonry_brick",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_buildingstorey_unspecified_005",
+    "ifc_type": "IfcBuildingStorey",
+    "element_count": 6,
+    "material_slug": "concrete_general",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_column_unspecified_006",
+    "ifc_type": "IfcColumn",
+    "element_count": 23,
+    "material_slug": "concrete_general",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_afdekker_007",
+    "ifc_type": "IfcCovering",
+    "element_count": 110,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_afschotisolatie_008",
+    "ifc_type": "IfcCovering",
+    "element_count": 2,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_aftimmering_009",
+    "ifc_type": "IfcCovering",
+    "element_count": 6,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_betontegels_010",
+    "ifc_type": "IfcCovering",
+    "element_count": 231,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_boeideel_011",
+    "ifc_type": "IfcCovering",
+    "element_count": 14,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_buitenblad_012",
+    "ifc_type": "IfcCovering",
+    "element_count": 17,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_dak_dakkapel_013",
+    "ifc_type": "IfcCovering",
+    "element_count": 8,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_dakisolatie_014",
+    "ifc_type": "IfcCovering",
+    "element_count": 3,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_dakopstand_015",
+    "ifc_type": "IfcCovering",
+    "element_count": 32,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_dakpan_vlak_016",
+    "ifc_type": "IfcCovering",
+    "element_count": 14,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_dakschroot_017",
+    "ifc_type": "IfcCovering",
+    "element_count": 8,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_gevelisolatie_018",
+    "ifc_type": "IfcCovering",
+    "element_count": 208,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_gipsplafond_019",
+    "ifc_type": "IfcCovering",
+    "element_count": 3,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_gootplafond_020",
+    "ifc_type": "IfcCovering",
+    "element_count": 12,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_insulation_021",
+    "ifc_type": "IfcCovering",
+    "element_count": 99,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_isolatie_022",
+    "ifc_type": "IfcCovering",
+    "element_count": 2,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_kantafwerking_023",
+    "ifc_type": "IfcCovering",
+    "element_count": 27,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_kantplank_024",
+    "ifc_type": "IfcCovering",
+    "element_count": 14,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_muurafdekker_025",
+    "ifc_type": "IfcCovering",
+    "element_count": 7,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_plafond_026",
+    "ifc_type": "IfcCovering",
+    "element_count": 2,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_plat_dak_027",
+    "ifc_type": "IfcCovering",
+    "element_count": 2,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_vensterbank_028",
+    "ifc_type": "IfcCovering",
+    "element_count": 58,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_vloertegelwerk_029",
+    "ifc_type": "IfcCovering",
+    "element_count": 20,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_wandtegelwerk_030",
+    "ifc_type": "IfcCovering",
+    "element_count": 111,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_wandtegelwerk_031",
+    "ifc_type": "IfcCovering",
+    "element_count": 10,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_waterslag_032",
+    "ifc_type": "IfcCovering",
+    "element_count": 34,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_covering_zinkwerk_033",
+    "ifc_type": "IfcCovering",
+    "element_count": 208,
+    "material_slug": "ceramic_tile",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_distributionelement_unspecified_034",
+    "ifc_type": "IfcDistributionElement",
+    "element_count": 13,
+    "material_slug": "steel",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_door_unspecified_035",
+    "ifc_type": "IfcDoor",
+    "element_count": 205,
+    "material_slug": "timber",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_flowsegment_unspecified_036",
+    "ifc_type": "IfcFlowSegment",
+    "element_count": 60,
+    "material_slug": "steel",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_member_unspecified_037",
+    "ifc_type": "IfcMember",
+    "element_count": 9,
+    "material_slug": "steel",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_railing_unspecified_038",
+    "ifc_type": "IfcRailing",
+    "element_count": 90,
+    "material_slug": "steel",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_slab_unspecified_039",
+    "ifc_type": "IfcSlab",
+    "element_count": 279,
+    "material_slug": "concrete_general",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_space_unspecified_040",
+    "ifc_type": "IfcSpace",
+    "element_count": 100,
+    "material_slug": "",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_stair_unspecified_041",
+    "ifc_type": "IfcStair",
+    "element_count": 9,
+    "material_slug": "concrete_general",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_wall_unspecified_042",
+    "ifc_type": "IfcWall",
+    "element_count": 652,
+    "material_slug": "masonry_brick",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_wallstandardcase_unspecified_043",
+    "ifc_type": "IfcWallStandardCase",
+    "element_count": 282,
+    "material_slug": "masonry_brick",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  },
+  {
+    "group_id": "group_window_unspecified_044",
+    "ifc_type": "IfcWindow",
+    "element_count": 259,
+    "material_slug": "aluminium_window_frame",
+    "created_by": "architect",
+    "created_at": "2026-04-06T19:36:27.079Z"
+  }
+]

@@ -80,11 +80,11 @@ function ViewTopBar(props: {
           View model
         </Link>
         <Link
-          href="/workflow"
+          href="/workflow?step=dashboard"
           className="shrink-0 text-sm font-medium text-violet-800 hover:underline dark:text-violet-200"
-          title="Full pipeline for this project id (writes under data/ for that id — not a dry run) → opens BIM viewer"
+          title="Workflow step 3 — overview and traceability readiness (Back to setup to run pipeline)"
         >
-          Dynamic run
+          Dashboard
         </Link>
         <span className="hidden text-xs text-zinc-500 sm:inline dark:text-zinc-400">
           bimimport
@@ -177,7 +177,14 @@ function ModelListSidebar(props: {
         const res = await fetch("/api/parse", { method: "POST", body: fd });
         if (!res.ok) {
           const t = await res.text();
-          throw new Error(t || res.statusText);
+          let msg = t || res.statusText;
+          try {
+            const j = JSON.parse(t) as { error?: string };
+            if (typeof j.error === "string" && j.error.trim()) msg = j.error.trim();
+          } catch {
+            /* keep plain text body */
+          }
+          throw new Error(msg);
         }
         const data = (await res.json()) as {
           projectId?: string;

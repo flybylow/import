@@ -3,13 +3,14 @@
 import dynamic from "next/dynamic";
 import { Suspense, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { appContentWidthClass } from "@/lib/app-page-layout";
 
 const MainNavHeader = dynamic(() => import("@/components/MainNavHeader"), {
   ssr: false,
   loading: () => (
     <header className="shrink-0 border-b border-zinc-200 dark:border-zinc-800">
       <div
-        className="mx-auto flex h-[52px] min-h-[52px] w-full max-w-[1400px] items-center px-6"
+        className={`${appContentWidthClass} flex h-[52px] min-h-[52px] items-center`}
         aria-busy="true"
         aria-label="Loading navigation"
       />

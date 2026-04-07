@@ -22,12 +22,26 @@ type Props = {
   projectId: string;
   selectedExpressId: number | null;
   className?: string;
-  /** Default: collapsible chip in the tools dock. `rightRail`: full-height right column, always open (does not share pointer-events with canvas overlay). */
-  layout?: "dock" | "rightRail";
+  /**
+   * `dock`: collapsible chip + floating panel (legacy toolbar).
+   * `leftRail` / `rightRail`: full-height column, always open (for fixed side rails beside the canvas).
+   */
+  layout?: "dock" | "leftRail" | "rightRail";
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   /** Focus another expressId in the viewer + URL (spatial parents / siblings). */
   onNavigateExpressId?: (id: number) => void;
+  /**
+   * When `/bim` has `materialSlug` + a highlighted instance set: context for Inspect (representative
+   * element + switching instances without clearing the 3D group).
+   */
+  materialGroupContext?: {
+    slug: string;
+    instanceCount: number;
+    expressIds: number[];
+  } | null;
+  /** If set, instance shortcuts keep `materialSlug` in the URL (unlike canvas pick, which clears the group). */
+  onPickMaterialGroupInstance?: (id: number) => void;
 };
 
 function passportSourceLabel(p: Phase4ElementPassport): string {
@@ -122,8 +136,10 @@ export default function BimIfcElementInfoPanel({
   open: openProp,
   onOpenChange,
   onNavigateExpressId,
+  materialGroupContext = null,
+  onPickMaterialGroupInstance,
 }: Props) {
-  const isRail = layout === "rightRail";
+  const isRail = layout === "rightRail" || layout === "leftRail";
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = openProp !== undefined;
   const open = isRail ? true : isControlled ? openProp : internalOpen;
@@ -213,7 +229,10 @@ export default function BimIfcElementInfoPanel({
   const timelineHref = `/timeline?projectId=${encodeURIComponent(projectId)}`;
   const calculateHref = `/calculate?projectId=${encodeURIComponent(projectId)}`;
 
-  const railShellClass = `h-full min-h-0 max-h-none min-w-0 w-full rounded-none ${BIM_GLASS_OPEN}`;
+  const railShellClass =
+    layout === "leftRail"
+      ? `h-full min-h-0 max-h-none min-w-0 w-full rounded-r-lg border-r border-white/[0.08] ${BIM_GLASS_OPEN}`
+      : `h-full min-h-0 max-h-none min-w-0 w-full rounded-none ${BIM_GLASS_OPEN}`;
 
   const navBtn =
     "w-full rounded border border-white/15 bg-black/20 px-2 py-1 text-left text-[10px] font-medium text-sky-100 hover:border-sky-400/40 hover:bg-white/[0.06]";
@@ -262,7 +281,21 @@ export default function BimIfcElementInfoPanel({
             className={`min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-2 py-1.5 ${BIM_PANEL_SCROLL}`}
           >
             {primaryExpressId == null ? (
-              <p className="text-[10px] text-zinc-600">—</p>
+              materialGroupContext != null && materialGroupContext.instanceCount > 0 ? (
+                <div className="space-y-2 text-[10px] text-zinc-300">
+                  <p className="leading-snug text-zinc-400">
+                    Material group{" "}
+                    <span className="font-mono text-cyan-200/90">{materialGroupContext.slug}</span>
+                    <span className="text-zinc-500">
+                      {" "}
+                      · {materialGroupContext.instanceCount} instances in 3D. Passport data is loading
+                      or missing a representative id — pick an element on the model.
+                    </span>
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[10px] text-zinc-600">—</p>
+              )
             ) : loading ? (
               <p className="text-zinc-500">…</p>
             ) : error ? (
@@ -285,6 +318,51 @@ export default function BimIfcElementInfoPanel({
                     {passport.ifcType?.trim() || "—"}
                   </p>
                 </header>
+
+                {materialGroupContext != null &&
+                materialGroupContext.instanceCount > 0 &&
+                materialGroupContext.expressIds.includes(primaryExpressId) ? (
+                  <div className="rounded border border-cyan-500/35 bg-cyan-950/45 px-2 py-1.5 text-[9px] leading-snug text-cyan-100/95">
+                    <p>
+                      <span className="font-medium text-cyan-200">Material group</span>{" "}
+                      <span className="font-mono text-cyan-100/90">{materialGroupContext.slug}</span>
+                      <span className="text-zinc-400">
+                        {" "}
+                        · {materialGroupContext.instanceCount} instances highlighted · inspecting{" "}
+                        <span className="font-mono tabular-nums text-cyan-200">#{primaryExpressId}</span>
+                      </span>
+                    </p>
+                    <p className="mt-1 text-zinc-500">
+                      Canvas pick clears the group. Use the list to switch instances and keep the group.
+                    </p>
+                    {onPickMaterialGroupInstance && materialGroupContext.expressIds.length > 1 ? (
+                      <ul className="mt-1.5 max-h-28 space-y-0.5 overflow-y-auto overscroll-contain border-t border-cyan-500/20 pt-1.5 font-mono text-[9px]">
+                        {materialGroupContext.expressIds.slice(0, 16).map((id) => (
+                          <li key={id}>
+                            <button
+                              type="button"
+                              onClick={() => onPickMaterialGroupInstance(id)}
+                              className={`w-full rounded px-1.5 py-0.5 text-left hover:bg-white/[0.06] ${
+                                id === primaryExpressId ? "bg-white/[0.08] text-cyan-50" : "text-zinc-300"
+                              }`}
+                            >
+                              #{id}
+                              {id === primaryExpressId ? (
+                                <span className="ml-1 text-zinc-500">· current</span>
+                              ) : null}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {materialGroupContext.expressIds.length > 16 ? (
+                      <p className="mt-1 text-zinc-500">
+                        +{materialGroupContext.expressIds.length - 16} more — pick on the model to
+                        clear the group and focus freely.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {(() => {
                   const layers = carbonLayersSorted(passport.materials);

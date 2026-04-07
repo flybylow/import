@@ -15,6 +15,7 @@ import TruncatedWithTooltip from "@/components/TruncatedWithTooltip";
 import { dbg, dbgButton, dbgLoad } from "@/lib/client-pipeline-debug";
 import { groupMaterialCalcRows } from "@/lib/calculate-material-groups";
 import { pickIfcQuantitiesForLcaCompact } from "@/lib/ifc-quantity-compact";
+import { appContentWidthClass } from "@/lib/app-page-layout";
 import { useProjectId } from "@/lib/useProjectId";
 
 /** Labels for compact quantity chips — full IFC names; abbreviations are parsed in `phase3-carbon-calc`. */
@@ -666,7 +667,7 @@ export default function CalculatePrepPage() {
   }, [calculateResult]);
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto p-6 flex flex-col gap-4">
+    <div className={`${appContentWidthClass} flex flex-col gap-4 py-6`}>
       <h1 className="text-2xl font-semibold">Phase 3 - Calculate Dashboard</h1>
       <p className="text-sm text-zinc-700 dark:text-zinc-200">
         Final-stage overview for this project: readiness, selection, calculation,

@@ -1,6 +1,6 @@
 # Building IFC viewer — opacity, ghost mode, stress, and highlighting
 
-Internal reference for **`BuildingIfcViewer`** (`src/features/bim-viewer/components/BuildingIfcViewer.tsx`). Complements **`docs/PRD-browser-3d-ifc-and-vr.md`** (load path, WASM, fragments worker). *Last updated: 2026-04-06.*
+Internal reference for **`BuildingIfcViewer`** (`src/features/bim-viewer/components/BuildingIfcViewer.tsx`). Complements **`docs/PRD-browser-3d-ifc-and-vr.md`** (load path, WASM, fragments worker). *Last updated: 2026-04-06 (§10 highlight tiers).*
 
 ---
 
@@ -70,6 +70,8 @@ Uniform ghost first tries **`model.setOpacity(undefined, opacity)`** (whole mode
 
 **Orbit controls:** opacity is **not** reapplied every **`change`** event (that flooded the worker → overflow). **`controls` `rest`** (end of drag) and targeted **`touchUniformOpacityIfNeeded`** paths re-dim cheaply and **re-elevate** **`lastFocusElevateExpressIdsRef`**.
 
+**Post-load fragment heartbeat:** for ~480 frames after the first successful ghost sync, the viewer pumps **`fragments.core.update(false)`** so tiles stream in while the camera may stay still. That path rematerializes opaque IFC often, so we **re-touch uniform ghost every `IFC_FRAGMENT_GHOST_RETICK_FRAMES`** (serialized through the ghost queue) and run **`reapplyUniformGhost` once** when the heartbeat ends. Returning to the tab (**`visibilitychange` → visible**) runs **`reapplyUniformGhost`** again. A literal “snapshot” of transparent materials is not exposed by the fragments pipeline; this keep-alive matches the intent without reloading the IFC.
+
 ---
 
 ## 6. Highlighter style names (conventions)
@@ -105,7 +107,48 @@ Console prefixes: **`[BuildingIfcViewer][alpha]`**, **`[BuildingIfcViewer][focus
 
 ---
 
-## 10. Related files
+## 10. Highlight tiers (group size, URL, and which APIs should run)
+
+**Goal:** Keep **express ids** and optional **group keys** in the URL as the stable “what’s selected,” but **vary the fragment workload** by how many ids are in play. The fragments worker does not scale to “all doors” with the same path as “one door.”
+
+### 10.1 Data vs visuals
+
+| Layer | Responsibility | Update frequency |
+|--------|----------------|------------------|
+| **Data** | `groupKey → expressId[]` (and optional `expressId → metadata`) from parse/KB/index | Build **once per IFC load** (or when the project’s model changes); URL only picks **group** and/or **expressId**. |
+| **Visuals** | Ghost, `setOpacity` lifts, `highlightByID`, camera | **On selection change** only; must respect **stress mode** (§3) and never re-run bulk work on unrelated UI updates. |
+
+### 10.2 Tier policy (defaults for implementation)
+
+Constants below are **product defaults**—wire them as named values in code when tiering is implemented; chunk sizes in §4 remain separate tuning knobs.
+
+| Tier | Typical case | Approx. id count (with geometry) | Uniform ghost (`ghost=1`) | Per-id `setOpacity(…, 1)` lift | `highlightByID` (`bimFocus` or overlay style) | Camera |
+|------|----------------|----------------------------------|----------------------------|--------------------------------|-----------------------------------------------|--------|
+| **A — Focus** | Single element, small multi-select | **≤ 32** | Allowed if URL/parent enables ghost | **Yes** — full `applyFocusGhostHighlightOnly` | **Yes** | Fly to merged bbox of focus ids |
+| **B — Group** | Floor, wing, modest subset | **33–256** | **Prefer off** (`ghost=0`) or keep ghost **without** lifting every id | **No** (or cap lifts to Tier A size and log) | **Yes** — one `ModelIdMap` per style; avoid repeated clear/highlight loops | Fit bbox of **highlighted** ids only if count is acceptable; else gentle zoom or no auto-zoom |
+| **C — Type-wide** | All `IfcDoor`, all windows, etc. | **> 256** | **Off** | **No** | **Capped** — e.g. highlight first **64** ids; UI shows “showing 64 of *n*” OR skip mesh highlight and use **Passports / `BimViewer3D`** for overview | **No** auto fly-to-merged-box on huge sets (bbox/merge too heavy) |
+
+**Rules:**
+
+1. **Stress mode** overrides everything: if `fragmentsOpacityStressRef` is true, only **default** materials + minimal Highlighter attempts (see existing short-circuits in `BuildingIfcViewer.tsx`).
+2. **`highlightByID` is not free** at scale (§3 triggers). Tier C must not pass unbounded `Set` sizes; cap or split across frames only if That Open APIs stay stable (prefer cap + honest UI).
+3. **Abstract vs mesh:** Tier C can **deep-link** to a single `expressId` for full mesh focus (Tier A) while the type-wide view stays list or box view — see PRD §2.2.
+
+### 10.3 URL contract (informal)
+
+- **`expressId`** — primary mesh focus when present (Tier A behavior when alone).
+- **`group`** (or equivalent) — resolves to id list via **cached** map; tier is derived from **resolved count**, not from string length.
+- **`ghost`** — when `0`, baseline opacity stays **default**; large groups should default or coerce to Tier B/C behavior even if user toggles ghost on (implementation choice: clamp or ignore ghost for huge sets).
+
+### 10.4 Implementation status
+
+Tiering is implemented: **`src/lib/ifc-highlight-tiers.ts`** (thresholds + caps; optional **`relaxThroughTierB`** on `effectiveUniformGhostForTier` for small-surface UIs), **`BuildingIfcViewer.tsx`** (bbox subset in tier C, Highlighter cap, per-id opacity lift whenever uniform baseline is active — not tier-A-only), **`PassportIfcMiniPreview`** sets **`alphaBaselineIgnoreHighlightTier`** so tier **B** groups still get baseline dim + lift on the passports canvas (tier **C** unchanged). After each nav-focus job, two delayed **`touchUniformOpacityIfNeeded`** calls (ghost queue) help when fragments rematerialize opaque slightly after highlight. **`applyVisualGroupsOverlay`** caps groups larger than tier B, **`bim/page.tsx`** banner for tier B/C material groups. See [`docs/building-ifc-viewer-opacity-tier-implementation.md`](building-ifc-viewer-opacity-tier-implementation.md).
+
+**Workflow / Building deep links:** URLs with `from=workflow` and Building view default to **`ghost=0`** (solid materials) when `ghost` is omitted, and the page **rewrites** the query to add `ghost=0` so uniform ghost does not run a full-model `setOpacity` pass on huge IFCs (fragments worker memory overflow). **`bimBuildingElementHref`** always includes `ghost=0`. Nav focus is **debounced** (~200ms) to reduce overload when clicking rapidly.
+
+---
+
+## 11. Related files
 
 | File | Notes |
 |------|--------|
@@ -113,3 +156,5 @@ Console prefixes: **`[BuildingIfcViewer][alpha]`**, **`[BuildingIfcViewer][focus
 | `src/app/bim/page.tsx` | `uniformGhost` / URL `ghost`, `focusExpressId`, `visualGroups`, material-slug visualizer |
 | `PassportIfcMiniPreview.tsx` | Embeds Building viewer for passport context |
 | `docs/PRD-browser-3d-ifc-and-vr.md` | Stack, WASM, worker, abstract vs building |
+
+**Highlight tiers (§10):** add tier resolution + caps where `focusExpressIds` / `visualGroups` are built (`bim/page.tsx`, passport panels, workflow deep links).

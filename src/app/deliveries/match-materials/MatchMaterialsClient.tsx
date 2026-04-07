@@ -7,10 +7,11 @@ import Button from "@/components/Button";
 import ProjectIdField from "@/components/ProjectIdField";
 import { useToast } from "@/components/ToastProvider";
 import { bestekCategoryDisplayLabel } from "@/lib/bestek/bestek-category-ui";
-import { defaultMaterialSlugForIfcType } from "@/lib/bestek/ifc-type-material-defaults";
+import { suggestedMaterialSlugForBestekGroup } from "@/lib/bestek/ifc-type-material-defaults";
 import { filterBestekFormGroupsByIfcType } from "@/lib/bestek/phase0-excluded-ifc-types";
 import { passportDisplayTypeGroupKey } from "@/lib/ifc-passport-type-group";
 import { bimPassportsGroupHref } from "@/lib/passport-navigation-links";
+import { appContentWidthClass } from "@/lib/app-page-layout";
 import { useProjectId } from "@/lib/useProjectId";
 
 type FormGroup = {
@@ -117,7 +118,7 @@ export default function MatchMaterialsClient() {
         next[gr.group_id] = {
           material_slug:
             ex?.material_slug?.trim() ??
-            defaultMaterialSlugForIfcType(gr.ifc_type),
+            suggestedMaterialSlugForBestekGroup(gr.ifc_type, gr.partition),
           notes: ex?.notes?.trim() ?? "",
         };
       }
@@ -185,7 +186,7 @@ export default function MatchMaterialsClient() {
   }, [projectId, groups, rows, createdBy, showToast]);
 
   return (
-    <div className="mx-auto box-border w-full min-w-0 max-w-[1024px] px-4 py-8 space-y-8 sm:px-6">
+    <div className={`${appContentWidthClass} box-border space-y-8 py-8`}>
       <header className="space-y-2 border-b border-zinc-200 pb-6 dark:border-zinc-800">
         <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
           Deliveries · Bestek
@@ -203,16 +204,16 @@ export default function MatchMaterialsClient() {
         </p>
         <nav className="flex flex-wrap gap-4 text-sm">
           <Link
-            href="/deliveries"
+            href={`/deliveries?tab=ingest&projectId=${encodeURIComponent(projectId)}`}
             className="text-emerald-700 dark:text-emerald-400 hover:underline"
           >
             ← Deliveries
           </Link>
           <Link
-            href={`/deliveries?tab=bestek&projectId=${encodeURIComponent(projectId)}`}
+            href={`/deliveries?tab=specification&projectId=${encodeURIComponent(projectId)}`}
             className="text-emerald-700 dark:text-emerald-400 hover:underline"
           >
-            Bestek Dictionary tab
+            Specification tab
           </Link>
         </nav>
       </header>

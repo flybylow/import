@@ -9,7 +9,15 @@ import ProjectIdField from "@/components/ProjectIdField";
 import { useToast } from "@/components/ToastProvider";
 import { useProjectId } from "@/lib/useProjectId";
 import { EPCIS_JSON_SEPARATOR, getEpcisHumanNotesForRow } from "@/lib/timeline/epcis";
-import type { TimelineBestekBindingFields, TimelineEpcisFields } from "@/lib/timeline-events";
+import type {
+  TimelineBestekBindingFields,
+  TimelineEpcisFields,
+  TimelinePidReferenceFields,
+} from "@/lib/timeline-events";
+import {
+  PID_MILESTONE_LABELS,
+  isPidMilestoneKey,
+} from "@/lib/timeline-pid-milestones";
 import {
   extractIfcCategoryFromTitle,
   formatUtcMonthRail,
@@ -101,7 +109,73 @@ type ParsedRow = {
   bcfFields?: { ifcGuid?: string; bcfIfcGuidsJson?: string };
   bestekBindingFields?: TimelineBestekBindingFields;
   bestekBindingSaveBatchId?: string;
+  pidReferenceFields?: TimelinePidReferenceFields;
 };
+
+const MANUAL_FORM_EVENT_ACTIONS = TIMELINE_EVENT_ACTIONS.filter(
+  (a) => a !== "pid_reference_milestone"
+);
+
+/** Local calendar day vs today — for Past / Today / Future badges. */
+function eventCalendarDayTense(iso: string): "past" | "today" | "future" | "unknown" {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "unknown";
+  const startOf = (x: Date) =>
+    new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const evT = startOf(d);
+  const todayT = startOf(new Date());
+  if (evT < todayT) return "past";
+  if (evT > todayT) return "future";
+  return "today";
+}
+
+/**
+ * Chronological lists (oldest → newest): "now" is the last today/past row before calendar-future rows,
+ * otherwise the instant closest to wall-clock (e.g. PID-only view).
+ */
+function eventIdForJumpToNow(events: ParsedRow[]): string | null {
+  if (events.length === 0) return null;
+  let lastPastOrToday: string | null = null;
+  for (const ev of events) {
+    const tense = eventCalendarDayTense(ev.timestampIso);
+    if (tense === "today" || tense === "past") {
+      lastPastOrToday = ev.eventId;
+    }
+  }
+  if (lastPastOrToday) return lastPastOrToday;
+  const nowMs = Date.now();
+  let bestId: string | null = null;
+  let bestAbs = Infinity;
+  for (const ev of events) {
+    const t = Date.parse(ev.timestampIso);
+    if (Number.isNaN(t)) continue;
+    const abs = Math.abs(t - nowMs);
+    if (abs < bestAbs) {
+      bestAbs = abs;
+      bestId = ev.eventId;
+    }
+  }
+  return bestId;
+}
+
+function EventTimeTenseBadge({ iso }: { iso: string }) {
+  const t = eventCalendarDayTense(iso);
+  if (t === "unknown") return null;
+  const label = t === "past" ? "Past" : t === "future" ? "Future" : "Today";
+  const cls =
+    t === "past"
+      ? "bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200"
+      : t === "future"
+        ? "bg-sky-100 text-sky-900 dark:bg-sky-900/40 dark:text-sky-200"
+        : "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200";
+  return (
+    <span
+      className={`shrink-0 rounded px-1 py-px text-[9px] font-medium uppercase tracking-wide ${cls}`}
+    >
+      {label}
+    </span>
+  );
+}
 
 function formatTimelineStamp(iso: string): string {
   const d = new Date(iso);
@@ -162,17 +236,133 @@ function formatTimelineDateOnly(iso: string): string {
   }).format(d);
 }
 
-function eventTitleAndSummary(ev: ParsedRow): { title: string; summary: string } {
+function timelineHumanMessage(ev: ParsedRow): string {
   const jsonIdx = ev.message?.indexOf(EPCIS_JSON_SEPARATOR) ?? -1;
   const humanRaw = jsonIdx >= 0 ? ev.message!.slice(0, jsonIdx) : (ev.message ?? "");
-  const human = humanRaw.trim();
+  return humanRaw.trim();
+}
+
+type BestekBindingsMilestoneParsed = {
+  titleLine: string;
+  /** e.g. `data/{projectId}-bestek-bindings.json` */
+  repoPath?: string;
+  batchUuid?: string;
+};
+
+function parseBestekBindingsMilestoneHuman(human: string): BestekBindingsMilestoneParsed {
+  const lines = human.split(/\n/).map((s) => s.trim()).filter(Boolean);
+  const titleLine = lines[0] ?? "";
+  let repoPath: string | undefined;
+  let batchUuid: string | undefined;
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i]!;
+    const batchM = /^batch\s+(.+)$/i.exec(line);
+    if (batchM) {
+      batchUuid = batchM[1]!.trim();
+      continue;
+    }
+    if (line.startsWith("data/") || line.endsWith("bestek-bindings.json")) {
+      repoPath = line;
+    }
+  }
+  return { titleLine, repoPath, batchUuid };
+}
+
+function bestekBindingsFullPathTip(p: BestekBindingsMilestoneParsed): string {
+  return [p.repoPath, p.batchUuid ? `batch ${p.batchUuid}` : ""].filter(Boolean).join(" · ");
+}
+
+function fileBasenameOnly(path: string): string {
+  const s = path.replace(/\\/g, "/").trim();
+  const i = s.lastIndexOf("/");
+  return i >= 0 ? s.slice(i + 1) : s;
+}
+
+function shortBatchId(id: string): string {
+  const v = id.trim();
+  if (v.length <= 10) return v;
+  return `${v.slice(0, 8)}…`;
+}
+
+/** Inline folder glyph for repo `data/…` hints (16×16). */
+function DataFolderGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width={14}
+      height={14}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M4 20h16a2 2 0 002-2V8a2 2 0 00-2-2h-7.93a2 2 0 01-1.66-.9l-.82-1.2A2 2 0 007.93 3H4a2 2 0 00-2 2v13a2 2 0 002 2z" />
+    </svg>
+  );
+}
+
+/**
+ * Compact `data/…` + batch line for bestek save milestones (cards, table, day stack, preview).
+ */
+function BestekBindingsMilestoneDataHint({
+  parsed,
+  className = "",
+}: {
+  parsed: BestekBindingsMilestoneParsed;
+  className?: string;
+}) {
+  const { repoPath, batchUuid } = parsed;
+  if (!repoPath && !batchUuid) return null;
+  const name = repoPath ? fileBasenameOnly(repoPath) : "";
+  const tip = [repoPath, batchUuid ? `batch ${batchUuid}` : ""].filter(Boolean).join(" · ");
+  return (
+    <span
+      className={`inline-flex min-w-0 max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 text-zinc-600 dark:text-zinc-400 ${className}`.trim()}
+      title={tip}
+    >
+      {repoPath ? (
+        <span className="inline-flex min-w-0 max-w-full items-center gap-0.5">
+          <DataFolderGlyph className="shrink-0 text-zinc-500 dark:text-zinc-500" />
+          <span className="min-w-0 truncate font-medium text-zinc-700 dark:text-zinc-300">{name}</span>
+        </span>
+      ) : null}
+      {batchUuid ? (
+        <span className="shrink-0 font-mono text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
+          batch {shortBatchId(batchUuid)}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function eventTitleAndSummary(ev: ParsedRow): { title: string; summary: string } {
+  const human = timelineHumanMessage(ev);
   const notes = getEpcisHumanNotesForRow(ev);
   const notesJoined = notes.join(" · ");
 
   if (ev.eventAction === "bestek_bindings_milestone") {
-    const lines = human.split(/\n/).map((s) => s.trim()).filter(Boolean);
-    const title = lines[0] ?? TIMELINE_EVENT_LABELS[ev.eventAction];
-    const summary = lines.slice(1).join(" · ") || notesJoined;
+    const parsed = parseBestekBindingsMilestoneHuman(human);
+    const title = parsed.titleLine || TIMELINE_EVENT_LABELS[ev.eventAction];
+    const parts: string[] = [];
+    if (parsed.repoPath) parts.push(fileBasenameOnly(parsed.repoPath));
+    if (parsed.batchUuid) parts.push(`batch ${shortBatchId(parsed.batchUuid)}`);
+    const summary = parts.join(" · ") || notesJoined;
+    return { title, summary };
+  }
+
+  if (ev.eventAction === "pid_reference_milestone" && ev.pidReferenceFields) {
+    const pr = ev.pidReferenceFields;
+    const mk = pr.milestoneKey;
+    const title =
+      isPidMilestoneKey(mk) ? PID_MILESTONE_LABELS[mk] : mk || TIMELINE_EVENT_LABELS[ev.eventAction];
+    const bits: string[] = [];
+    if (pr.lifecyclePhase) bits.push(`Phase ${pr.lifecyclePhase}`);
+    if (pr.stateHint) bits.push(pr.stateHint);
+    if (human) bits.push(human);
+    const summary = bits.filter(Boolean).join(" · ") || notesJoined;
     return { title, summary };
   }
 
@@ -360,11 +550,47 @@ function EventLogRowMetadataDl({ ev, projectId }: { ev: ParsedRow; projectId: st
           <dt className={metaLabelClass()}>Bestek in app</dt>
           <dd className={metaValueClass()}>
             <Link
-              href={`/deliveries?tab=bestek&bestekFiche=1&projectId=${encodeURIComponent(projectId.trim())}`}
+              href={`/deliveries?tab=specification&specificationFiche=1&projectId=${encodeURIComponent(projectId.trim())}`}
               className={provenanceUiLinkClass}
               onClick={(e) => e.stopPropagation()}
             >
-              Deliveries → Bestek tab →
+              Deliveries → Specification →
+            </Link>
+          </dd>
+        </div>
+      ) : null}
+      {ev.pidReferenceFields ? (
+        <>
+          <div className="min-w-0">
+            <dt className={metaLabelClass()}>PID milestone key</dt>
+            <dd className={`${metaValueClass()} font-mono text-[10px]`}>
+              {ev.pidReferenceFields.milestoneKey}
+            </dd>
+          </div>
+          {ev.pidReferenceFields.lifecyclePhase ? (
+            <div className="min-w-0">
+              <dt className={metaLabelClass()}>Process phase</dt>
+              <dd className={metaValueClass()}>{ev.pidReferenceFields.lifecyclePhase}</dd>
+            </div>
+          ) : null}
+          {ev.pidReferenceFields.stateHint ? (
+            <div className="min-w-0">
+              <dt className={metaLabelClass()}>State hint</dt>
+              <dd className={metaValueClass()}>{ev.pidReferenceFields.stateHint}</dd>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+      {ev.eventAction === "pid_reference_milestone" && projectId.trim() ? (
+        <div className="min-w-0">
+          <dt className={metaLabelClass()}>Register more</dt>
+          <dd className={metaValueClass()}>
+            <Link
+              href={`/deliveries?tab=pid&projectId=${encodeURIComponent(projectId.trim())}`}
+              className={provenanceUiLinkClass}
+              onClick={(e) => e.stopPropagation()}
+            >
+              Deliveries → PID tab →
             </Link>
           </dd>
         </div>
@@ -480,7 +706,20 @@ function EventLogRowMetadata(props: {
 
 function columnHoverSummary(ev: ParsedRow): string {
   const { title, summary } = eventTitleAndSummary(ev);
-  const parts = [title, TIMELINE_EVENT_LABELS[ev.eventAction], summary, actorLine(ev), ev.timestampIso];
+  let summaryForTip = summary;
+  if (ev.eventAction === "bestek_bindings_milestone") {
+    const full = bestekBindingsFullPathTip(
+      parseBestekBindingsMilestoneHuman(timelineHumanMessage(ev))
+    );
+    if (full) summaryForTip = full;
+  }
+  const parts = [
+    title,
+    TIMELINE_EVENT_LABELS[ev.eventAction],
+    summaryForTip,
+    actorLine(ev),
+    ev.timestampIso,
+  ];
   if (ev.source) parts.push(ev.source);
   if (ev.confidence !== undefined) parts.push(`conf ${(ev.confidence * 100).toFixed(0)}%`);
   if (ev.materialReference) parts.push(ev.materialReference);
@@ -771,7 +1010,24 @@ function TimelineEventDetailPanel(props: {
                 </span>
                 <span className="text-zinc-600 dark:text-zinc-300">{actorLine(ev)}</span>
               </p>
-              {displaySummary ? (
+              {ev.eventAction === "bestek_bindings_milestone" ? (
+                (() => {
+                  const p = parseBestekBindingsMilestoneHuman(timelineHumanMessage(ev));
+                  const hasHint = Boolean(p.repoPath || p.batchUuid);
+                  return hasHint ? (
+                    <p className="mt-1 text-[11px] leading-snug">
+                      <BestekBindingsMilestoneDataHint parsed={p} />
+                    </p>
+                  ) : displaySummary ? (
+                    <p
+                      className="mt-1 line-clamp-4 text-[11px] leading-snug text-zinc-600 dark:text-zinc-300"
+                      title={displaySummary}
+                    >
+                      {displaySummary}
+                    </p>
+                  ) : null;
+                })()
+              ) : displaySummary ? (
                 <p
                   className="mt-1 line-clamp-4 text-[11px] leading-snug text-zinc-600 dark:text-zinc-300"
                   title={displaySummary}
@@ -782,7 +1038,7 @@ function TimelineEventDetailPanel(props: {
               {ev.eventAction === "bestek_bindings_milestone" && projectId.trim() ? (
                 <p className="mt-1.5">
                   <Link
-                    href={`/deliveries?tab=bestek&bestekFiche=1&projectId=${encodeURIComponent(projectId.trim())}`}
+                    href={`/deliveries?tab=specification&specificationFiche=1&projectId=${encodeURIComponent(projectId.trim())}`}
                     className="text-[11px] font-medium text-violet-700 underline underline-offset-2 hover:no-underline dark:text-violet-300"
                   >
                     Open saved bestek document (Deliveries) →
@@ -1182,11 +1438,14 @@ export default function TimelinePage() {
   const [formOpen, setFormOpen] = useState(false);
   const formPanelRef = useRef<HTMLDivElement>(null);
   const eventLogScrollRef = useRef<HTMLDivElement>(null);
+  const timelineStripScrollRef = useRef<HTMLDivElement>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   /** Event log: one expanded metadata panel at a time; closed by default. */
   const [expandedLogEventId, setExpandedLogEventId] = useState<string | null>(null);
   /** Empty = no filter (all IFC types). Non-empty = show only events whose parsed IFC type is in this set. */
   const [ifcFilterTypes, setIfcFilterTypes] = useState<string[]>([]);
+  /** `pid_only` = show only `pid_reference_milestone` rows (after IFC filter). */
+  const [eventLogKindFilter, setEventLogKindFilter] = useState<"all" | "pid_only">("all");
   /** Cards = one horizontal card per event. Days = one card per calendar day, events in a horizontal row. List = table. */
   const [eventLogLayout, setEventLogLayout] = useState<"cards" | "dayGroups" | "list">("cards");
 
@@ -1369,9 +1628,9 @@ export default function TimelinePage() {
     void refresh();
   }, [refresh]);
 
-  /** API returns newest-first; strip and list show newest on the left / top. */
+  /** API returns chronological order (oldest first); strip and cards flow old → new left to right; table top to bottom. */
 
-  const displayEvents = useMemo(() => {
+  const ifcFilteredEvents = useMemo(() => {
     if (ifcFilterTypes.length === 0) return events;
     const allow = new Set(ifcFilterTypes);
     return events.filter((ev) => {
@@ -1381,7 +1640,12 @@ export default function TimelinePage() {
     });
   }, [events, ifcFilterTypes]);
 
-  /** Newest calendar days first; events within a day keep global list order (newest-first). */
+  const displayEvents = useMemo(() => {
+    if (eventLogKindFilter !== "pid_only") return ifcFilteredEvents;
+    return ifcFilteredEvents.filter((ev) => ev.eventAction === "pid_reference_milestone");
+  }, [ifcFilteredEvents, eventLogKindFilter]);
+
+  /** Calendar days oldest-first; events within a day keep global list order (chronological). */
   const displayEventLogDayGroups = useMemo(() => {
     const map = new Map<string, ParsedRow[]>();
     for (const ev of displayEvents) {
@@ -1394,7 +1658,7 @@ export default function TimelinePage() {
     const keys = [...map.keys()].sort((a, b) => {
       if (a === "__undated__") return 1;
       if (b === "__undated__") return -1;
-      return b.localeCompare(a);
+      return a.localeCompare(b);
     });
     return keys.map((dayKey) => ({
       dayKey,
@@ -1468,34 +1732,37 @@ export default function TimelinePage() {
     }
   }, [displayEvents, searchParams, syncEventIdQuery]);
 
-  /** Keep the selected row visible inside the event-log scrollport (nested overflow; not window). */
+  /** Keep the selected row visible inside the event-log scrollport and the construction strip (nested overflow). */
   useLayoutEffect(() => {
     if (viewMode !== "normal" || !selectedEventId || displayEvents.length === 0) return;
-    const root = eventLogScrollRef.current;
-    if (!root) return;
     const safeId =
       typeof CSS !== "undefined" && typeof CSS.escape === "function"
         ? CSS.escape(selectedEventId)
         : selectedEventId.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-    const row = root.querySelector<HTMLElement>(`[data-event-log-entry="${safeId}"]`);
-    if (!row) return;
-    const rootRect = root.getBoundingClientRect();
-    const rowRect = row.getBoundingClientRect();
-    const pad = 12;
-    const deltaTop = rowRect.top - rootRect.top - pad;
-    const deltaBottom = rowRect.bottom - rootRect.bottom + pad;
-    if (deltaTop < 0) {
-      root.scrollTop += deltaTop;
-    } else if (deltaBottom > 0) {
-      root.scrollTop += deltaBottom;
+    function scrollDataEntryIntoRoot(root: HTMLElement | null) {
+      if (!root) return;
+      const row = root.querySelector<HTMLElement>(`[data-event-log-entry="${safeId}"]`);
+      if (!row) return;
+      const rootRect = root.getBoundingClientRect();
+      const rowRect = row.getBoundingClientRect();
+      const pad = 12;
+      const deltaTop = rowRect.top - rootRect.top - pad;
+      const deltaBottom = rowRect.bottom - rootRect.bottom + pad;
+      if (deltaTop < 0) {
+        root.scrollTop += deltaTop;
+      } else if (deltaBottom > 0) {
+        root.scrollTop += deltaBottom;
+      }
+      const deltaLeft = rowRect.left - rootRect.left - pad;
+      const deltaRight = rowRect.right - rootRect.right + pad;
+      if (deltaLeft < 0) {
+        root.scrollLeft += deltaLeft;
+      } else if (deltaRight > 0) {
+        root.scrollLeft += deltaRight;
+      }
     }
-    const deltaLeft = rowRect.left - rootRect.left - pad;
-    const deltaRight = rowRect.right - rootRect.right + pad;
-    if (deltaLeft < 0) {
-      root.scrollLeft += deltaLeft;
-    } else if (deltaRight > 0) {
-      root.scrollLeft += deltaRight;
-    }
+    scrollDataEntryIntoRoot(eventLogScrollRef.current);
+    scrollDataEntryIntoRoot(timelineStripScrollRef.current);
   }, [selectedEventId, displayEvents, viewMode, expandedLogEventId, eventLogLayout]);
 
   /**
@@ -1523,6 +1790,7 @@ export default function TimelinePage() {
       syncEventIdQuery(null);
       setExpandedLogEventId(null);
       setIfcFilterTypes([]);
+      setEventLogKindFilter("all");
     }
   }, [projectId, syncEventIdQuery]);
 
@@ -1660,7 +1928,7 @@ export default function TimelinePage() {
                     onChange={(ev) => setEventAction(ev.target.value as TimelineEventAction)}
                     className="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-950"
                   >
-                    {TIMELINE_EVENT_ACTIONS.map((a) => (
+                    {MANUAL_FORM_EVENT_ACTIONS.map((a) => (
                       <option key={a} value={a}>
                         {TIMELINE_EVENT_LABELS[a]}
                       </option>
@@ -2074,6 +2342,7 @@ export default function TimelinePage() {
                   fillViewport
                   layoutMode={kbLayoutMode}
                   onLayoutModeChange={setKbLayoutMode}
+                  focusEventId={selectedEventId}
                 />
               )}
               <p className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
@@ -2165,9 +2434,12 @@ export default function TimelinePage() {
                 </button>
               </div>
             ) : (
-              <div className="overflow-x-auto overflow-y-visible [-webkit-overflow-scrolling:touch] pb-2 pt-1">
+              <div
+                ref={timelineStripScrollRef}
+                className="overflow-x-auto overflow-y-visible [-webkit-overflow-scrolling:touch] pb-2 pt-1"
+              >
                 {/*
-                  One column per event (compact width); order matches API: newest left.
+                  One column per event (compact width); order matches API: oldest left, newest right.
                   Line segments sit inside each column so they meet at column boundaries.
                 */}
                 <div className="flex min-w-max flex-col gap-0 px-2">
@@ -2220,6 +2492,7 @@ export default function TimelinePage() {
                         <button
                           key={ev.eventId}
                           type="button"
+                          data-event-log-entry={ev.eventId}
                           title={columnHoverSummary(ev)}
                           aria-label={`${stripTitle}; ${TIMELINE_EVENT_LABELS[ev.eventAction]}; ${formatTimelineStamp(ev.timestampIso)}`}
                           aria-pressed={isSel}
@@ -2292,7 +2565,14 @@ export default function TimelinePage() {
               >
             {events.length === 0 && !loading ? (
               <p className="shrink-0 text-sm text-zinc-500 dark:text-zinc-400">
-                No events yet for this project.
+                No events yet for this project. To seed a full PID milestone strip (demo spacing), open{" "}
+                <Link
+                  href={`/deliveries?tab=pid&projectId=${encodeURIComponent(projectId)}`}
+                  className="font-medium text-emerald-700 underline underline-offset-2 dark:text-emerald-400"
+                >
+                  Deliveries → PID
+                </Link>{" "}
+                and use <strong className="font-medium text-zinc-600 dark:text-zinc-300">Append full PID template</strong>.
               </p>
             ) : null}
             {events.length > 0 ? (
@@ -2303,6 +2583,61 @@ export default function TimelinePage() {
                     role="group"
                     aria-label="Event log layout"
                   >
+                    <div
+                      className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-zinc-300 bg-zinc-50/90 p-0.5 dark:border-zinc-600 dark:bg-zinc-900/80"
+                      role="group"
+                      aria-label="Event kind filter"
+                    >
+                      <button
+                        type="button"
+                        aria-pressed={eventLogKindFilter === "all"}
+                        onClick={() => setEventLogKindFilter("all")}
+                        className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
+                          eventLogKindFilter === "all"
+                            ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                            : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        All kinds
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={eventLogKindFilter === "pid_only"}
+                        onClick={() => setEventLogKindFilter("pid_only")}
+                        className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
+                          eventLogKindFilter === "pid_only"
+                            ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                            : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        PID milestones
+                      </button>
+                    </div>
+                    <div
+                      className="inline-flex items-center rounded-lg border border-zinc-300 bg-zinc-50/90 p-0.5 dark:border-zinc-600 dark:bg-zinc-900/80"
+                      role="group"
+                      aria-label="Scroll to current period"
+                    >
+                      <button
+                        type="button"
+                        disabled={displayEvents.length === 0}
+                        title="Select and scroll to the latest today or past event (last before calendar-future rows in time order), or the instant nearest now if every row is in the future."
+                        onClick={() => {
+                          const id = eventIdForJumpToNow(displayEvents);
+                          if (!id) return;
+                          setExpandedLogEventId(null);
+                          setSelectedEventId(id);
+                          syncEventIdQuery(id);
+                        }}
+                        className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
+                          displayEvents.length === 0
+                            ? "cursor-not-allowed text-zinc-400 dark:text-zinc-600"
+                            : "text-emerald-800 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-950/50"
+                        }`}
+                      >
+                        Now
+                      </button>
+                    </div>
                     <div className="inline-flex rounded-lg border border-zinc-300 bg-zinc-50/90 p-0.5 dark:border-zinc-600 dark:bg-zinc-900/80">
                       <button
                         type="button"
@@ -2367,6 +2702,24 @@ export default function TimelinePage() {
                           Clear filter
                         </button>
                       </p>
+                    ) : displayEvents.length === 0 && eventLogKindFilter === "pid_only" ? (
+                      <p className="px-2 py-4 text-sm text-zinc-600 dark:text-zinc-400">
+                        No PID milestone events yet.{" "}
+                        <Link
+                          href={`/deliveries?tab=pid&projectId=${encodeURIComponent(projectId)}`}
+                          className="font-medium text-amber-700 underline underline-offset-2 dark:text-amber-400"
+                        >
+                          Register in Deliveries → PID
+                        </Link>
+                        {" · "}
+                        <button
+                          type="button"
+                          onClick={() => setEventLogKindFilter("all")}
+                          className="font-medium text-amber-700 underline underline-offset-2 dark:text-amber-400"
+                        >
+                          Show all kinds
+                        </button>
+                      </p>
                     ) : eventLogLayout === "list" ? (
                       <>
                         <div
@@ -2393,6 +2746,16 @@ export default function TimelinePage() {
                             const { title: rowTitle, summary: rowSummary } = eventTitleAndSummary(ev);
                             const rowIfcCat = extractIfcCategoryFromTitle(rowTitle);
                             const summaryDisplay = rowSummary.trim() ? rowSummary : "—";
+                            const bestekParsed =
+                              ev.eventAction === "bestek_bindings_milestone"
+                                ? parseBestekBindingsMilestoneHuman(timelineHumanMessage(ev))
+                                : null;
+                            const bestekShowHint = Boolean(
+                              bestekParsed && (bestekParsed.repoPath || bestekParsed.batchUuid)
+                            );
+                            const summaryTitle = bestekShowHint
+                              ? bestekBindingsFullPathTip(bestekParsed!)
+                              : summaryDisplay;
                             const kindLabel = TIMELINE_EVENT_LABELS[ev.eventAction];
                             const whenShort = formatTimelineStamp(ev.timestampIso);
 
@@ -2482,18 +2845,28 @@ export default function TimelinePage() {
                                       ) : null}
                                     </div>
                                     <p
-                                      className="min-w-0 truncate text-xs text-zinc-600 dark:text-zinc-300"
-                                      title={summaryDisplay}
+                                      className="flex min-w-0 truncate text-xs text-zinc-600 dark:text-zinc-300"
+                                      title={summaryTitle}
                                     >
-                                      {summaryDisplay}
+                                      {bestekShowHint ? (
+                                        <BestekBindingsMilestoneDataHint
+                                          parsed={bestekParsed!}
+                                          className="min-w-0"
+                                        />
+                                      ) : (
+                                        summaryDisplay
+                                      )}
                                     </p>
-                                    <time
-                                      dateTime={ev.timestampIso}
-                                      className="truncate text-right font-mono text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400"
-                                      title={ev.timestampIso}
-                                    >
-                                      {whenShort}
-                                    </time>
+                                    <div className="flex min-w-0 flex-col items-end gap-0.5">
+                                      <EventTimeTenseBadge iso={ev.timestampIso} />
+                                      <time
+                                        dateTime={ev.timestampIso}
+                                        className="truncate text-right font-mono text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400"
+                                        title={ev.timestampIso}
+                                      >
+                                        {whenShort}
+                                      </time>
+                                    </div>
                                   </div>
                                   {isExpanded ? (
                                     <EventLogRowMetadata
@@ -2542,6 +2915,14 @@ export default function TimelinePage() {
                                 const rowIfcCat = extractIfcCategoryFromTitle(rowTitle);
                                 const kindLabel = TIMELINE_EVENT_LABELS[ev.eventAction];
                                 const timeOnly = formatTimelineTimeOnly(ev.timestampIso);
+                                const dayBestekParsed =
+                                  ev.eventAction === "bestek_bindings_milestone"
+                                    ? parseBestekBindingsMilestoneHuman(timelineHumanMessage(ev))
+                                    : null;
+                                const dayBestekHint = Boolean(
+                                  dayBestekParsed &&
+                                    (dayBestekParsed.repoPath || dayBestekParsed.batchUuid)
+                                );
 
                                 function onDayStackSelect() {
                                   setSelectedEventId(ev.eventId);
@@ -2616,7 +2997,16 @@ export default function TimelinePage() {
                                             <span className="font-medium text-zinc-700 dark:text-zinc-300">
                                               {kindLabel}
                                             </span>
-                                            {rowSummary.trim() ? (
+                                            {dayBestekHint ? (
+                                              <span
+                                                className="mt-0.5 line-clamp-2 block min-w-0 text-zinc-500 dark:text-zinc-400"
+                                                title={bestekBindingsFullPathTip(dayBestekParsed!)}
+                                              >
+                                                <BestekBindingsMilestoneDataHint
+                                                  parsed={dayBestekParsed!}
+                                                />
+                                              </span>
+                                            ) : rowSummary.trim() ? (
                                               <span className="mt-0.5 line-clamp-2 block text-zinc-500 dark:text-zinc-400">
                                                 {rowSummary.trim()}
                                               </span>
@@ -2651,6 +3041,17 @@ export default function TimelinePage() {
                           const { title: rowTitle, summary: rowSummary } = eventTitleAndSummary(ev);
                           const rowIfcCat = extractIfcCategoryFromTitle(rowTitle);
                           const summaryDisplay = rowSummary.trim() ? rowSummary : "—";
+                          const cardBestekParsed =
+                            ev.eventAction === "bestek_bindings_milestone"
+                              ? parseBestekBindingsMilestoneHuman(timelineHumanMessage(ev))
+                              : null;
+                          const cardBestekHint = Boolean(
+                            cardBestekParsed &&
+                              (cardBestekParsed.repoPath || cardBestekParsed.batchUuid)
+                          );
+                          const cardSummaryTitle = cardBestekHint
+                            ? bestekBindingsFullPathTip(cardBestekParsed!)
+                            : summaryDisplay;
                           const kindLabel = TIMELINE_EVENT_LABELS[ev.eventAction];
                           const stamp = formatTimelineStamp(ev.timestampIso);
 
@@ -2737,19 +3138,28 @@ export default function TimelinePage() {
                                       </Link>
                                     ) : null}
                                   </div>
-                                  <time
-                                    dateTime={ev.timestampIso}
-                                    className="mt-1 block font-mono text-[9px] tabular-nums text-zinc-500 dark:text-zinc-400"
-                                    title={ev.timestampIso}
-                                  >
-                                    {stamp}
-                                  </time>
-                                  {summaryDisplay !== "—" ? (
+                                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                                    <EventTimeTenseBadge iso={ev.timestampIso} />
+                                    <time
+                                      dateTime={ev.timestampIso}
+                                      className="font-mono text-[9px] tabular-nums text-zinc-500 dark:text-zinc-400"
+                                      title={ev.timestampIso}
+                                    >
+                                      {stamp}
+                                    </time>
+                                  </div>
+                                  {cardBestekHint || summaryDisplay !== "—" ? (
                                     <p
                                       className="mt-1 line-clamp-3 text-[10px] text-zinc-500 dark:text-zinc-400"
-                                      title={summaryDisplay}
+                                      title={cardSummaryTitle}
                                     >
-                                      {summaryDisplay}
+                                      {cardBestekHint ? (
+                                        <BestekBindingsMilestoneDataHint
+                                          parsed={cardBestekParsed!}
+                                        />
+                                      ) : (
+                                        summaryDisplay
+                                      )}
                                     </p>
                                   ) : null}
                                 </button>

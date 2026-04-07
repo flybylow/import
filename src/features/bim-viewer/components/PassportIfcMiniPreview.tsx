@@ -88,6 +88,7 @@ export default function PassportIfcMiniPreview(props: Props) {
               ? focusExpressIds
               : null
           }
+          alphaBaselineIgnoreHighlightTier
           onStatusChange={setIfcStatus}
           onCanvasSelectionChange={handleCanvas}
           className="absolute inset-0 z-0 min-h-0 min-w-0"

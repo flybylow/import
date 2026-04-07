@@ -7,6 +7,7 @@ import Button from "@/components/Button";
 import ProjectIdField from "@/components/ProjectIdField";
 import PipelineTraceDebugButton from "@/components/PipelineTraceDebugButton";
 import { useToast } from "@/components/ToastProvider";
+import { appContentWidthClass } from "@/lib/app-page-layout";
 import { useProjectId } from "@/lib/useProjectId";
 
 function isValidFilesystemProjectId(value: string): boolean {
@@ -416,7 +417,7 @@ export default function AdminPage() {
   );
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10 space-y-10">
+    <div className={`${appContentWidthClass} space-y-10 py-10`}>
       <header className="space-y-2 border-b border-zinc-200 pb-8 dark:border-zinc-800">
         <p className="text-xs font-medium uppercase tracking-wide text-amber-800 dark:text-amber-200">
           Cohost / internal

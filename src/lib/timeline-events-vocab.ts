@@ -44,6 +44,8 @@ export const TIMELINE_EVENT_ACTIONS = [
   "bestek_bindings_milestone",
   /** Contractor / procurement linked real products to bestek groups */
   "product_coupling_updated",
+  /** Belgian reference lifecycle / PID process milestone (structured `pidMilestoneKey` in TTL) */
+  "pid_reference_milestone",
 ] as const;
 
 export type TimelineEventAction = (typeof TIMELINE_EVENT_ACTIONS)[number];
@@ -65,6 +67,7 @@ export const TIMELINE_EVENT_LABELS: Record<TimelineEventAction, string> = {
   bestek_element_group_binding: "Bestek — element group named",
   bestek_bindings_milestone: "Bestek — bindings saved (milestone)",
   product_coupling_updated: "Product coupling updated (contractor)",
+  pid_reference_milestone: "PID / process milestone",
 };
 
 const ACTION_SET = new Set<string>(TIMELINE_EVENT_ACTIONS);

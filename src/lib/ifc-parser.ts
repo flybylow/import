@@ -1,11 +1,98 @@
 import path from "path";
 import * as WebIFC from "web-ifc";
 
+import { IFC_STEP_HEADER_SCAN_MAX_BYTES } from "../../config/ifc-server.mjs";
 import {
   primaryMaterialLabelFromResolution,
   readIfcString as readIfcStringMat,
   resolveMaterialLineFromIfc,
 } from "@/lib/ifc-material-resolve";
+
+/** Thrown when uploaded bytes are clearly not a STEP physical file (e.g. Git LFS pointer). */
+export class IfcUploadValidationError extends Error {
+  override name = "IfcUploadValidationError";
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+function peekUtf8Prefix(bytes: Uint8Array, maxBytes: number): string {
+  const n = Math.min(maxBytes, bytes.length);
+  const slice = bytes.subarray(0, n);
+  let s = new TextDecoder("utf-8", { fatal: false }).decode(slice);
+  if (s.charCodeAt(0) === 0xfeff) s = s.slice(1);
+  return s.trimStart();
+}
+
+/** Case-sensitive ASCII substring search (IFC STEP header is always ASCII). */
+function containsAsciiNeedle(haystack: Uint8Array, needleAscii: string, maxHaystack: number): boolean {
+  const needle = new TextEncoder().encode(needleAscii);
+  const limit = Math.min(haystack.length, maxHaystack);
+  if (needle.length === 0 || limit < needle.length) return false;
+  for (let i = 0; i <= limit - needle.length; i++) {
+    let match = true;
+    for (let j = 0; j < needle.length; j++) {
+      if (haystack[i + j] !== needle[j]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) return true;
+  }
+  return false;
+}
+
+/**
+ * Rejects obvious non-IFC uploads before web-ifc `OpenModel`, which otherwise throws an opaque
+ * `TypeError: Cannot read properties of undefined (reading 'arguments')` on garbage bytes.
+ */
+export function assertIfcStepPhysicalFile(bytes: Uint8Array): void {
+  if (bytes.length < 32) {
+    throw new IfcUploadValidationError("File is too small to be a valid IFC model.");
+  }
+
+  const lfsPeek = peekUtf8Prefix(bytes, 200);
+  if (lfsPeek.startsWith("version https://git-lfs.github.com/spec/v1")) {
+    throw new IfcUploadValidationError(
+      "This is a Git LFS pointer, not the real IFC file. Run `git lfs pull` or pick the full .ifc from a folder where LFS has been fetched."
+    );
+  }
+
+  if (
+    bytes.length >= 4 &&
+    bytes[0] === 0x50 &&
+    bytes[1] === 0x4b &&
+    bytes[2] === 0x03 &&
+    bytes[3] === 0x04
+  ) {
+    throw new IfcUploadValidationError(
+      "This file looks like a ZIP (IFCZIP / compressed IFC). Upload an uncompressed STEP .ifc, or extract the .ifc from the archive first."
+    );
+  }
+
+  if (bytes.length >= 2) {
+    const b0 = bytes[0];
+    const b1 = bytes[1];
+    if ((b0 === 0xff && b1 === 0xfe) || (b0 === 0xfe && b1 === 0xff)) {
+      const dec = new TextDecoder(b0 === 0xff ? "utf-16le" : "utf-16be", { fatal: false });
+      const t = dec.decode(bytes.subarray(0, Math.min(bytes.length, 65536))).trimStart();
+      if (!t.includes("ISO-10303-21")) {
+        throw new IfcUploadValidationError(
+          "This file does not look like an IFC STEP file (expected an ISO-10303-21 header)."
+        );
+      }
+      throw new IfcUploadValidationError(
+        "This IFC appears to be UTF-16 encoded. Re-export as UTF-8 STEP (typical for .ifc), or open and save as SPF/UTF-8 in your authoring tool."
+      );
+    }
+  }
+
+  if (!containsAsciiNeedle(bytes, "ISO-10303-21", IFC_STEP_HEADER_SCAN_MAX_BYTES)) {
+    throw new IfcUploadValidationError(
+      "This file does not look like an IFC STEP file (expected an ISO-10303-21 header in the first part of the file). If the model is large, ensure the upload was not truncated (restart `next dev` after pulling latest config)."
+    );
+  }
+}
 
 export type IfcMaterialRef = {
   expressId: number;
@@ -119,6 +206,7 @@ async function createMaterialsForElement(
 }
 
 export async function parseIfcPhase1(ifcBytes: Uint8Array): Promise<IfcParsedPhase1> {
+  assertIfcStepPhysicalFile(ifcBytes);
   const wasmDir = path.join(process.cwd(), "public", "wasm");
   const ifcApi = new WebIFC.IfcAPI();
   // web-ifc concatenates `wasmPath + filename`, so we must include a trailing slash.

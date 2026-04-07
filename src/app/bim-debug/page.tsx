@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import ProjectIdField from "@/components/ProjectIdField";
+import { appContentWidthClass } from "@/lib/app-page-layout";
 import { useProjectId } from "@/lib/useProjectId";
 
 type SourceMode = "project" | "test";
@@ -186,7 +187,7 @@ export default function BimDebugPage() {
   }, [ifcUrl, projectId, sourceMode]);
 
   return (
-    <div className="max-w-[1200px] mx-auto px-6 py-8 space-y-4">
+    <div className={`${appContentWidthClass} space-y-4 py-8`}>
       <div>
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">IFC Debug Sandbox</h1>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">

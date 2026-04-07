@@ -3,6 +3,8 @@
 **Purpose:** Single reference for **what can land on** `data/<projectId>-timeline.ttl`: vocabulary actions, where they come from, and how they relate to **time** vs **role / provenance**.  
 **Code sources of truth:** `src/lib/timeline-events-vocab.ts`, `src/lib/timeline/types.ts`, `src/lib/timeline/epcis.ts`, `docs/timeline-epcis-integration.md`.
 
+**Timeline-first:** The UI sorts by `timeline:timestamp`. Stakeholder documents (e.g. **leveringsbon**, **werfverslag**) map to fixed `eventAction` values and should use **business dates** when ingested — see [`docs/timeline-first-and-document-matching.md`](timeline-first-and-document-matching.md) and `src/lib/timeline-document-matching.ts`.
+
 ---
 
 ## 1. Two axes (how to think about the log)
@@ -37,7 +39,7 @@ Stored as string literals on each event; labels are user-facing (`TIMELINE_EVENT
 | `calculation_run` | Carbon calculation run | Pipeline / calc | LCA pipeline |
 | `compliance_evaluation_recorded` | Compliance evaluation recorded | Compliance tooling | LCA pipeline |
 | `delivery_document_added` | Delivery document added | Deliveries / ingest | Supply / docs |
-| `site_report_added` | Site report added | Manual / ingest | Site |
+| `site_report_added` | Site report added (map **werfverslag** / site visit reports here) | Manual / ingest | Site |
 | `evidence_linked` | Evidence linked to element / material | Manual / tooling | Evidence |
 | `manual_note` | Manual note | `POST /api/timeline` form | Human |
 | `data_exported` | Data exported | Tooling | Human / ops |
@@ -47,6 +49,9 @@ Stored as string literals on each event; labels are user-facing (`TIMELINE_EVENT
 | `bestek_element_group_binding` | Bestek — element group named | Legacy per-row writes (old saves) | Design / spec |
 | `bestek_bindings_milestone` | Bestek — bindings saved (milestone) | Deliveries bestek save | Design / spec |
 | `product_coupling_updated` | Product coupling updated (contractor) | Deliveries bestek | Contractor |
+| `pid_reference_milestone` | PID / process milestone (reference lifecycle) | `POST /api/timeline`, Deliveries → PID tab | Reference lifecycle |
+
+**Structured literals (when `eventAction` is `pid_reference_milestone`):** `timeline:pidLifecyclePhase` (optional, `"0"`…`"9"`), **`timeline:pidMilestoneKey`** (required in API; allowlist in `src/lib/timeline-pid-milestones.ts`), optional `timeline:pidStateHint` (UI-only narrative hint). See [`docs/pid-lifecycle-timeline-events.md`](pid-lifecycle-timeline-events.md).
 
 **Note:** New bestek saves emit **`bestek_bindings_milestone` only** (one event per save). Older projects may still show **`bestek_element_group_binding`** per group.
 
@@ -108,9 +113,13 @@ See `docs/timeline-epcis-integration.md` §6–7: no full JSON-LD resolution, no
 
 - EPCIS ingest detail: `docs/timeline-epcis-integration.md`  
 - Vocabulary edits: `src/lib/timeline-events-vocab.ts`  
+- Document → action mapping: `docs/timeline-first-and-document-matching.md`  
+- Unified stakeholder lifecycle: `docs/unified-construction-lifecycle-tabulas.md`  
+- PID reference lifecycle → timeline vocabulary: `docs/pid-lifecycle-timeline-events.md`  
 
 ---
 
 ## Revision history
 
+- **2026-04-07:** Add `pid_reference_milestone` + `timeline:pid*` predicates; link [`docs/unified-construction-lifecycle-tabulas.md`](unified-construction-lifecycle-tabulas.md); link timeline-first + `pid-lifecycle-timeline-events.md`; clarify `site_report_added` ↔ werfverslag.
 - **2026-04-06:** Initial taxonomy doc (all `eventAction` values + EPCIS type/bizStep/field inventory aligned with repo).

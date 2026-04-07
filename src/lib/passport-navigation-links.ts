@@ -23,9 +23,25 @@ export function bimPassportsGroupHref(projectId: string, groupKey: string): stri
   return `/bim?projectId=${encodeURIComponent(projectId)}&view=passports&group=${encodeURIComponent(groupKey.trim())}`;
 }
 
-/** Phase 4 Building IFC viewer with focus expressId. */
-export function bimBuildingElementHref(projectId: string, expressId: number): string {
-  return `/bim?projectId=${encodeURIComponent(projectId)}&view=building&expressId=${encodeURIComponent(String(expressId))}`;
+/**
+ * Phase 4 Building IFC viewer with focus expressId.
+ * Always sets `ghost=0` so large project meshes do not run uniform ghost on first paint (fragments worker OOM).
+ */
+export function bimBuildingElementHref(
+  projectId: string,
+  expressId: number,
+  opts?: { groupKey?: string; from?: string }
+): string {
+  const q = new URLSearchParams();
+  q.set("projectId", projectId);
+  q.set("view", "building");
+  q.set("expressId", String(expressId));
+  q.set("ghost", "0");
+  const g = opts?.groupKey?.trim();
+  if (g) q.set("group", g);
+  const from = opts?.from?.trim();
+  if (from) q.set("from", from);
+  return `/bim?${q.toString()}`;
 }
 
 /** Phase 2 KB UI: graph + element node (see `src/app/kb/page.tsx` `expressId` param). */

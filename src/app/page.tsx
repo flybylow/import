@@ -11,6 +11,7 @@ import {
   PHASE1_LIBRARY_SAMPLE_KEYS,
   type Phase1LibrarySampleKey,
 } from "@/lib/phase1-library-samples";
+import { appContentWidthClass } from "@/lib/app-page-layout";
 import { useProjectId } from "@/lib/useProjectId";
 
 type ParseResponse = {
@@ -233,8 +234,8 @@ export default function Home() {
   }, [projectId, triples, enriched]);
 
   return (
-    <div className="min-h-screen p-6 bg-zinc-50 dark:bg-black">
-      <div className="max-w-3xl mx-auto flex flex-col gap-4">
+    <div className="min-h-0 flex-1 bg-zinc-50 py-6 dark:bg-black">
+      <div className={`${appContentWidthClass} flex flex-col gap-4`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">bimimport - Phase 1</h1>

@@ -9,6 +9,7 @@ import {
 } from "@/lib/deliveries-importer";
 import { appendDeliveriesIngestTurtle } from "@/lib/deliveries-persist";
 import { appendTimelineAuditEvent } from "@/lib/timeline/append-event";
+import { matchForTimelineDocumentKind } from "@/lib/timeline-document-matching";
 
 export const runtime = "nodejs";
 
@@ -89,14 +90,22 @@ export async function POST(request: Request) {
         const eventId = randomUUID();
         const doc = input.afleverbon?.trim() || "(no afleverbon)";
         const msg = `Leveringsbon ${doc}: ${result.summary.matched}/${result.summary.total} lines matched, avg confidence ${result.summary.avgConfidence}`;
+        const leverMatch = matchForTimelineDocumentKind("leveringsbon");
+        let timestampIso = new Date().toISOString();
+        if (input.date?.trim()) {
+          const ms = Date.parse(input.date.trim());
+          if (!Number.isNaN(ms)) {
+            timestampIso = new Date(ms).toISOString();
+          }
+        }
         const { relPath } = appendTimelineAuditEvent(projectId, {
           eventId,
-          timestampIso: new Date().toISOString(),
+          timestampIso,
           actorSystem: true,
           actorLabel: "deliveries-importer",
-          eventAction: "delivery_document_added",
+          eventAction: leverMatch?.eventAction ?? "delivery_document_added",
           message: msg,
-          source: "deliveries-ingest",
+          source: leverMatch?.defaultSource ?? "deliveries-ingest",
         });
         persistence.timeline = { eventId, path: relPath };
       }

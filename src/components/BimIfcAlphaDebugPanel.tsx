@@ -217,6 +217,14 @@ export default function BimIfcAlphaDebugPanel({
               </dd>
               <dt className="text-zinc-500">ids</dt>
               <dd className="min-w-0 break-all">{idsPreview}</dd>
+              <dt className="text-zinc-500">tier</dt>
+              <dd>{liveAlpha.diag?.highlightTier ?? "—"}</dd>
+              <dt className="text-zinc-500">cap</dt>
+              <dd>
+                {liveAlpha.diag?.highlightCap
+                  ? `${liveAlpha.diag.highlightCap.shown}/${liveAlpha.diag.highlightCap.total}`
+                  : "—"}
+              </dd>
               <dt className="text-zinc-500">ovr</dt>
               <dd>{highlighterOverlayDemoOn ? "on" : "off"}</dd>
             </dl>
