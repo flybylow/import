@@ -17,6 +17,32 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }
 
+function truncateTimelineLine(s: string, max: number): string {
+  const t = s.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+}
+
+/** Line 1 = human context (note id, supplier, werf); line 2 = match stats (stable for parsers). */
+function leveringsbonTimelineMessage(
+  input: LeveringsbonInput,
+  matched: number,
+  total: number,
+  avgConfidence: number
+): string {
+  const doc = input.afleverbon?.trim() || "";
+  const supplier = input.supplier?.trim();
+  const werf = input.werfAddress?.trim();
+  const bits: string[] = ["Leveringsbon"];
+  if (doc) bits.push(doc);
+  else bits.push("(no afleverbon)");
+  if (supplier) bits.push(supplier);
+  if (werf) bits.push(truncateTimelineLine(werf, 72));
+  const line1 = bits.join(" · ");
+  const line2 = `${matched}/${total} lines matched, avg confidence ${avgConfidence}`;
+  return `${line1}\n${line2}`;
+}
+
 function parseLeveringsbon(body: unknown): LeveringsbonInput | null {
   if (!isRecord(body)) return null;
   const itemsRaw = body.items;
@@ -88,8 +114,12 @@ export async function POST(request: Request) {
       persistence.projectId = projectId;
       if (recordTimeline) {
         const eventId = randomUUID();
-        const doc = input.afleverbon?.trim() || "(no afleverbon)";
-        const msg = `Leveringsbon ${doc}: ${result.summary.matched}/${result.summary.total} lines matched, avg confidence ${result.summary.avgConfidence}`;
+        const msg = leveringsbonTimelineMessage(
+          input,
+          result.summary.matched,
+          result.summary.total,
+          result.summary.avgConfidence
+        );
         const leverMatch = matchForTimelineDocumentKind("leveringsbon");
         let timestampIso = new Date().toISOString();
         if (input.date?.trim()) {

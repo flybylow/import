@@ -26,6 +26,8 @@
 /data/*-calc-history/
 # Manual quantity overrides are local operator state.
 /data/*-passport-quantity-overrides.json
+# Uploaded project documents (invoices, site photos, scans) — local evidence store.
+/data/*-documents/
 #
 # Keep local IFC/model inputs out of Git history.
 /data/**/*.ifc

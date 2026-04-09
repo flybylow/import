@@ -48,7 +48,10 @@ export async function GET(request: Request) {
 
   const ttl = fs.readFileSync(absPath, "utf-8");
   const events = parseTimelineTtl(ttl);
-  return NextResponse.json({ projectId, path: relPath, events });
+  return NextResponse.json(
+    { projectId, path: relPath, events },
+    { headers: { "Cache-Control": "no-store, must-revalidate" } }
+  );
 }
 
 export async function POST(request: Request) {

@@ -148,6 +148,13 @@ export function validateEPCIS(epcis: EPCISEvent): { valid: boolean; errors: stri
     }
   }
 
+  if (epcis.kbMaterialId !== undefined && epcis.kbMaterialId !== null) {
+    const n = Number(epcis.kbMaterialId);
+    if (!Number.isInteger(n) || n <= 0) {
+      errors.push("kbMaterialId must be a positive integer when present");
+    }
+  }
+
   return { valid: errors.length === 0, errors };
 }
 
@@ -160,7 +167,16 @@ export function epcisToTimelinePayload(
   eventId: string
 ): { payload: TimelineEventPayload; mappedAction: EPCISMappedActionType } {
   const actor = extractActor(epcis.sourceList);
-  const materialRef = epcis.epcList?.[0]?.trim();
+  const kbFromPayload =
+    epcis.kbMaterialId != null && Number.isFinite(Number(epcis.kbMaterialId))
+      ? Math.floor(Number(epcis.kbMaterialId))
+      : undefined;
+  const epcFromList = epcis.epcList?.[0]?.trim();
+  /** Prefer explicit KB id for `timeline:materialReference` so UI links to `/kb?focusMaterialId=`. */
+  const materialRef =
+    kbFromPayload != null && kbFromPayload > 0
+      ? String(kbFromPayload)
+      : epcFromList || undefined;
   const mappedAction = mapBizStepToMappedAction(epcis.bizStep);
 
   const humanNotes = formatEPCISHumanNotes(epcis);

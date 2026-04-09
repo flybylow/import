@@ -44,6 +44,11 @@ import { useProjectId } from "@/lib/useProjectId";
 
 type BimViewMode = "building" | "passports" | "inspect";
 
+/** Defaults for Building sidebar “Quick tests” (typical Schependomlaan-style KB). */
+const BIM_BUILDING_SAMPLE_EXPRESS_ID = 73073;
+/** Must match a dictionary / EPD slug present on linked materials (`epdSlug`), or IFC layer names. */
+const BIM_BUILDING_SAMPLE_MATERIAL_SLUG = "timber";
+
 function BimFacePageInner() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -336,6 +341,45 @@ function BimFacePageInner() {
     [pathname, projectId, qMaterialSlug, router, searchParams]
   );
 
+  /** Sidebar quick test: single element, no material group (Tier A style). */
+  const focusBuildingSampleExpressId = useCallback(() => {
+    expressIdOptimisticUntilUrlRef.current = true;
+    setSelectedExpressId(BIM_BUILDING_SAMPLE_EXPRESS_ID);
+    const p = new URLSearchParams(searchParams.toString());
+    p.set("projectId", projectId);
+    p.set("view", "building");
+    p.delete("materialSlug");
+    p.set("expressId", String(BIM_BUILDING_SAMPLE_EXPRESS_ID));
+    materialSlugSyncedRef.current = null;
+    setVisualizerExpressIds(null);
+    setVisualizerLabel(null);
+    setVisualizerActiveKey(null);
+    router.replace(`${pathname}?${p.toString()}`, { scroll: false });
+  }, [pathname, projectId, router, searchParams]);
+
+  const applyBuildingSampleMaterialGroup = useCallback(() => {
+    const slug = BIM_BUILDING_SAMPLE_MATERIAL_SLUG.trim().toLowerCase();
+    const p = new URLSearchParams(searchParams.toString());
+    p.set("projectId", projectId);
+    p.set("view", "building");
+    p.set("materialSlug", slug);
+    materialSlugSyncedRef.current = null;
+    router.replace(`${pathname}?${p.toString()}`, { scroll: false });
+  }, [pathname, projectId, router, searchParams]);
+
+  const buildingQuickTests = useMemo(
+    () => ({
+      uniformGhost,
+      onGhostOn: () => setGhostUrlMode(true),
+      onGhostOff: () => setGhostUrlMode(false),
+      onSampleElement: focusBuildingSampleExpressId,
+      sampleExpressId: BIM_BUILDING_SAMPLE_EXPRESS_ID,
+      onSampleMaterialGroup: applyBuildingSampleMaterialGroup,
+      sampleMaterialSlug: BIM_BUILDING_SAMPLE_MATERIAL_SLUG,
+    }),
+    [applyBuildingSampleMaterialGroup, focusBuildingSampleExpressId, uniformGhost, setGhostUrlMode]
+  );
+
   const materialGroupContextForPanel = useMemo(() => {
     if (!qMaterialSlug.trim() || !visualizerExpressIds?.length) return null;
     const slug = qMaterialSlug.trim().toLowerCase();
@@ -546,13 +590,14 @@ function BimFacePageInner() {
   );
 
   const isPassportsMode = viewMode === "passports";
+  const isInspectMode = viewMode === "inspect";
 
   return (
     <div
       className={`${appContentWidthClass} flex flex-1 flex-col ${
         isIfcViewerMode
           ? "min-h-0 gap-0 pt-0 pb-0"
-          : isPassportsMode
+          : isPassportsMode || isInspectMode
             ? "min-h-0 gap-2 pt-2 pb-4"
             : "min-h-min gap-2 pt-2 pb-4"
       }`}
@@ -639,7 +684,7 @@ function BimFacePageInner() {
 
       <div
         className={`flex w-full flex-col overflow-x-hidden ${
-          isIfcViewerMode || isPassportsMode
+          isIfcViewerMode || isPassportsMode || isInspectMode
             ? "min-h-0 flex-1 overflow-y-hidden"
             : ""
         }`}
@@ -647,11 +692,11 @@ function BimFacePageInner() {
         {isIfcViewerMode ? (
           <div
             id="bim-ifc-viewer-root"
-            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden -mx-6 sm:flex-row"
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden sm:flex-row"
           >
             <aside
-              className="pointer-events-auto z-50 flex max-h-[42vh] min-h-0 w-full shrink-0 flex-col border-b border-zinc-200/80 dark:border-zinc-800 sm:max-h-none sm:w-[min(17.5rem,36vw)] sm:shrink-0 sm:border-b-0 sm:border-r"
-              aria-label="Inspect element"
+              className="pointer-events-auto z-50 flex max-h-[42vh] min-h-0 w-full shrink-0 flex-col overflow-x-hidden border-b border-zinc-200/80 dark:border-zinc-800 sm:max-h-none sm:w-[min(26rem,50vw)] sm:max-w-[min(26rem,50vw)] sm:shrink-0 sm:border-b-0 sm:border-r"
+              aria-label="Selected element — KB details and spatial context (Building view only)"
             >
               <BimIfcElementInfoPanel
                 layout="leftRail"
@@ -666,6 +711,7 @@ function BimFacePageInner() {
                 onPickMaterialGroupInstance={
                   hasMaterialGroupFocus ? onPickInstanceWithinMaterialGroup : undefined
                 }
+                buildingQuickTests={buildingQuickTests}
                 className="min-h-0 min-w-0 flex-1"
               />
             </aside>

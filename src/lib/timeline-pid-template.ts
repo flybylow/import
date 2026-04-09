@@ -6,30 +6,42 @@ import {
   PID_MILESTONE_LABELS,
   type PidMilestoneKey,
 } from "@/lib/timeline-pid-milestones";
+import { PID_MILESTONE_REFERENCE_PHASE } from "@/lib/timeline-reference-phase";
+import { PID_TEMPLATE_PLACEHOLDER_NOTE } from "@/lib/timeline-pid-template-constants";
+
+export { PID_TEMPLATE_PLACEHOLDER_NOTE } from "@/lib/timeline-pid-template-constants";
+
+const TEMPLATE_STATE_HINTS: Record<PidMilestoneKey, string> = {
+  spec_baseline: "Design / spec",
+  pid_opened: "OPENED",
+  as_built_package_recorded: "Completion package",
+  pid_finalized: "FINALIZED",
+  pv_provisional_signed: "VERIFIED",
+  warranty_defect: "LIVE",
+  warranty_repair: "LIVE",
+  pv_final_signed: "WARRANTIED",
+  modification_recorded: "EVOLVING",
+  property_transferred: "TRANSFERRED",
+  demolition_inventory: "ARCHIVED",
+};
 
 /**
  * Per-milestone hints for a **template** PID timeline (not authoritative).
- * Keys follow `PID_MILESTONE_KEYS` order.
+ * Phase index comes from `PID_MILESTONE_REFERENCE_PHASE` (single source with lifecycle overview).
  */
 export const PID_TEMPLATE_ROW_META: Record<
   PidMilestoneKey,
   { lifecyclePhase: string; stateHint: string }
-> = {
-  spec_baseline: { lifecyclePhase: "0", stateHint: "Design / spec" },
-  pid_opened: { lifecyclePhase: "1", stateHint: "OPENED" },
-  as_built_package_recorded: { lifecyclePhase: "3", stateHint: "Completion package" },
-  pid_finalized: { lifecyclePhase: "3", stateHint: "FINALIZED" },
-  pv_provisional_signed: { lifecyclePhase: "4", stateHint: "VERIFIED" },
-  warranty_defect: { lifecyclePhase: "5", stateHint: "LIVE" },
-  warranty_repair: { lifecyclePhase: "5", stateHint: "LIVE" },
-  pv_final_signed: { lifecyclePhase: "6", stateHint: "WARRANTIED" },
-  modification_recorded: { lifecyclePhase: "7", stateHint: "EVOLVING" },
-  property_transferred: { lifecyclePhase: "8", stateHint: "TRANSFERRED" },
-  demolition_inventory: { lifecyclePhase: "9", stateHint: "ARCHIVED" },
-};
-
-const TEMPLATE_MESSAGE =
-  "Template seed — placeholder dates; edit or re-log with real business dates when known.";
+> = PID_MILESTONE_KEYS.reduce(
+  (acc, key) => {
+    acc[key] = {
+      lifecyclePhase: PID_MILESTONE_REFERENCE_PHASE[key],
+      stateHint: TEMPLATE_STATE_HINTS[key],
+    };
+    return acc;
+  },
+  {} as Record<PidMilestoneKey, { lifecyclePhase: string; stateHint: string }>
+);
 
 export type BuildPidTemplateOptions = {
   /** Start of first event (UTC). Defaults to today. */
@@ -55,7 +67,7 @@ export function buildPidTemplateEventPayloads(opts: BuildPidTemplateOptions): Ti
       actorLabel: "pid-template-seed",
       eventAction: "pid_reference_milestone",
       source: "pid-template-seed",
-      message: `${TEMPLATE_MESSAGE} (${PID_MILESTONE_LABELS[key]})`,
+      message: `${PID_TEMPLATE_PLACEHOLDER_NOTE} (${PID_MILESTONE_LABELS[key]})`,
       pidReferenceFields: {
         milestoneKey: key,
         lifecyclePhase: meta.lifecyclePhase,

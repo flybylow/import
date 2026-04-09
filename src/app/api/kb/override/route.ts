@@ -8,6 +8,7 @@ import { extractMatchedSourceBreakdownFromStore } from "@/lib/kb-epd-stats";
 import { getAvailableEpdsCatalog } from "@/lib/available-epds";
 import { ensureFillerNoEpdStub } from "@/lib/kb-epd-stubs";
 import {
+  buildEpdLinkedGroupsFromStore,
   buildMatchingPreview,
   extractMaterialExpressIdsFromTtl,
   extractMaterialIdsWithHasEpdFromStore,
@@ -129,6 +130,7 @@ export async function POST(request: Request) {
   });
 
   const epdCatalog = getAvailableEpdsCatalog();
+  const epdLinkedGroups = buildEpdLinkedGroupsFromStore(store);
   const sourceBreakdown = extractMatchedSourceBreakdownFromStore(store);
 
   return NextResponse.json({
@@ -146,5 +148,6 @@ export async function POST(request: Request) {
     },
     matchingPreview,
     epdCatalog,
+    epdLinkedGroups,
   });
 }

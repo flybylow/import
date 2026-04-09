@@ -88,6 +88,26 @@ type KbVocabTerm = {
 };
 
 /** NL dictionary labels before EN names; taxonomy / KB after — for `<datalist>` order. */
+function BestekInvoerPencilIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </svg>
+  );
+}
+
 function sortKbVocabLanguageFirst(terms: KbVocabTerm[]): KbVocabTerm[] {
   const rank = (s: string): number => {
     if (s === "dictionary-nl") return 0;
@@ -385,12 +405,73 @@ function opmetingFicheFromPersistedBindings(
   };
 }
 
+function SaveBindingsBar(props: {
+  savingBindings: boolean;
+  saveDisabled: boolean;
+  timelineWorkLabel: string;
+  setTimelineWorkLabel: (v: string) => void;
+  createdBy: string;
+  setCreatedBy: (v: string) => void;
+  onSave: () => void;
+  className?: string;
+}) {
+  const {
+    savingBindings,
+    saveDisabled,
+    timelineWorkLabel,
+    setTimelineWorkLabel,
+    createdBy,
+    setCreatedBy,
+    onSave,
+    className = "",
+  } = props;
+  return (
+    <div className={`flex flex-wrap items-end gap-x-2 gap-y-1.5 ${className}`.trim()}>
+      <label className="flex min-w-0 max-w-[11rem] flex-col gap-0.5 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+        Werf / titel (optioneel)
+        <input
+          className="w-full rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] dark:border-zinc-600 dark:bg-zinc-950"
+          placeholder="—"
+          aria-label="Optionele werf of titel voor timeline-event bij Save bindings"
+          value={timelineWorkLabel}
+          onChange={(e) => setTimelineWorkLabel(e.target.value)}
+        />
+      </label>
+      <label className="flex w-[7.5rem] flex-col gap-0.5 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+        Actor
+        <input
+          className="w-full rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] dark:border-zinc-600 dark:bg-zinc-950"
+          placeholder="architect@…"
+          aria-label="Bindings saved by"
+          value={createdBy}
+          onChange={(e) => setCreatedBy(e.target.value)}
+        />
+      </label>
+      <Button
+        type="button"
+        variant="primary"
+        className="!px-2.5 !py-1 text-[12px]"
+        disabled={saveDisabled}
+        onClick={onSave}
+      >
+        {savingBindings ? "…" : "Save bindings"}
+      </Button>
+      <InfoDetails label="Save bindings scope">
+        <p>
+          Only <strong>rows shown</strong> in the IFC table (after <strong>− spatial</strong> /{" "}
+          <strong>− proxy</strong>) are written. Hidden IFC types stay out of this save.
+        </p>
+      </InfoDetails>
+    </div>
+  );
+}
+
 export default function DeliveriesBestekPanel(props: {
   projectId: string;
   setProjectId: (v: string) => void;
   /**
    * When true (e.g. `/deliveries?tab=specification&specificationFiche=1`; legacy `bestekFiche=1`), the read-only fiche block starts expanded.
-   * Default collapsed keeps step 2 usable without scrolling past the full document.
+   * Default collapsed keeps the bindings section usable without scrolling past the full document.
    */
   initialOpenSavedSpecificationFiche?: boolean;
   /**
@@ -418,6 +499,8 @@ export default function DeliveriesBestekPanel(props: {
   const [savingBindings, setSavingBindings] = useState(false);
   const [savingCoupling, setSavingCoupling] = useState(false);
   const [createdBy, setCreatedBy] = useState("");
+  /** First line of the timeline message on Save bindings (werf / project name). */
+  const [timelineWorkLabel, setTimelineWorkLabel] = useState("");
   const [contractorBy, setContractorBy] = useState("");
   const [drafts, setDrafts] = useState<Record<string, DraftBinding>>({});
   const [couplingDrafts, setCouplingDrafts] = useState<Record<string, DraftCoupling>>({});
@@ -490,6 +573,7 @@ export default function DeliveriesBestekPanel(props: {
     () => filterBestekFormGroupsByIfcType(groups, formIfcVisibility),
     [groups, formIfcVisibility]
   );
+  const hiddenBySpatialProxyFilter = Math.max(0, groups.length - visibleGroups.length);
 
   const bestekPreviewChapters = useMemo(() => {
     const rows = visibleGroups
@@ -829,6 +913,9 @@ export default function DeliveriesBestekPanel(props: {
           projectId: pid,
           bindings,
           created_by: createdBy.trim() || "architect",
+          ...(timelineWorkLabel.trim()
+            ? { timeline_work_label: timelineWorkLabel.trim() }
+            : {}),
         }),
       });
       const j = (await res.json()) as { error?: string };
@@ -853,6 +940,7 @@ export default function DeliveriesBestekPanel(props: {
     visibleGroups,
     drafts,
     createdBy,
+    timelineWorkLabel,
     hideSpatialTypes,
     hideMetaTypes,
     loadGroups,
@@ -960,72 +1048,67 @@ export default function DeliveriesBestekPanel(props: {
 
   return (
     <div className="space-y-2 pt-1">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-zinc-200 pb-2 text-[15px] dark:border-zinc-800">
-        <ProjectIdField
-          value={projectId}
-          onChange={setProjectId}
-          label="Project"
-          compact
-        />
-        <div className="flex shrink-0 items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
-          <InfoDetails label="Bestek workflow">
-            <p className="mb-2">
-              Name IFC groups and map architect text. Same{" "}
-              <code className="font-mono text-[14px]">projectId</code> as ingest. Step 3 couples EPD
-              / KB / sources; step 2 is human-readable spec naming.{" "}
-              <Link href="/calculate" className="text-emerald-700 underline dark:text-emerald-400">
-                Calculate
-              </Link>{" "}
-              can set <code className="font-mono text-[14px]">meta.bestekCouplingSignatureSha256</code>.
-            </p>
-          </InfoDetails>
-          <Link
-            href={`/deliveries/match-materials?projectId=${encodeURIComponent(projectId.trim() || "example")}`}
-            className="whitespace-nowrap text-emerald-700 hover:underline dark:text-emerald-400"
-          >
-            Simple match
-          </Link>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 pb-2 text-[15px] dark:border-zinc-800">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <ProjectIdField
+            value={projectId}
+            onChange={setProjectId}
+            label="Project"
+            compact
+          />
+          <div className="flex shrink-0 items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
+            <InfoDetails label="Bestek workflow">
+              <p className="mb-2">
+                Name IFC groups and map architect text. Same{" "}
+                <code className="font-mono text-[14px]">projectId</code> as ingest. Step 3 couples EPD
+                / KB / sources; bindings below are human-readable spec naming.{" "}
+                <Link href="/calculate" className="text-emerald-700 underline dark:text-emerald-400">
+                  Calculate
+                </Link>{" "}
+                can set <code className="font-mono text-[14px]">meta.bestekCouplingSignatureSha256</code>.
+              </p>
+            </InfoDetails>
+            <Link
+              href={`/deliveries/match-materials?projectId=${encodeURIComponent(projectId.trim() || "example")}`}
+              className="whitespace-nowrap text-emerald-700 hover:underline dark:text-emerald-400"
+            >
+              Simple match
+            </Link>
+          </div>
         </div>
-        {stats ? (
-          <span className="min-w-0 text-zinc-500 dark:text-zinc-400">
-            <span className="tabular-nums">
-              {stats.named_groups}/{stats.total_element_groups} named ({stats.coverage_percent}%)
-            </span>
-            {stats.material_matched_groups != null ? (
+        <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1">
+          {stats ? (
+            <span className="min-w-0 text-right text-[14px] text-zinc-500 dark:text-zinc-400">
               <span className="tabular-nums">
-                {" · "}
-                {stats.material_matched_groups}/{stats.total_element_groups} material (
-                {stats.material_coverage_percent ?? 0}%)
+                {stats.named_groups}/{stats.total_element_groups} named ({stats.coverage_percent}%)
               </span>
-            ) : null}
-            {stats.bestekCouplingSignatureSha256 ? (
-              <span className="font-mono text-[14px]">
-                {" · "}
-                sig {stats.bestekCouplingSignatureSha256.slice(0, 10)}…
-              </span>
-            ) : (
-              <span>
-                {" · "}
-                no bindings file
-              </span>
-            )}
-          </span>
-        ) : (
-          <span className="shrink-0 text-zinc-400">…</span>
-        )}
-      </div>
-
-      <CollapseSection title="1 · Regroup IFC">
-        <p className="mb-2 text-[14px] text-zinc-500 dark:text-zinc-400">
-          Writes the <span className="font-medium">full</span> IFC-type list (all elements). Use{" "}
-          <strong>− spatial</strong> / <strong>− proxy</strong> in step 2 to hide those IFC rows in the
-          table, preview, saved fiche, and Save (disk still stores every binding you saved earlier).
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
+              {stats.material_matched_groups != null ? (
+                <span className="tabular-nums">
+                  {" · "}
+                  {stats.material_matched_groups}/{stats.total_element_groups} material (
+                  {stats.material_coverage_percent ?? 0}%)
+                </span>
+              ) : null}
+              {stats.bestekCouplingSignatureSha256 ? (
+                <span className="font-mono text-[13px]">
+                  {" · "}
+                  sig {stats.bestekCouplingSignatureSha256.slice(0, 10)}…
+                </span>
+              ) : (
+                <span>
+                  {" · "}
+                  no bindings file
+                </span>
+              )}
+            </span>
+          ) : (
+            <span className="shrink-0 text-right text-zinc-400">…</span>
+          )}
           <input
             type="file"
             accept=".ifc,.IFC"
-            className="max-w-[10rem] text-[14px] text-zinc-700 dark:text-zinc-300"
+            title="Upload IFC (optional; replaces data/&lt;projectId&gt;.ifc on regroup)"
+            className="max-w-[9rem] shrink-0 text-[13px] text-zinc-700 dark:text-zinc-300"
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) void regroup(f);
@@ -1036,23 +1119,29 @@ export default function DeliveriesBestekPanel(props: {
           <Button
             type="button"
             variant="outline"
+            className="shrink-0 whitespace-nowrap px-3 py-1.5 text-[13px]"
             disabled={regrouping || !projectId.trim()}
             onClick={() => void regroup(null)}
           >
             {regrouping ? "…" : "Regroup (disk IFC)"}
           </Button>
-          <InfoDetails label="Regroup output paths">
-            <p>
-              Writes{" "}
-              <code className="font-mono text-[14px]">data/&lt;projectId&gt;-phase0-element-groups.json</code>
-              . Upload replaces{" "}
+          <InfoDetails label="Regroup IFC">
+            <p className="mb-2 text-[14px]">
+              Writes the <span className="font-medium">full</span> IFC-type list (all elements). Use{" "}
+              <strong>− spatial</strong> / <strong>− proxy</strong> in the IFC table to hide those rows in the
+              table, preview, saved fiche, and Save (disk still stores every binding you saved earlier).
+            </p>
+            <p className="text-[14px]">
+              Output:{" "}
+              <code className="font-mono text-[14px]">data/&lt;projectId&gt;-phase0-element-groups.json</code>.
+              Upload replaces{" "}
               <code className="font-mono text-[14px]">data/&lt;projectId&gt;.ifc</code>.
             </p>
           </InfoDetails>
         </div>
-      </CollapseSection>
+      </div>
 
-      <CollapseSection title="2 · Architect bindings" defaultOpen>
+      <CollapseSection title="1 · Architect bindings" defaultOpen={false}>
         {persistedOpmetingFicheData ? (
           <details
             ref={savedFicheDetailsRef}
@@ -1095,7 +1184,11 @@ export default function DeliveriesBestekPanel(props: {
                   </>
                 )}
               </p>
-              <BestekOpmetingFicheVisual data={persistedOpmetingFicheData} />
+              <p className="text-[12px] text-zinc-500 dark:text-zinc-500">
+                Eerste artikelen in het zicht; scroll in de tabel voor het volledige document (
+                {persistedOpmetingFicheData.lines.length} regel(s)).
+              </p>
+              <BestekOpmetingFicheVisual data={persistedOpmetingFicheData} scrollableTable />
             </div>
           </details>
         ) : persistedBindings.length > 0 ? (
@@ -1106,7 +1199,16 @@ export default function DeliveriesBestekPanel(props: {
             te zien ({persistedBindings.length} regel(s) op schijf).
           </p>
         ) : null}
-        <div className="mb-2 flex flex-wrap items-center gap-2">
+        <CollapseSection
+          title="Bestek invoer — IFC-tabel"
+          titlePrefix={<BestekInvoerPencilIcon />}
+          className="mb-2"
+        >
+          <p className="mb-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+            Werklijst voor opmeting: filters, zichtbare rijen en tabel (IFC, Spec, materiaal, eenheid, hoeveelheid,
+            prijs).
+          </p>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
           <InfoDetails label="Material column">
             <p>
               Same <code className="font-mono text-[14px]">material-dictionary.json</code> categories
@@ -1120,6 +1222,7 @@ export default function DeliveriesBestekPanel(props: {
               onChange={(e) => setBindingDictFilter(e.target.value)}
               placeholder="Filter materials…"
               aria-label="Filter materials"
+              title="Narrows choices in each Material picker only; does not hide rows in the table."
             />
           ) : (
             <span className="text-[14px] text-amber-700 dark:text-amber-300">Loading catalog…</span>
@@ -1153,8 +1256,31 @@ export default function DeliveriesBestekPanel(props: {
           ) : (
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[14px] text-zinc-500 tabular-nums">
-                <span>{visibleGroups.length}</span> shown · <span>{groups.length}</span> total
+                {hiddenBySpatialProxyFilter === 0 ? (
+                  <>
+                    <span>{visibleGroups.length}</span> IFC-type groups
+                  </>
+                ) : (
+                  <>
+                    <span>{visibleGroups.length}</span> in table · <span>{groups.length}</span> in phase-0
+                    data ·{" "}
+                    <span className="text-zinc-400 dark:text-zinc-500">
+                      {hiddenBySpatialProxyFilter} hidden (− spatial / − proxy)
+                    </span>
+                  </>
+                )}
               </span>
+              <InfoDetails label="IFC-type row counts">
+                <p className="mb-2">
+                  Rows come from <code className="font-mono text-[13px]">*-phase0-element-groups.json</code>{" "}
+                  (one row per IFC-type bucket, same order as after regroup). <strong>− spatial</strong> /{" "}
+                  <strong>− proxy</strong> only hide rows in this UI — they stay in the file.
+                </p>
+                <p>
+                  <strong>Filter materials</strong> only filters options inside each Material picker, not which IFC
+                  rows appear.
+                </p>
+              </InfoDetails>
               <Button
                 type="button"
                 variant="outline"
@@ -1166,7 +1292,7 @@ export default function DeliveriesBestekPanel(props: {
               </Button>
               <InfoDetails label="Auto-match visible rows">
                 <p className="mb-2">
-                  For <strong>only rows currently shown</strong> (respects − spatial / − proxy), replaces the
+                  For <strong>only IFC-type rows in the table</strong> (after − spatial / − proxy), replaces the
                   suggested fields: keeps your <strong>Material</strong> pick when set, otherwise IFC default slug;{" "}
                   <strong>Dutch architect wording</strong> from{" "}
                   <code className="font-mono text-[14px]">material-label-translations.json</code> when
@@ -1209,7 +1335,9 @@ export default function DeliveriesBestekPanel(props: {
           )}
         </div>
         {groups.length === 0 ? (
-          <p className="text-[15px] text-zinc-500">No groups — regroup IFC above.</p>
+          <p className="text-[15px] text-zinc-500">
+            No groups — use <strong>Regroup (disk IFC)</strong> in the project bar (or upload an IFC there).
+          </p>
         ) : visibleGroups.length === 0 ? (
           <p className="text-[15px] text-zinc-500">
             All groups hidden — turn off − spatial / − proxy to show rows.
@@ -1395,195 +1523,203 @@ export default function DeliveriesBestekPanel(props: {
                       {detailOpen ? (
                         <tr className="border-t border-zinc-200 bg-zinc-50 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-200">
                           <td colSpan={7} className="px-3 py-2" id={detailPanelId}>
-                            <div className="space-y-2 text-[14px]">
-                              <label className="block max-w-3xl">
-                                <span className="mb-0.5 block text-zinc-500 dark:text-zinc-400">
-                                  Architect / bestek (vrije tekst)
-                                </span>
-                                {kbVocab.length > 0 ? (
-                                  <>
-                                    <input
-                                      type="text"
-                                      className="mb-1.5 w-full rounded border border-zinc-300 bg-white px-1.5 py-1 font-sans text-[14px] text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
-                                      list={architectKbDatalistId}
-                                      autoComplete="off"
-                                      spellCheck={false}
-                                      lang="nl-BE"
-                                      placeholder="Typ een paar letters — kies een term (NL eerst in de lijst) om toe te voegen…"
-                                      aria-label={`KB-term invoegen voor ${g.group_id}`}
-                                      value={architectTypeaheadDraft[g.group_id] ?? ""}
-                                      onChange={(e) => {
-                                        const v = e.target.value;
-                                        setArchitectTypeaheadDraft((p) => ({
-                                          ...p,
-                                          [g.group_id]: v,
-                                        }));
-                                        const hit = kbVocabSortedForAutocomplete.find(
-                                          (t) => t.label === v.trim()
-                                        );
-                                        if (!hit) return;
-                                        const term = vocabByLabel.get(hit.label.trim().toLowerCase());
-                                        setDrafts((prev) => {
-                                          const cur = prev[g.group_id] ?? emptyDraftBinding();
-                                          let material_slug = cur.material_slug;
-                                          if (
-                                            term?.materialSlug &&
-                                            !String(material_slug ?? "").trim()
-                                          ) {
-                                            material_slug = term.materialSlug;
-                                          }
-                                          const nextText =
-                                            cur.architect_name.trim().length > 0
-                                              ? `${cur.architect_name.trim()}\n${hit.label}`
-                                              : hit.label;
-                                          return {
-                                            ...prev,
-                                            [g.group_id]: {
-                                              ...cur,
-                                              architect_name: nextText,
-                                              material_slug,
-                                            },
-                                          };
-                                        });
-                                        setArchitectTypeaheadDraft((p) => ({
-                                          ...p,
-                                          [g.group_id]: "",
-                                        }));
-                                      }}
-                                    />
-                                  </>
-                                ) : null}
-                                <textarea
-                                  className="min-h-[5.5rem] w-full rounded border border-zinc-300 bg-white px-1.5 py-1 font-sans text-[14px] leading-snug text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
-                                  lang="nl-BE"
-                                  placeholder="Hoofdstuk, artikelnummers, materiaal, opmerkingen…"
-                                  aria-label={`Architect bestektekst voor ${g.group_id}`}
-                                  value={d.architect_name}
-                                  onChange={(e) =>
-                                    setDrafts((prev) => ({
-                                      ...prev,
-                                      [g.group_id]: { ...d, architect_name: e.target.value },
-                                    }))
-                                  }
-                                  onBlur={(e) => {
-                                    const v = e.target.value;
-                                    const raw = v.trim();
-                                    const term = raw ? vocabByLabel.get(raw.toLowerCase()) : undefined;
-                                    setDrafts((prev) => {
-                                      const cur = prev[g.group_id] ?? emptyDraftBinding();
-                                      let material_slug = cur.material_slug;
-                                      if (term?.materialSlug && !String(material_slug ?? "").trim()) {
-                                        material_slug = term.materialSlug;
-                                      }
-                                      return {
-                                        ...prev,
-                                        [g.group_id]: { ...cur, architect_name: v, material_slug },
-                                      };
-                                    });
-                                  }}
-                                />
-                              </label>
-                              {d.architect_name.trim().length > 0 &&
-                              (articleToks.length > 0 || categoryToks.length > 0) ? (
-                                <div className="rounded border border-zinc-200 bg-white/90 px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-950/80">
-                                  <p className="mb-1 text-[15px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                                    Herleid uit tekst (controleer)
-                                  </p>
-                                  {articleToks.length > 0 ? (
-                                    <div className="mb-1 flex flex-wrap items-center gap-1">
-                                      <span className="text-zinc-500 dark:text-zinc-400">Art.-patronen:</span>
-                                      {articleToks.map((tok) => (
-                                        <button
-                                          key={tok}
-                                          type="button"
-                                          className="rounded border border-zinc-300 bg-zinc-50 px-1 py-0.5 font-mono tabular-nums hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-                                          title="Zet als Art.#"
-                                          onClick={() =>
-                                            setDrafts((prev) => ({
+                            <div className="flex flex-col gap-3 text-[14px] lg:flex-row lg:items-stretch lg:gap-4">
+                              <div className="min-w-0 flex-1 space-y-2">
+                                <label className="block max-w-none">
+                                  <span className="mb-0.5 block text-zinc-500 dark:text-zinc-400">
+                                    Architect / bestek (vrije tekst)
+                                  </span>
+                                  {kbVocab.length > 0 ? (
+                                    <>
+                                      <input
+                                        type="text"
+                                        className="mb-1.5 w-full rounded border border-zinc-300 bg-white px-1.5 py-1 font-sans text-[14px] text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+                                        list={architectKbDatalistId}
+                                        autoComplete="off"
+                                        spellCheck={false}
+                                        lang="nl-BE"
+                                        placeholder="Typ een paar letters — kies een term (NL eerst in de lijst) om toe te voegen…"
+                                        aria-label={`KB-term invoegen voor ${g.group_id}`}
+                                        value={architectTypeaheadDraft[g.group_id] ?? ""}
+                                        onChange={(e) => {
+                                          const v = e.target.value;
+                                          setArchitectTypeaheadDraft((p) => ({
+                                            ...p,
+                                            [g.group_id]: v,
+                                          }));
+                                          const hit = kbVocabSortedForAutocomplete.find(
+                                            (t) => t.label === v.trim()
+                                          );
+                                          if (!hit) return;
+                                          const term = vocabByLabel.get(hit.label.trim().toLowerCase());
+                                          setDrafts((prev) => {
+                                            const cur = prev[g.group_id] ?? emptyDraftBinding();
+                                            let material_slug = cur.material_slug;
+                                            if (
+                                              term?.materialSlug &&
+                                              !String(material_slug ?? "").trim()
+                                            ) {
+                                              material_slug = term.materialSlug;
+                                            }
+                                            const nextText =
+                                              cur.architect_name.trim().length > 0
+                                                ? `${cur.architect_name.trim()}\n${hit.label}`
+                                                : hit.label;
+                                            return {
                                               ...prev,
                                               [g.group_id]: {
-                                                ...(prev[g.group_id] ?? emptyDraftBinding()),
-                                                article_number: tok,
+                                                ...cur,
+                                                architect_name: nextText,
+                                                material_slug,
                                               },
-                                            }))
-                                          }
-                                        >
-                                          {tok}
-                                        </button>
-                                      ))}
-                                    </div>
+                                            };
+                                          });
+                                          setArchitectTypeaheadDraft((p) => ({
+                                            ...p,
+                                            [g.group_id]: "",
+                                          }));
+                                        }}
+                                      />
+                                    </>
                                   ) : null}
-                                  {categoryToks.length > 0 ? (
-                                    <div className="flex flex-wrap items-center gap-1">
-                                      <span className="text-zinc-500 dark:text-zinc-400">Woorden uit dict.:</span>
-                                      {categoryToks.map((tok) => (
-                                        <span
-                                          key={tok}
-                                          className={bestekCategoryChipClass(tok)}
-                                        >
-                                          {tok}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              ) : null}
-                              <div className="space-y-1 border-t border-zinc-200 pt-2 dark:border-zinc-700">
-                                <div className="flex flex-wrap items-end gap-3">
-                                  <label className="flex flex-col gap-0.5">
-                                    <span className="text-zinc-500 dark:text-zinc-400">Art.#</span>
-                                    <input
-                                      className="w-20 rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-950 px-1 py-0.5 font-mono tabular-nums"
-                                      value={d.article_number}
-                                      onChange={(e) =>
-                                        setDrafts((prev) => ({
+                                  <textarea
+                                    className="min-h-[5.5rem] w-full rounded border border-zinc-300 bg-white px-1.5 py-1 font-sans text-[14px] leading-snug text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+                                    lang="nl-BE"
+                                    placeholder="Hoofdstuk, artikelnummers, materiaal, opmerkingen…"
+                                    aria-label={`Architect bestektekst voor ${g.group_id}`}
+                                    value={d.architect_name}
+                                    onChange={(e) =>
+                                      setDrafts((prev) => ({
+                                        ...prev,
+                                        [g.group_id]: { ...d, architect_name: e.target.value },
+                                      }))
+                                    }
+                                    onBlur={(e) => {
+                                      const v = e.target.value;
+                                      const raw = v.trim();
+                                      const term = raw ? vocabByLabel.get(raw.toLowerCase()) : undefined;
+                                      setDrafts((prev) => {
+                                        const cur = prev[g.group_id] ?? emptyDraftBinding();
+                                        let material_slug = cur.material_slug;
+                                        if (term?.materialSlug && !String(material_slug ?? "").trim()) {
+                                          material_slug = term.materialSlug;
+                                        }
+                                        return {
                                           ...prev,
-                                          [g.group_id]: { ...d, article_number: e.target.value },
-                                        }))
-                                      }
-                                      aria-label={`Article number for ${g.group_id}`}
-                                    />
-                                  </label>
-                                  <label className="flex flex-col gap-0.5">
-                                    <span className="text-zinc-500 dark:text-zinc-400">€ / unit</span>
-                                    <input
-                                      className="w-[5.5rem] rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-950 px-1 py-0.5 tabular-nums"
-                                      value={d.article_unit_price_eur}
-                                      onChange={(e) =>
-                                        setDrafts((prev) => ({
-                                          ...prev,
-                                          [g.group_id]: { ...d, article_unit_price_eur: e.target.value },
-                                        }))
-                                      }
-                                      placeholder="185,50"
-                                      inputMode="decimal"
-                                      aria-label={`Unit price EUR for ${g.group_id}`}
-                                    />
-                                  </label>
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className="text-zinc-500 dark:text-zinc-400">Totaal</span>
-                                    <span
-                                      className="min-h-[1.5rem] rounded border border-dashed border-zinc-200 bg-white px-1 py-0.5 tabular-nums text-zinc-800 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
-                                      title="Qty × €/unit (placeholder €/unit if leeg)"
-                                    >
-                                      {bindingLineTotalLabel(d)}
-                                    </span>
+                                          [g.group_id]: { ...cur, architect_name: v, material_slug },
+                                        };
+                                      });
+                                    }}
+                                  />
+                                </label>
+                                {d.architect_name.trim().length > 0 &&
+                                (articleToks.length > 0 || categoryToks.length > 0) ? (
+                                  <div className="rounded border border-zinc-200 bg-white/90 px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-950/80">
+                                    <p className="mb-1 text-[15px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                      Herleid uit tekst (controleer)
+                                    </p>
+                                    {articleToks.length > 0 ? (
+                                      <div className="mb-1 flex flex-wrap items-center gap-1">
+                                        <span className="text-zinc-500 dark:text-zinc-400">Art.-patronen:</span>
+                                        {articleToks.map((tok) => (
+                                          <button
+                                            key={tok}
+                                            type="button"
+                                            className="rounded border border-zinc-300 bg-zinc-50 px-1 py-0.5 font-mono tabular-nums hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                                            title="Zet als Art.#"
+                                            onClick={() =>
+                                              setDrafts((prev) => ({
+                                                ...prev,
+                                                [g.group_id]: {
+                                                  ...(prev[g.group_id] ?? emptyDraftBinding()),
+                                                  article_number: tok,
+                                                },
+                                              }))
+                                            }
+                                          >
+                                            {tok}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    ) : null}
+                                    {categoryToks.length > 0 ? (
+                                      <div className="flex flex-wrap items-center gap-1">
+                                        <span className="text-zinc-500 dark:text-zinc-400">Woorden uit dict.:</span>
+                                        {categoryToks.map((tok) => (
+                                          <span
+                                            key={tok}
+                                            className={bestekCategoryChipClass(tok)}
+                                          >
+                                            {tok}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : null}
                                   </div>
-                                </div>
-                                <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
-                                  <strong className="text-zinc-600 dark:text-zinc-300">Unit</strong> en{" "}
-                                  <strong className="text-zinc-600 dark:text-zinc-300">Qty</strong> vul je in de
-                                  hoofdtabel; beide zijn verplicht om op te slaan (Auto-match zet vaak al eenheid +
-                                  hoeveelheid voor stuks).
-                                </p>
+                                ) : null}
                               </div>
-                              <p className="mt-2 max-w-2xl text-[13px] leading-snug text-zinc-500 dark:text-zinc-400">
-                                <strong className="text-zinc-600 dark:text-zinc-300">Qty en BIM:</strong>{" "}
-                                <strong>stuks</strong> = echte telling (kolom <strong className="tabular-nums">#</strong>
-                                ). Voor <strong>m²</strong>/<strong>m³</strong>/<strong>kg</strong> vult{" "}
-                                <strong>Auto-match</strong> tijdelijk ook <strong>#</strong> zodat je kunt opslaan —
-                                vervang door echte opmeting.
-                              </p>
+                              <div className="flex w-full shrink-0 flex-col gap-2.5 rounded-lg border border-zinc-200 bg-white/95 p-2.5 dark:border-zinc-700 dark:bg-zinc-950/70 lg:w-[14.5rem] xl:w-[16rem]">
+                                <label className="flex flex-col gap-0.5">
+                                  <span className="text-[13px] font-medium text-zinc-500 dark:text-zinc-400">
+                                    Art.#
+                                  </span>
+                                  <input
+                                    className="w-full rounded border border-zinc-300 bg-white px-1.5 py-1 font-mono tabular-nums text-[14px] dark:border-zinc-600 dark:bg-zinc-950"
+                                    value={d.article_number}
+                                    onChange={(e) =>
+                                      setDrafts((prev) => ({
+                                        ...prev,
+                                        [g.group_id]: { ...d, article_number: e.target.value },
+                                      }))
+                                    }
+                                    aria-label={`Article number for ${g.group_id}`}
+                                  />
+                                </label>
+                                <label className="flex flex-col gap-0.5">
+                                  <span className="text-[13px] font-medium text-zinc-500 dark:text-zinc-400">
+                                    € / unit
+                                  </span>
+                                  <input
+                                    className="w-full rounded border border-zinc-300 bg-white px-1.5 py-1 tabular-nums text-[14px] dark:border-zinc-600 dark:bg-zinc-950"
+                                    value={d.article_unit_price_eur}
+                                    onChange={(e) =>
+                                      setDrafts((prev) => ({
+                                        ...prev,
+                                        [g.group_id]: { ...d, article_unit_price_eur: e.target.value },
+                                      }))
+                                    }
+                                    placeholder="185,50"
+                                    inputMode="decimal"
+                                    aria-label={`Unit price EUR for ${g.group_id}`}
+                                  />
+                                </label>
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-[13px] font-medium text-zinc-500 dark:text-zinc-400">
+                                    Totaal
+                                  </span>
+                                  <span
+                                    className="min-h-[2rem] rounded border border-dashed border-zinc-200 bg-zinc-50 px-1.5 py-1 text-[14px] font-medium tabular-nums text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900/80 dark:text-zinc-100"
+                                    title="Qty × €/unit (placeholder €/unit if leeg)"
+                                  >
+                                    {bindingLineTotalLabel(d)}
+                                  </span>
+                                </div>
+                                <div className="space-y-2 border-t border-zinc-100 pt-2 text-[12px] leading-snug text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                                  <p>
+                                    <strong className="text-zinc-600 dark:text-zinc-300">Unit</strong> en{" "}
+                                    <strong className="text-zinc-600 dark:text-zinc-300">Qty</strong> vul je in de
+                                    hoofdtabel; beide zijn verplicht om op te slaan (Auto-match zet vaak al eenheid +
+                                    hoeveelheid voor stuks).
+                                  </p>
+                                  <p>
+                                    <strong className="text-zinc-600 dark:text-zinc-300">Qty en BIM:</strong>{" "}
+                                    <strong>stuks</strong> = echte telling (kolom{" "}
+                                    <strong className="tabular-nums">#</strong>). Voor <strong>m²</strong>/
+                                    <strong>m³</strong>/<strong>kg</strong> vult <strong>Auto-match</strong> tijdelijk
+                                    ook <strong>#</strong> zodat je kunt opslaan — vervang door echte opmeting.
+                                  </p>
+                                </div>
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -1595,11 +1731,10 @@ export default function DeliveriesBestekPanel(props: {
             </table>
           </div>
         )}
-        <div className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-zinc-50/80 p-2 dark:border-zinc-600 dark:bg-zinc-900/40">
+        </CollapseSection>
+
+        <CollapseSection title="Bestek preview (stapel)" className="mb-2">
           <div className="mb-1.5 flex flex-wrap items-center gap-2">
-            <h3 className="text-[14px] font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-200">
-              Bestek preview
-            </h3>
             <InfoDetails label="Hoe deze preview werkt">
               <p className="mb-2">
                 Toont <strong>alle zichtbare rijen</strong> waarin bestektekst (onder Spec) is ingevuld, als
@@ -1615,9 +1750,9 @@ export default function DeliveriesBestekPanel(props: {
             </InfoDetails>
           </div>
           {bestekPreviewLinesFlat.length === 0 ? (
-            <p className="text-[14px] text-zinc-500 dark:text-zinc-400">
-              Nog leeg — open <strong>Spec</strong>, vul bestektekst in en stel Art.# / unit / qty in; daarna
-              verschijnt de preview hier.
+            <p className="text-[13px] text-zinc-500 dark:text-zinc-400">
+              Nog leeg — open <strong>Bestek invoer</strong>, vul <strong>Spec</strong> in en stel Art.# / unit /
+              qty; daarna verschijnt de stapel hier.
             </p>
           ) : (
             <div className="max-h-[min(26rem,55vh)] overflow-y-auto text-zinc-800 dark:text-zinc-200">
@@ -1648,31 +1783,18 @@ export default function DeliveriesBestekPanel(props: {
               </ul>
             </div>
           )}
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <input
-            className="block w-40 rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[15px] dark:border-zinc-600 dark:bg-zinc-950"
-            placeholder="architect@…"
-            aria-label="Bindings saved by"
-            value={createdBy}
-            onChange={(e) => setCreatedBy(e.target.value)}
+        </CollapseSection>
+
+        <div className="mb-0 mt-4 rounded-md border border-zinc-200 bg-zinc-50/90 px-2 py-2 dark:border-zinc-700 dark:bg-zinc-900/40">
+          <SaveBindingsBar
+            savingBindings={savingBindings}
+            saveDisabled={savingBindings || !groups.length}
+            timelineWorkLabel={timelineWorkLabel}
+            setTimelineWorkLabel={setTimelineWorkLabel}
+            createdBy={createdBy}
+            setCreatedBy={setCreatedBy}
+            onSave={() => void saveBindings()}
           />
-          <Button
-            type="button"
-            variant="primary"
-            disabled={savingBindings || !groups.length}
-            onClick={() => void saveBindings()}
-          >
-            {savingBindings ? "…" : "Save bindings"}
-          </Button>
-          <InfoDetails label="Save bindings scope">
-            <p>
-              Only <strong>rows shown</strong> in step 2 are written: when <strong>− spatial</strong> or{" "}
-              <strong>− proxy</strong> is checked, those IFC types stay out of this save (same as Auto-match).
-              Existing entries for hidden groups in <code className="font-mono text-[12px]">*-bestek-bindings.json</code>{" "}
-              are left unchanged unless you uncheck the filters and save again.
-            </p>
-          </InfoDetails>
         </div>
       </CollapseSection>
 

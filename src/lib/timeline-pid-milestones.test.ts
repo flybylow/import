@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildPidTemplateEventPayloads } from "./timeline-pid-template";
-import { isPidMilestoneKey, PID_MILESTONE_KEYS } from "./timeline-pid-milestones";
+import {
+  isPidMilestoneKey,
+  PID_MACRO_BAND_DOCUMENT_LINES,
+  PID_MILESTONE_KEYS,
+  PID_MILESTONE_REGISTER_BLURB,
+} from "./timeline-pid-milestones";
 import { timelineEventToTurtle, timelineFilePrefixes, parseTimelineTtl } from "./timeline-events";
 import type { TimelineEventPayload } from "./timeline-events";
 
@@ -22,6 +27,18 @@ test("isPidMilestoneKey allowlist", () => {
   assert.equal(isPidMilestoneKey("pid_opened"), true);
   assert.equal(isPidMilestoneKey("not_a_key"), false);
   assert.ok(PID_MILESTONE_KEYS.length >= 8);
+});
+
+test("PID_MILESTONE_REGISTER_BLURB covers every milestone key", () => {
+  for (const k of PID_MILESTONE_KEYS) {
+    const b = PID_MILESTONE_REGISTER_BLURB[k];
+    assert.ok(b?.purpose?.trim().length > 0, k);
+    assert.ok(b?.typicalDocuments?.trim().length > 0, k);
+  }
+});
+
+test("PID_MACRO_BAND_DOCUMENT_LINES is three macro bands", () => {
+  assert.equal(PID_MACRO_BAND_DOCUMENT_LINES.length, 3);
 });
 
 test("pid_reference_milestone round-trip in turtle", () => {

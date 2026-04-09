@@ -2,7 +2,7 @@ import {
   passportDisplayTypeGroupKey,
   passportPartitionFromPassportRow,
 } from "@/lib/ifc-passport-type-group";
-import { passportMaterialMatchesSlug } from "@/lib/material-slug-match";
+import { passportMaterialLayerMatchesSlug } from "@/lib/material-slug-match";
 
 export type Phase4PassportMaterial = {
   materialId: number;
@@ -197,12 +197,15 @@ export function elementSummariesFireRatedDoors(
 /** Match rule aligned with timeline construction buildup (`passportMatchesMaterialSlug`). */
 function passportRowMatchesMaterialSlug(p: Phase4ElementPassport, slugLower: string): boolean {
   for (const m of p.materials) {
-    if (passportMaterialMatchesSlug(m.materialName, slugLower)) return true;
+    if (passportMaterialLayerMatchesSlug(m.materialName, m.epdSlug, slugLower)) return true;
   }
   return false;
 }
 
-/** IFC instances whose passport materials match a DPP slug (e.g. tail of `timeline:materialReference`). */
+/**
+ * IFC instances whose passport materials match a URL / timeline slug: **exact `epdSlug`** on a linked
+ * layer, else {@link passportMaterialLayerMatchesSlug} on IFC `materialName` (substring / token rules).
+ */
 export function elementSummariesByMaterialSlug(
   ordered: Phase4ElementPassport[],
   materialSlug: string

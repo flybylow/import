@@ -36,15 +36,27 @@ export function CollapseSection(props: {
   defaultOpen?: boolean;
   children: ReactNode;
   className?: string;
+  /** Optional anchor for deep links / scroll targets. */
+  id?: string;
+  /** Shown before the title (e.g. icon). */
+  titlePrefix?: ReactNode;
 }) {
-  const { title, defaultOpen, children, className = "" } = props;
+  const { title, defaultOpen, children, className = "", id, titlePrefix } = props;
   return (
     <details
+      id={id}
       className={`rounded-md border border-zinc-200 dark:border-zinc-800 ${className}`}
       {...(defaultOpen ? { open: true } : {})}
     >
       <summary className="cursor-pointer select-none px-2 py-1.5 text-xs font-medium text-zinc-800 hover:bg-zinc-50 dark:text-zinc-100 dark:hover:bg-zinc-900/60">
-        {title}
+        <span className="inline-flex items-center gap-1.5">
+          {titlePrefix ? (
+            <span className="shrink-0 text-zinc-500 dark:text-zinc-400" aria-hidden>
+              {titlePrefix}
+            </span>
+          ) : null}
+          <span>{title}</span>
+        </span>
       </summary>
       <div className="border-t border-zinc-200 px-2 py-2 dark:border-zinc-800">{children}</div>
     </details>

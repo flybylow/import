@@ -56,6 +56,11 @@ export function kbFocusMaterialHref(projectId: string, materialId: number): stri
   return `/kb?projectId=${encodeURIComponent(projectId)}&focusMaterialId=${encodeURIComponent(String(materialId))}`;
 }
 
+/** Phase 2 KB home for a project (no material focus). */
+export function kbProjectHref(projectId: string): string {
+  return `/kb?projectId=${encodeURIComponent(projectId)}`;
+}
+
 export type PassportEpdLink = {
   href: string;
   label: string;

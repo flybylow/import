@@ -5,6 +5,8 @@
 
 **Timeline-first:** The UI sorts by `timeline:timestamp`. Stakeholder documents (e.g. **leveringsbon**, **werfverslag**) map to fixed `eventAction` values and should use **business dates** when ingested — see [`docs/timeline-first-and-document-matching.md`](timeline-first-and-document-matching.md) and `src/lib/timeline-document-matching.ts`.
 
+**Events system (documents):** Uploads and sidecar files under `data/` are **referenced** in the audit story by **appending** the corresponding `timeline:eventAction` row. That is how documents **enter** the same ordered log as PID milestones and pipeline events — see §“Events system: documents → timeline” in [`docs/timeline-first-and-document-matching.md`](timeline-first-and-document-matching.md).
+
 ---
 
 ## 1. Two axes (how to think about the log)
@@ -39,6 +41,8 @@ Stored as string literals on each event; labels are user-facing (`TIMELINE_EVENT
 | `calculation_run` | Carbon calculation run | Pipeline / calc | LCA pipeline |
 | `compliance_evaluation_recorded` | Compliance evaluation recorded | Compliance tooling | LCA pipeline |
 | `delivery_document_added` | Delivery document added | Deliveries / ingest | Supply / docs |
+| `document_reference_logged` | Document reference logged | Deliveries → PID form / `POST /api/timeline` | Supply / docs |
+| `document_original_stored` | Document original stored | `POST /api/timeline/document-upload` — bytes under `data/<projectId>-documents/<eventId>/` | Supply / docs |
 | `site_report_added` | Site report added (map **werfverslag** / site visit reports here) | Manual / ingest | Site |
 | `evidence_linked` | Evidence linked to element / material | Manual / tooling | Evidence |
 | `manual_note` | Manual note | `POST /api/timeline` form | Human |

@@ -1,6 +1,11 @@
 /**
  * Controlled vocabulary for audit timeline events (PID / append-only log).
  * Keep this file free of Node-only imports so client components can import labels safely.
+ *
+ * **Documents & uploads:** Ingest and UI paths append rows using these `eventAction` literals;
+ * project files under `data/` (bindings, deliveries TTL, …) pair with those events so the
+ * timeline stays the single sortable story. See `docs/timeline-first-and-document-matching.md`
+ * (§ “Events system: documents → timeline”).
  */
 
 export const TIMELINE_NS = "https://tabulas.eu/timeline#";
@@ -28,6 +33,10 @@ export const TIMELINE_EVENT_ACTIONS = [
   "calculation_run",
   "compliance_evaluation_recorded",
   "delivery_document_added",
+  /** Manual log of a project document path, URL, DMS id, or similar (pairs with `data/` + timeline). */
+  "document_reference_logged",
+  /** Binary stored under `data/<projectId>-documents/<eventId>/` — origin event for uploaded originals. */
+  "document_original_stored",
   "site_report_added",
   "evidence_linked",
   "manual_note",
@@ -57,6 +66,8 @@ export const TIMELINE_EVENT_LABELS: Record<TimelineEventAction, string> = {
   calculation_run: "Carbon calculation run",
   compliance_evaluation_recorded: "Compliance evaluation recorded",
   delivery_document_added: "Delivery document added",
+  document_reference_logged: "Document reference logged",
+  document_original_stored: "Document original stored",
   site_report_added: "Site report added",
   evidence_linked: "Evidence linked to element / material",
   manual_note: "Manual note",

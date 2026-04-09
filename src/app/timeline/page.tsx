@@ -53,10 +53,21 @@ import {
   type TimelineProvenanceBundle,
   type TimelineProvenanceHrefItem,
 } from "@/lib/timeline-source-provenance";
+import type { LifecycleOverviewEvent } from "@/lib/timeline-lifecycle-overview";
 
 const TimelineKbGraph = dynamic(
   () => import("@/components/TimelineKbGraph"),
   { ssr: false, loading: () => <p className="text-sm text-zinc-500">Loading graph…</p> }
+);
+
+const TimelineLifecycleOverview = dynamic(
+  () => import("@/components/TimelineLifecycleOverview"),
+  { ssr: false, loading: () => <p className="text-sm text-zinc-500">Loading lifecycle overview…</p> }
+);
+
+const TimelineLifecyclePhaseProbe = dynamic(
+  () => import("@/components/TimelineLifecyclePhaseProbe"),
+  { ssr: false, loading: () => <p className="text-sm text-zinc-500">Loading phase probe…</p> }
 );
 
 const TIMELINE_PROJECT_PRESETS: readonly { id: string; label: string }[] = [
@@ -72,9 +83,12 @@ const TIMELINE_PROJECT_PRESETS: readonly { id: string; label: string }[] = [
   },
 ];
 
-/** `?view=graph` opens the Timeline KB graph; default is normal timeline + strip. */
-function parseTimelinePageView(sp: URLSearchParams): "normal" | "graph" {
-  return sp.get("view") === "graph" ? "graph" : "normal";
+/** `?view=graph` | `?view=lifecycle` | default normal timeline + strip. */
+function parseTimelinePageView(sp: URLSearchParams): "normal" | "graph" | "lifecycle" {
+  const v = sp.get("view")?.trim().toLowerCase() ?? "";
+  if (v === "graph") return "graph";
+  if (v === "lifecycle") return "lifecycle";
+  return "normal";
 }
 
 /**
@@ -1384,7 +1398,12 @@ export default function TimelinePage() {
 
   const patchTimelineQuery = useCallback(
     (mutate: (q: URLSearchParams) => void) => {
-      const q = new URLSearchParams(searchParams.toString());
+      const normPath = (p: string) => p.replace(/\/$/, "") || "/";
+      const liveQs =
+        typeof window !== "undefined" && normPath(window.location.pathname) === normPath(pathname)
+          ? window.location.search.replace(/^\?/, "")
+          : "";
+      const q = new URLSearchParams(liveQs || searchParams.toString());
       mutate(q);
       const qs = q.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
@@ -1398,19 +1417,35 @@ export default function TimelinePage() {
       patchTimelineQuery((q) => {
         if (eventId) q.set("eventId", eventId);
         else q.delete("eventId");
+        if (viewMode === "lifecycle") {
+          q.set("view", "lifecycle");
+          const pid = projectId.trim();
+          if (pid) q.set("projectId", pid);
+        }
+      });
+    },
+    [patchTimelineQuery, projectId, viewMode]
+  );
+
+  const setViewMode = useCallback(
+    (mode: "normal" | "graph" | "lifecycle") => {
+      patchTimelineQuery((q) => {
+        if (mode === "graph") q.set("view", "graph");
+        else if (mode === "lifecycle") q.set("view", "lifecycle");
+        else q.delete("view");
       });
     },
     [patchTimelineQuery]
   );
 
-  const setViewMode = useCallback(
-    (mode: "normal" | "graph") => {
-      patchTimelineQuery((q) => {
-        if (mode === "graph") q.set("view", "graph");
-        else q.delete("view");
-      });
+  /** Lifecycle matrix: keep `view=lifecycle` and show the same preview panel as Normal. */
+  const selectLifecycleMatrixEvent = useCallback(
+    (eventId: string) => {
+      syncEventIdQuery(eventId);
+      setSelectedEventId(eventId);
+      setExpandedLogEventId(null);
     },
-    [patchTimelineQuery]
+    [syncEventIdQuery]
   );
 
   const setKbLayoutMode = useCallback(
@@ -1645,6 +1680,21 @@ export default function TimelinePage() {
     return ifcFilteredEvents.filter((ev) => ev.eventAction === "pid_reference_milestone");
   }, [ifcFilteredEvents, eventLogKindFilter]);
 
+  /** Full trace for lifecycle actor × phase matrix (not IFC / PID log filters). */
+  const lifecycleAuditEvents = useMemo((): LifecycleOverviewEvent[] => {
+    return events.map((e) => ({
+      eventId: e.eventId,
+      timestampIso: e.timestampIso,
+      actorSystem: e.actorSystem,
+      actorLabel: e.actorLabel,
+      eventAction: e.eventAction,
+      message: e.message,
+      source: e.source,
+      bestekBindingSaveBatchId: e.bestekBindingSaveBatchId,
+      pidReferenceFields: e.pidReferenceFields,
+    }));
+  }, [events]);
+
   /** Calendar days oldest-first; events within a day keep global list order (chronological). */
   const displayEventLogDayGroups = useMemo(() => {
     const map = new Map<string, ParsedRow[]>();
@@ -1667,11 +1717,13 @@ export default function TimelinePage() {
     }));
   }, [displayEvents]);
 
-  const selectedEvent = useMemo(
-    () =>
-      selectedEventId ? displayEvents.find((e) => e.eventId === selectedEventId) : undefined,
-    [displayEvents, selectedEventId]
-  );
+  const selectedEvent = useMemo(() => {
+    if (!selectedEventId) return undefined;
+    if (viewMode === "lifecycle") {
+      return events.find((e) => e.eventId === selectedEventId);
+    }
+    return displayEvents.find((e) => e.eventId === selectedEventId);
+  }, [viewMode, selectedEventId, events, displayEvents]);
 
   /** Legend counts from full dataset; filter chips stay aligned with total trace. */
   const ifcLegendData = useMemo(() => {
@@ -1713,24 +1765,27 @@ export default function TimelinePage() {
   }, [displayEvents]);
 
   useEffect(() => {
-    if (selectedEventId && !displayEvents.some((e) => e.eventId === selectedEventId)) {
+    if (!selectedEventId) return;
+    const pool = viewMode === "lifecycle" ? events : displayEvents;
+    if (!pool.some((e) => e.eventId === selectedEventId)) {
       setSelectedEventId(null);
       syncEventIdQuery(null);
     }
-  }, [displayEvents, selectedEventId, syncEventIdQuery]);
+  }, [displayEvents, events, selectedEventId, syncEventIdQuery, viewMode]);
 
   /** Apply `?eventId=` when the log loads or the query changes (invalid ids are stripped). */
   useEffect(() => {
     const id = searchParams.get("eventId")?.trim() || null;
-    if (displayEvents.length === 0) return;
-    if (id && !displayEvents.some((e) => e.eventId === id)) {
+    const pool = viewMode === "lifecycle" ? events : displayEvents;
+    if (pool.length === 0) return;
+    if (id && !pool.some((e) => e.eventId === id)) {
       syncEventIdQuery(null);
       return;
     }
     if (id) {
       setSelectedEventId((cur) => (cur === id ? cur : id));
     }
-  }, [displayEvents, searchParams, syncEventIdQuery]);
+  }, [displayEvents, events, searchParams, syncEventIdQuery, viewMode]);
 
   /** Keep the selected row visible inside the event-log scrollport and the construction strip (nested overflow). */
   useLayoutEffect(() => {
@@ -1880,7 +1935,11 @@ export default function TimelinePage() {
   }
 
   return (
-    <div className="flex min-h-0 w-full max-w-none flex-1 flex-col overflow-hidden px-2 py-2 sm:px-4 sm:py-3">
+    <div
+      className={`flex min-h-0 w-full max-w-none flex-1 flex-col px-2 py-2 sm:px-4 sm:py-3 ${
+        viewMode === "lifecycle" ? "overflow-y-auto overflow-x-hidden" : "overflow-hidden"
+      }`}
+    >
       {formOpen ? (
         <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-10 sm:pt-16">
           <button
@@ -2089,7 +2148,11 @@ export default function TimelinePage() {
         </div>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden sm:gap-4">
+      <div
+        className={`flex min-h-0 flex-1 flex-col gap-3 sm:gap-4 ${
+          viewMode === "lifecycle" ? "min-h-0 shrink-0" : "overflow-hidden"
+        }`}
+      >
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 gap-y-3">
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
@@ -2123,6 +2186,18 @@ export default function TimelinePage() {
                 }`}
               >
                 Graph
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("lifecycle")}
+                aria-pressed={viewMode === "lifecycle"}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  viewMode === "lifecycle"
+                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                    : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                }`}
+              >
+                Lifecycle
               </button>
             </div>
           </div>
@@ -2365,11 +2440,69 @@ export default function TimelinePage() {
             </div>
           ) : null}
 
+          {viewMode === "lifecycle" ? (
+            <div className="flex w-full min-w-0 flex-col gap-4 self-stretch pb-4">
+              {loading && events.length === 0 ? (
+                <p className="shrink-0 text-sm text-zinc-500 dark:text-zinc-400">Loading timeline…</p>
+              ) : (
+                <TimelineLifecycleOverview
+                  projectId={projectId}
+                  events={lifecycleAuditEvents}
+                  onMatrixEventSelect={selectLifecycleMatrixEvent}
+                  preserveLifecycleViewInLinks
+                />
+              )}
+              <aside
+                className="w-full min-w-0 shrink-0 overflow-y-auto"
+                aria-label="Preview"
+              >
+                {selectedEvent ? (
+                  <TimelineEventDetailPanel
+                    ev={selectedEvent}
+                    projectId={projectId}
+                    passportOrdered={passportOrdered}
+                    globalIdToExpressId={timelinePassportGlobalMap}
+                    onClear={() => {
+                      setSelectedEventId(null);
+                      syncEventIdQuery(null);
+                    }}
+                    className="w-full min-w-0"
+                  />
+                ) : events.length > 0 ? (
+                  <div className="flex min-h-[4.5rem] w-full flex-col justify-center rounded-md border border-dashed border-zinc-300 px-2 py-2.5 text-center text-xs leading-snug text-zinc-500 dark:border-zinc-600 dark:text-zinc-400">
+                    Pick an event in the matrix — preview appears here.
+                  </div>
+                ) : (
+                  <div className="flex min-h-[4rem] w-full items-center justify-center rounded-md border border-dashed border-zinc-300 px-2 py-2.5 text-center text-xs leading-snug text-zinc-500 dark:border-zinc-600 dark:text-zinc-400">
+                    No events yet — preview will show here when you add or select one.
+                  </div>
+                )}
+              </aside>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                <Link
+                  href="/pipeline"
+                  className="underline hover:text-zinc-700 dark:hover:text-zinc-200"
+                >
+                  Pipeline journey
+                </Link>
+                <span className="mx-1.5 text-zinc-400 dark:text-zinc-500" aria-hidden>
+                  ·
+                </span>
+                <Link
+                  href="/timeline/provenance"
+                  className="underline hover:text-zinc-700 dark:hover:text-zinc-200"
+                >
+                  Data flow
+                </Link>
+              </p>
+              <TimelineLifecyclePhaseProbe events={lifecycleAuditEvents} />
+            </div>
+          ) : null}
+
           {viewMode === "normal" ? (
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
-              <div className="flex shrink-0 flex-col gap-4 overflow-hidden lg:flex-row lg:items-stretch lg:gap-4">
                 <aside
-                  className="w-full shrink-0 lg:w-[16.5rem] lg:min-h-0 lg:min-w-[16.5rem] lg:max-w-[16.5rem] lg:overflow-y-auto"
+                  className="w-full shrink-0 overflow-y-auto"
                   aria-label="Preview"
                 >
                 {selectedEvent ? (
@@ -2406,10 +2539,10 @@ export default function TimelinePage() {
                 )}
                 </aside>
 
-                <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
                 <section
                   aria-label="Event timeline"
-                  className="shrink-0 rounded-lg border border-zinc-200 bg-white px-2 py-2 dark:border-zinc-800 dark:bg-zinc-950 sm:px-3"
+                  className="shrink-0 border-b border-zinc-200 bg-white px-2 py-2 dark:border-zinc-800 dark:bg-zinc-950 sm:px-3"
                 >
             {loading && events.length === 0 ? (
               <p className="px-2 text-sm text-zinc-500 dark:text-zinc-400">Loading timeline…</p>
@@ -2556,8 +2689,6 @@ export default function TimelinePage() {
               </div>
             )}
           </section>
-                </div>
-              </div>
 
               <div
                 className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden self-stretch"
@@ -3173,7 +3304,6 @@ export default function TimelinePage() {
                 </div>
               </>
             ) : null}
-          </div>
 
                 <p className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
                   <Link
@@ -3192,6 +3322,8 @@ export default function TimelinePage() {
                     Data flow
                   </Link>
                 </p>
+            </div>
+                </div>
             </div>
           ) : null}
 

@@ -11,6 +11,12 @@ export interface EPCISEvent {
   recordTime?: string;
   eventTimeZoneOffset?: string;
   eventID: string;
+  /**
+   * Optional Tabulas extension: KB `bim:material-*` id for this project. When set, ingest stores
+   * it as `timeline:materialReference` (numeric string) so the timeline Material link opens
+   * `/kb?focusMaterialId=…`. Full GS1 EPC URIs stay in `epcList` / embedded JSON.
+   */
+  kbMaterialId?: number;
   epcList?: string[];
   action?: string;
   bizStep?: string;

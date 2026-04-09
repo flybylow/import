@@ -1,5 +1,5 @@
 import type { Phase4ElementPassport } from "@/lib/phase4-passports";
-import { passportMaterialMatchesSlug } from "@/lib/material-slug-match";
+import { passportMaterialLayerMatchesSlug } from "@/lib/material-slug-match";
 import type { TimelineBcfFields } from "@/lib/timeline-events";
 import { parseBcfIfcGuidsJsonField } from "@/lib/timeline-events";
 
@@ -142,19 +142,65 @@ export function materialSlugFromReference(ref?: string): string | undefined {
 }
 
 /**
+ * Parse a numeric KB `bim:material-*` id from a timeline reference string.
+ * Supports plain `17496`, `bim:material-17496`, or the last path segment when it is all digits.
+ */
+export function parseKbMaterialIdFromReference(ref: string | undefined): number | undefined {
+  if (!ref?.trim()) return undefined;
+  const t = ref.trim();
+  const direct = /^(\d+)$/.exec(t);
+  if (direct) {
+    const n = Number(direct[1]);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  const m = /\bbim:material-(\d+)\b/i.exec(t);
+  if (m) {
+    const n = Number(m[1]);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  const last = t.split("/").pop()?.trim() ?? "";
+  const lastNum = /^(\d+)$/.exec(last);
+  if (lastNum) {
+    const n = Number(lastNum[1]);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  return undefined;
+}
+
+function passportHasMaterialId(
+  ordered: readonly Phase4ElementPassport[],
+  materialId: number
+): boolean {
+  for (const p of ordered) {
+    for (const m of p.materials) {
+      if (m.materialId === materialId) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Map `timeline:materialReference` (e.g. `dpp:material/ifc_dakpan_…`) to a KB `material-*` id using
  * passport rows (same slug ↔ name rules as calculate / graph).
+ *
+ * Also resolves **numeric** ids (`17496`, `bim:material-17496`) when that material exists in the
+ * KB passports for this project (e.g. EPCIS ingest with `kbMaterialId`).
  */
 export function resolveKbMaterialIdFromMaterialReference(
   materialReference: string | undefined,
   ordered: readonly Phase4ElementPassport[]
 ): number | undefined {
+  const directId = parseKbMaterialIdFromReference(materialReference);
+  if (directId != null && passportHasMaterialId(ordered, directId)) {
+    return directId;
+  }
+
   const slug = materialSlugFromReference(materialReference);
   if (!slug) return undefined;
   let best: number | undefined;
   for (const p of ordered) {
     for (const m of p.materials) {
-      if (!passportMaterialMatchesSlug(m.materialName, slug)) continue;
+      if (!passportMaterialLayerMatchesSlug(m.materialName, m.epdSlug, slug)) continue;
       const mid = m.materialId;
       if (!Number.isFinite(mid)) continue;
       if (best == null || mid < best) best = mid;
@@ -166,7 +212,7 @@ export function resolveKbMaterialIdFromMaterialReference(
 function passportMatchesMaterialSlug(p: Phase4ElementPassport, slug: string): boolean {
   const slugLower = slug.trim().toLowerCase();
   for (const m of p.materials) {
-    if (passportMaterialMatchesSlug(m.materialName, slugLower)) return true;
+    if (passportMaterialLayerMatchesSlug(m.materialName, m.epdSlug, slugLower)) return true;
   }
   return false;
 }

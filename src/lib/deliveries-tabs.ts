@@ -10,10 +10,12 @@ export function deliveriesTabQueryValue(id: DeliveriesTabId): string {
 }
 
 /**
- * Resolve `tab=` from the URL to a canonical id. Unknown values fall back to `ingest`.
+ * Resolve `tab=` from the URL to a canonical id.
+ * Missing or empty `tab` defaults to `specification` (Bestek / opmeting — shareable document view).
+ * Unknown non-empty values fall back to `ingest` (legacy safety for odd bookmarks).
  *
  * Aliases:
- * - `ingest`: `flow`, `leveringsbon`, `delivery`, `deliveries`
+ * - `ingest`: `flow`, `leveringsbon`, `delivery`, `deliveries`, `werf`
  * - `specification`: `bestek`, `spec`
  * - `pid`: `lifecycle`, `process`
  */
@@ -26,10 +28,12 @@ export function deliveriesTabFromQueryParam(raw: string | null | undefined): Del
     t === "flow" ||
     t === "leveringsbon" ||
     t === "delivery" ||
-    t === "deliveries"
+    t === "deliveries" ||
+    t === "werf"
   ) {
     return "ingest";
   }
+  if (t === "") return "specification";
   return "ingest";
 }
 
@@ -44,4 +48,14 @@ export function deliveriesOpenSavedSpecificationFiche(sp: {
     sp.get("specificationFiche") === "1" ||
     sp.get("bestekFiche") === "1"
   );
+}
+
+/**
+ * Leveringsbon · werf — expand the **Live preview (JSON)** collapsible.
+ * Canonical: `ingestPreview=1` (with `?tab=ingest`).
+ */
+export function deliveriesIngestLivePreviewOpen(sp: {
+  get: (key: string) => string | null;
+}): boolean {
+  return sp.get("ingestPreview") === "1";
 }

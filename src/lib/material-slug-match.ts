@@ -78,3 +78,19 @@ export function passportMaterialMatchesSlug(
   }
   return materialSlugTokenFallbackMatch(n, slugLower);
 }
+
+/**
+ * One passport material layer vs a URL / timeline slug (`?materialSlug=`, `dpp:material/...` tail).
+ * Prefer **canonical KB `epdSlug`** (exact match) so English slugs like `timber` hit linked EPDs even when
+ * the IFC layer label is e.g. Dutch “loofhout”. Falls back to {@link passportMaterialMatchesSlug} on the
+ * IFC `materialName` (IFC-tail slugs, dimensions, token rules).
+ */
+export function passportMaterialLayerMatchesSlug(
+  materialName: string,
+  epdSlug: string | undefined,
+  slugLower: string
+): boolean {
+  const epd = epdSlug?.trim().toLowerCase();
+  if (epd && epd === slugLower) return true;
+  return passportMaterialMatchesSlug(materialName, slugLower);
+}

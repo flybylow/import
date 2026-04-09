@@ -48,11 +48,24 @@ type BindingInput = {
   article_unit_price_eur?: string;
 };
 
+const TIMELINE_WORK_LABEL_MAX = 200;
+
+function sanitizeTimelineWorkLabel(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const oneLine = raw.replace(/\s+/g, " ").trim();
+  if (!oneLine) return undefined;
+  return oneLine.length > TIMELINE_WORK_LABEL_MAX
+    ? oneLine.slice(0, TIMELINE_WORK_LABEL_MAX).trimEnd()
+    : oneLine;
+}
+
 export async function POST(request: Request) {
   let body: {
     projectId?: string;
     bindings?: BindingInput[];
     created_by?: string;
+    /** Optional werf / project title — first line of `timeline:message` so the timeline row is human-readable. */
+    timeline_work_label?: string;
   };
   try {
     body = await request.json();
@@ -142,6 +155,13 @@ export async function POST(request: Request) {
   fs.writeFileSync(prevPath, JSON.stringify(merged, null, 2), "utf-8");
 
   const bindingBatchId = randomUUID();
+  const workLabel = sanitizeTimelineWorkLabel(body.timeline_work_label);
+  const messageLines = [
+    workLabel,
+    `Bestek document opgeslagen — ${timestamped.length} groep(en)`,
+    `data/${projectId}-bestek-bindings.json`,
+    `batch ${bindingBatchId}`,
+  ].filter((line): line is string => Boolean(line?.trim()));
   appendTimelineAuditEvent(projectId, {
     eventId: randomUUID(),
     timestampIso: now,
@@ -150,7 +170,7 @@ export async function POST(request: Request) {
     eventAction: "bestek_bindings_milestone",
     source: "deliveries-bestek",
     bestekBindingSaveBatchId: bindingBatchId,
-    message: `Bestek document opgeslagen — ${timestamped.length} groep(en)\ndata/${projectId}-bestek-bindings.json\nbatch ${bindingBatchId}`,
+    message: messageLines.join("\n"),
   });
 
   return NextResponse.json({

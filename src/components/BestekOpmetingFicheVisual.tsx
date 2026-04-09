@@ -28,6 +28,10 @@ export type BestekOpmetingFicheData = {
 type Props = {
   data: BestekOpmetingFicheData | null;
   className?: string;
+  /**
+   * When true, the article table sits in a fixed-height scroll region (~4 rows visible) with a sticky header.
+   */
+  scrollableTable?: boolean;
 };
 
 function formatSavedAt(iso: string): string {
@@ -42,7 +46,11 @@ function formatSavedAt(iso: string): string {
   }
 }
 
-export default function BestekOpmetingFicheVisual({ data, className = "" }: Props) {
+export default function BestekOpmetingFicheVisual({
+  data,
+  className = "",
+  scrollableTable = false,
+}: Props) {
   if (!data || !data.lines.length) {
     return null;
   }
@@ -63,9 +71,6 @@ export default function BestekOpmetingFicheVisual({ data, className = "" }: Prop
               className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50"
               style={{ fontFamily: "var(--font-geist-sans), system-ui, sans-serif" }}
             >
-              BIMIMPORT
-            </p>
-            <p className="mt-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
               Bestek · opmetingsstaat
             </p>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
@@ -95,9 +100,21 @@ export default function BestekOpmetingFicheVisual({ data, className = "" }: Prop
           </div>
         </dl>
 
-        <div className="mt-5 overflow-x-auto">
+        <div
+          className={
+            scrollableTable
+              ? "mt-5 max-h-[min(15rem,40vh)] overflow-auto rounded-md border border-zinc-200 dark:border-zinc-700"
+              : "mt-5 overflow-x-auto"
+          }
+        >
           <table className={`w-full border-collapse text-left ${bodySize}`}>
-            <thead>
+            <thead
+              className={
+                scrollableTable
+                  ? "sticky top-0 z-[1] border-b border-zinc-200 bg-zinc-100 shadow-sm dark:border-zinc-600 dark:bg-zinc-800/95"
+                  : undefined
+              }
+            >
               <tr className="border-y border-zinc-200 bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800/80">
                 <th className="whitespace-nowrap py-2 pr-2 font-semibold text-zinc-700 dark:text-zinc-200">
                   Art.

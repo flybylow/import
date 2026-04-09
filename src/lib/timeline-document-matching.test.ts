@@ -16,6 +16,20 @@ test("leveringsbon and werfverslag map to distinct timeline actions", () => {
   assert.equal(matchForTimelineDocumentKind("werfverslag")?.eventAction, "site_report_added");
 });
 
+test("project document reference maps to document_reference_logged", () => {
+  assert.equal(
+    matchForTimelineDocumentKind("project_document_reference")?.eventAction,
+    "document_reference_logged"
+  );
+});
+
+test("project document original maps to document_original_stored", () => {
+  assert.equal(
+    matchForTimelineDocumentKind("project_document_original")?.eventAction,
+    "document_original_stored"
+  );
+});
+
 test("TIMELINE_DOCUMENT_MATCHES has unique kinds", () => {
   const kinds = TIMELINE_DOCUMENT_MATCHES.map((m) => m.kind);
   assert.equal(new Set(kinds).size, kinds.length);

@@ -56,6 +56,16 @@
 }
 ```
 
+**Optional Tabulas extension — `kbMaterialId`**
+
+GS1 `epcList[0]` is often a **URN** (SGTIN, etc.), which does not match IFC material names in the KB. For a **direct link** from the timeline **Material** button to `/kb?projectId=…&focusMaterialId=…`, add a positive integer that matches this project’s `bim:material-*` id (same id as on `/kb` and in passports):
+
+```json
+"kbMaterialId": 17496
+```
+
+Ingest stores that as `timeline:materialReference` (`"17496"`) while the full EPCIS JSON (including `epcList`) remains in `timeline:message` and `timeline:epcisEpcListJson`. Supply-chain truth stays in EPCIS; the KB id is an extra join key for the UI.
+
 - `projectId` must pass `isSafeProjectId` (same rules as other `data/` writers).
 - `epcisEvent.type` must be one of: `ObjectEvent`, `AggregationEvent`, `TransactionEvent`.
 - `eventTime` and `eventID` are required; `eventTime` must parse as ISO 8601.

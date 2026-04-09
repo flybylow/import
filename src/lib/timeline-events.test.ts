@@ -86,3 +86,30 @@ test("Z vs fractional-Z same instant: tie-break eventId ascending", () => {
   assert.equal(sorted[0]!.eventId, "m");
   assert.equal(sorted[1]!.eventId, "z");
 });
+
+test("document_original_stored round-trips documentStorageFields in TTL", () => {
+  const ttl = ttlFromPayloads([
+    basePayload({
+      eventId: "doc-store-1",
+      eventAction: "document_original_stored",
+      source: "deliveries-document-upload",
+      message: "Title: Test\nCategory: invoice",
+      documentStorageFields: {
+        storedRelPath: "proj-1-documents/doc-store-1/scan.pdf",
+        originalFilename: "scan.pdf",
+        byteLength: 42,
+        mimeType: "application/pdf",
+        category: "invoice",
+      },
+    }),
+  ]);
+  const rows = parseTimelineTtl(ttl);
+  assert.equal(rows.length, 1);
+  const d = rows[0]!.documentStorageFields;
+  assert.ok(d);
+  assert.equal(d.storedRelPath, "proj-1-documents/doc-store-1/scan.pdf");
+  assert.equal(d.originalFilename, "scan.pdf");
+  assert.equal(d.byteLength, 42);
+  assert.equal(d.mimeType, "application/pdf");
+  assert.equal(d.category, "invoice");
+});

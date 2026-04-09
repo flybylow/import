@@ -6,6 +6,7 @@ import { computeTripleDiff } from "@/lib/diff-triples";
 import { extractMatchedSourceBreakdownFromStore } from "@/lib/kb-epd-stats";
 import { getAvailableEpdsCatalog } from "@/lib/available-epds";
 import {
+  buildEpdLinkedGroupsFromStore,
   buildFullKBGraph,
   buildMatchingPreview,
   extractElementExpressIdsFromTtl,
@@ -44,6 +45,7 @@ type KnowledgeBaseResponse = {
   };
   matchingPreview: ReturnType<typeof buildMatchingPreview>;
   epdCatalog: ReturnType<typeof getAvailableEpdsCatalog>;
+  epdLinkedGroups: ReturnType<typeof buildEpdLinkedGroupsFromStore>;
   kbGraph: KBGraph;
 };
 
@@ -102,6 +104,7 @@ export async function POST(request: Request) {
   });
 
   const epdCatalog = getAvailableEpdsCatalog();
+  const epdLinkedGroups = buildEpdLinkedGroupsFromStore(kbStore);
   const sourceBreakdown = extractMatchedSourceBreakdownFromStore(kbStore);
   const kbGraph = buildFullKBGraph(kbStore, materialIdsTotal);
 
@@ -133,6 +136,7 @@ export async function POST(request: Request) {
     },
     matchingPreview,
     epdCatalog,
+    epdLinkedGroups,
     kbGraph,
   };
 

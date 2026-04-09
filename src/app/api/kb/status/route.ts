@@ -12,6 +12,7 @@ import { calculationBlockedReason } from "@/lib/kb-read-epd";
 import { extractMatchedSourceBreakdownFromStore } from "@/lib/kb-epd-stats";
 import { materialDisplayNameFromStore } from "@/lib/material-label";
 import {
+  buildEpdLinkedGroupsFromStore,
   buildFullKBGraph,
   buildMatchingPreview,
   extractElementExpressIdsFromTtl,
@@ -760,6 +761,7 @@ export async function GET(request: Request) {
   );
 
   const epdCatalog = getAvailableEpdsCatalog();
+  const epdLinkedGroups = buildEpdLinkedGroupsFromStore(store);
 
   return NextResponse.json({
     projectId,
@@ -773,6 +775,7 @@ export async function GET(request: Request) {
     },
     matchingPreview,
     epdCatalog,
+    epdLinkedGroups,
     kbGraph,
     materialQuantityTrace,
     elementPassports: elementPassportBundle.rows,

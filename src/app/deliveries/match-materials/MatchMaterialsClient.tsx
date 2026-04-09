@@ -213,7 +213,7 @@ export default function MatchMaterialsClient() {
             href={`/deliveries?tab=specification&projectId=${encodeURIComponent(projectId)}`}
             className="text-emerald-700 dark:text-emerald-400 hover:underline"
           >
-            Specification tab
+            Bestek tab
           </Link>
         </nav>
       </header>

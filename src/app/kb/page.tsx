@@ -1,7 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import BimIfcHousePreloader from "@/components/BimIfcHousePreloader";
@@ -20,7 +28,7 @@ import ToggleSection from "@/components/ToggleSection";
 import { useToast } from "@/components/ToastProvider";
 import { dbg, dbgButton, dbgLoad } from "@/lib/client-pipeline-debug";
 import { useProjectId } from "@/lib/useProjectId";
-import type { KBGraph } from "@/lib/kb-store-queries";
+import type { EpdLinkedGroup, KBGraph } from "@/lib/kb-store-queries";
 import { bimPassportsElementHref } from "@/lib/passport-navigation-links";
 import { appContentWidthClass } from "@/lib/app-page-layout";
 
@@ -75,6 +83,8 @@ type KnowledgeBaseResponse = {
       rowKindLabel?: string;
     }>;
   };
+  /** EPD products in the KB with every linked IFC material row (`ont:hasEPD`). */
+  epdLinkedGroups?: EpdLinkedGroup[];
 };
 
 type SourceApiRow = {
@@ -94,6 +104,86 @@ type SourceApiRow = {
 function sourceVersionLabel(ttlPath: string): string {
   const base = ttlPath.split("/").pop() ?? ttlPath;
   return base.replace(/\.ttl$/i, "");
+}
+
+const kbIconBtnClass =
+  "inline-flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-600 shadow-sm hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-violet-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-50";
+
+function KbSvg(props: { className?: string; children: ReactNode }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={props.className}
+      aria-hidden
+    >
+      {props.children}
+    </svg>
+  );
+}
+
+function KbIconChevronDown({ className }: { className?: string }) {
+  return (
+    <KbSvg className={className}>
+      <path d="m6 9 6 6 6-6" />
+    </KbSvg>
+  );
+}
+
+function KbIconCube({ className }: { className?: string }) {
+  return (
+    <KbSvg className={className}>
+      <path d="m21 7.5-9-5.25L3 7.5m18 0v9l-9 5.25M21 7.5l-9 5.25m9-5.25v9m-9 5.25V12m0-10.5L12 3m0 0L3 7.5m9 5.25v9m0-9.75v9.75m0-9.75L3 7.5m9 5.25L3 7.5" />
+    </KbSvg>
+  );
+}
+
+function KbIconXMark({ className }: { className?: string }) {
+  return (
+    <KbSvg className={className}>
+      <path d="M6 18 18 6M6 6l12 12" />
+    </KbSvg>
+  );
+}
+
+function KbIconOpenExternal({ className }: { className?: string }) {
+  return (
+    <KbSvg className={className}>
+      <path d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5M7.5 16.5 21 12m0 0-3.75-3.75M21 12h-9" />
+    </KbSvg>
+  );
+}
+
+/** Full KB table / overview */
+function KbIconKbOverview({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M4.5 5.25h6v6h-6z M13.5 5.25h6v6h-6z M4.5 12.75h6v6h-6z M13.5 12.75h6v6h-6z" />
+    </svg>
+  );
+}
+
+/** TTL / sources */
+function KbIconSourceFile({ className }: { className?: string }) {
+  return (
+    <KbSvg className={className}>
+      <path d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+      <path d="M10.5 12h6m-6 3h3" />
+    </KbSvg>
+  );
 }
 
 type KbLinkedElementRow = {
@@ -176,6 +266,12 @@ function formatStableDateTime(iso: string): string {
   return d.toISOString().replace("T", " ").slice(0, 19) + " UTC";
 }
 
+/** Left KB catalog rail: initial rows + “show more” chunk size. */
+const KB_RAIL_MATERIAL_INITIAL = 40;
+const KB_RAIL_MATERIAL_STEP = 500;
+const KB_RAIL_EPD_INITIAL = 24;
+const KB_RAIL_EPD_STEP = 500;
+
 export default function KnowledgeBasePage() {
   const { showToast } = useToast();
   const { projectId } = useProjectId();
@@ -214,11 +310,6 @@ export default function KnowledgeBasePage() {
     [searchParams, projectId]
   );
 
-  useEffect(() => {
-    setKbMaterialReaderPreviewExpressId(null);
-    setKbMaterialReaderIfcStatus(null);
-  }, [focusMaterialId]);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -242,6 +333,30 @@ export default function KnowledgeBasePage() {
   >(null);
   const [kbMaterialReaderIfcStatus, setKbMaterialReaderIfcStatus] =
     useState<BuildingIfcViewerStatusPayload | null>(null);
+  /** Lazy-load IFC 3D in the material reader until the user opts in (or URL has `expressId`). */
+  const [kbViewerOpen, setKbViewerOpen] = useState(false);
+  const [kbCatalogMaterialLimit, setKbCatalogMaterialLimit] = useState(KB_RAIL_MATERIAL_INITIAL);
+  const [kbCatalogEpdLimit, setKbCatalogEpdLimit] = useState(KB_RAIL_EPD_INITIAL);
+
+  const focusKbMaterialReaderExpress = useCallback((expressId: number) => {
+    setKbViewerOpen(true);
+    setKbMaterialReaderPreviewExpressId(expressId);
+  }, []);
+
+  useEffect(() => {
+    setKbMaterialReaderPreviewExpressId(null);
+    setKbMaterialReaderIfcStatus(null);
+    setKbViewerOpen(false);
+    setKbCatalogMaterialLimit(KB_RAIL_MATERIAL_INITIAL);
+    setKbCatalogEpdLimit(KB_RAIL_EPD_INITIAL);
+  }, [focusMaterialId]);
+
+  /** Deep link `?expressId=` opens the IFC preview with that focus. */
+  useEffect(() => {
+    if (focusMaterialId == null || focusExpressId == null) return;
+    setKbViewerOpen(true);
+    setKbMaterialReaderPreviewExpressId(focusExpressId);
+  }, [focusMaterialId, focusExpressId]);
 
   const autoBuildStartedRef = useRef(false);
   /** Avoid repeating “not in preview” toasts for the same id. */
@@ -279,6 +394,58 @@ export default function KnowledgeBasePage() {
         .sort((a, b) => a - b)
         .join(","),
     [matchedRows]
+  );
+
+  /**
+   * Catalog rail: one line per distinct label (many IFC material ids reuse the same display name).
+   * Link opens the first-seen material id for that label.
+   */
+  const kbMaterialNavFull = useMemo(() => {
+    const byNormKey = new Map<string, { id: number; name: string }>();
+    const keyOrder: string[] = [];
+    const seenId = new Set<number>();
+    if (focusMaterialId != null) seenId.add(focusMaterialId);
+
+    function consider(r: { materialId: number; materialName: string }) {
+      if (seenId.has(r.materialId)) return;
+      seenId.add(r.materialId);
+      const rawName = r.materialName.trim();
+      const displayName = rawName || `Material ${r.materialId}`;
+      const norm =
+        rawName.length > 0
+          ? rawName.toLowerCase().replace(/\s+/g, " ")
+          : `__mid_${r.materialId}`;
+      if (byNormKey.has(norm)) return;
+      byNormKey.set(norm, { id: r.materialId, name: displayName });
+      keyOrder.push(norm);
+    }
+
+    for (const r of matchedRows) consider(r);
+    for (const r of unmatchedRows) consider(r);
+
+    return keyOrder.map((k) => byNormKey.get(k)!);
+  }, [matchedRows, unmatchedRows, focusMaterialId]);
+
+  const kbEpdCatalogFull = useMemo(() => kbResult?.epdCatalog ?? [], [kbResult?.epdCatalog]);
+
+  /** First material id per EPD in matched preview (for “open in KB” from the rail). */
+  const firstMaterialIdByEpdSlug = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of matchedRows) {
+      if (!r.epdSlug) continue;
+      if (!map.has(r.epdSlug)) map.set(r.epdSlug, r.materialId);
+    }
+    return map;
+  }, [matchedRows]);
+
+  const kbMaterialNavVisible = useMemo(
+    () => kbMaterialNavFull.slice(0, kbCatalogMaterialLimit),
+    [kbMaterialNavFull, kbCatalogMaterialLimit]
+  );
+
+  const kbEpdCatalogVisible = useMemo(
+    () => kbEpdCatalogFull.slice(0, kbCatalogEpdLimit),
+    [kbEpdCatalogFull, kbCatalogEpdLimit]
   );
 
   /** Single-material deep link: summary from preview rows + full `kbGraph` (not preview-capped). */
@@ -402,6 +569,9 @@ export default function KnowledgeBasePage() {
             epdCoverage: statusJson.epdCoverage as KnowledgeBaseResponse["epdCoverage"],
             epdCatalog: statusJson.epdCatalog as KnowledgeBaseResponse["epdCatalog"],
             matchingPreview: statusJson.matchingPreview as KnowledgeBaseResponse["matchingPreview"],
+            epdLinkedGroups: statusJson.epdLinkedGroups as
+              | KnowledgeBaseResponse["epdLinkedGroups"]
+              | undefined,
           };
           return next;
         });
@@ -505,6 +675,7 @@ export default function KnowledgeBasePage() {
             epdCoverage: statusJson.epdCoverage,
             matchingPreview: statusJson.matchingPreview,
             epdCatalog: statusJson.epdCatalog,
+            epdLinkedGroups: statusJson.epdLinkedGroups,
             kbGraph: statusJson.kbGraph ?? undefined,
             // `ttl` intentionally omitted; manual edits are already persisted on disk.
           });
@@ -718,6 +889,19 @@ export default function KnowledgeBasePage() {
       dbgLoad("Phase2", "ok", "GET /api/kb/status", {
         elementCount: statusJson.elementCount,
       });
+      setKbResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              epdLinkedGroups:
+                (statusJson.epdLinkedGroups as EpdLinkedGroup[] | undefined) ??
+                prev.epdLinkedGroups,
+              epdCoverage:
+                (statusJson.epdCoverage as KnowledgeBaseResponse["epdCoverage"]) ??
+                prev.epdCoverage,
+            }
+          : prev
+      );
       setKbGraph(statusJson.kbGraph ?? null);
     } catch (e: any) {
       dbgLoad("Phase2", "error", "GET /api/kb/status", { message: e?.message });
@@ -857,6 +1041,122 @@ export default function KnowledgeBasePage() {
   const allUnmatchedSelected =
     allUnmatchedIds.length > 0 &&
     unmatchedSelected.length === allUnmatchedIds.length;
+
+  const kbMatchingPreviewSection =
+    kbResult?.matchingPreview != null ? (
+      <section
+        id="kb-matching-preview"
+        className="scroll-mt-24 space-y-1.5"
+        aria-labelledby="kb-epd-preview-heading"
+      >
+        <h3
+          id="kb-epd-preview-heading"
+          className="text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-300"
+        >
+          Preview
+        </h3>
+        <div className="rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-2">
+          <p className="text-sm text-zinc-700 dark:text-zinc-200">Matching results</p>
+          <div className="mt-2">
+            <ToggleSection
+              key={
+                focusMaterialId != null &&
+                matchedRows.some((r) => r.materialId === focusMaterialId)
+                  ? `matched-open-${focusMaterialId}`
+                  : "matched-default"
+              }
+              defaultOpen={
+                focusMaterialId != null &&
+                matchedRows.some((r) => r.materialId === focusMaterialId)
+              }
+              title={`Matched materials (${kbResult.epdCoverage?.materialsWithEPD ?? kbResult.matchingPreview.matched.length} have EPD)`}
+              summaryClassName="cursor-pointer text-xs text-zinc-700 dark:text-zinc-200"
+            >
+              <div className="mt-2 text-xs text-zinc-700 dark:text-zinc-200">
+                {kbResult.epdCoverage &&
+                kbResult.matchingPreview.matched.length <
+                  kbResult.epdCoverage.materialsWithEPD ? (
+                  <div className="mb-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Showing top preview rows:{" "}
+                    <code className="font-mono">
+                      {kbResult.matchingPreview.matched.length}/
+                      {kbResult.epdCoverage.materialsWithEPD}
+                    </code>
+                  </div>
+                ) : null}
+                <div className="grid grid-cols-[70px_minmax(0,1fr)_minmax(0,1fr)_150px_90px_90px] gap-x-3 px-2 py-1 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  <span>ID</span>
+                  <span>Material</span>
+                  <span>EPD</span>
+                  <span>Match</span>
+                  <span>Confidence</span>
+                  <span>Actions</span>
+                </div>
+                <div className="space-y-1">
+                  {kbResult.matchingPreview.matched.length ? (
+                    kbResult.matchingPreview.matched.map((m) => (
+                      <div
+                        id={`kb-matched-row-${m.materialId}`}
+                        key={`m-${m.materialId}`}
+                        className="rounded border border-zinc-200 dark:border-zinc-800 px-2 py-1"
+                      >
+                        <div className="grid grid-cols-[70px_minmax(0,1fr)_minmax(0,1fr)_150px_90px_90px] gap-x-3 gap-y-1 items-start">
+                          <span className="font-mono text-zinc-500 dark:text-zinc-400">
+                            {m.materialId}
+                          </span>
+                          <span className="truncate" title={m.materialName}>
+                            {m.materialName}
+                          </span>
+                          <div className="min-w-0">
+                            <span
+                              className="block truncate text-zinc-900 dark:text-zinc-100"
+                              title={m.epdName}
+                            >
+                              {m.epdName}
+                            </span>
+                            <span
+                              className="block truncate font-mono text-[10px] text-zinc-500 dark:text-zinc-400"
+                              title={m.epdSlug}
+                            >
+                              {m.epdSlug}
+                            </span>
+                          </div>
+                          <span
+                            className="truncate text-zinc-500 dark:text-zinc-400"
+                            title={m.matchType ?? "—"}
+                          >
+                            {m.matchType ?? "—"}
+                          </span>
+                          <span className="text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                            {typeof m.matchConfidence === "number"
+                              ? m.matchConfidence.toFixed(2)
+                              : "—"}
+                          </span>
+                          <Link
+                            href={`/sources?from=kb&projectId=${encodeURIComponent(
+                              projectId
+                            )}&materialId=${encodeURIComponent(
+                              String(m.materialId)
+                            )}&epdSlug=${encodeURIComponent(m.epdSlug)}`}
+                            className="inline-flex items-center justify-center rounded border border-zinc-200 dark:border-zinc-800 px-2 py-0.5 text-[11px] text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                            aria-label={`Open sources editor (matching) for material ${m.materialId}`}
+                            title="Update sources (KBOB/ICE snapshots & ordering)"
+                          >
+                            ↗
+                          </Link>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div>—</div>
+                  )}
+                </div>
+              </div>
+            </ToggleSection>
+          </div>
+        </div>
+      </section>
+    ) : null;
 
   return (
     <div className={`${appContentWidthClass} flex flex-col gap-4 py-6`}>
@@ -1022,6 +1322,95 @@ export default function KnowledgeBasePage() {
           aria-label="Focused material"
         >
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+            {kbResult && (kbMaterialNavFull.length > 0 || kbEpdCatalogFull.length > 0) ? (
+              <nav
+                className="w-full shrink-0 rounded-lg border border-zinc-200/90 bg-white/60 px-0 py-1 dark:border-zinc-700 dark:bg-zinc-950/40 lg:max-w-[11rem] lg:w-[11rem]"
+                aria-label="Related catalog entries"
+              >
+                {kbMaterialNavFull.length > 0 ? (
+                  <div>
+                    <ul className="m-0 max-h-48 list-none overflow-y-auto overflow-x-hidden p-0 [scrollbar-gutter:stable] text-[11px] leading-4 text-zinc-800 dark:text-zinc-200">
+                      {kbMaterialNavVisible.map((row) => (
+                        <li
+                          key={`${row.id}-${row.name}`}
+                          className="border-b border-zinc-100 dark:border-zinc-800/90"
+                        >
+                          <Link
+                            href={buildKbHref({ focusMaterialId: String(row.id) })}
+                            scroll={false}
+                            className="block max-w-full truncate px-1.5 py-1 text-zinc-800 no-underline hover:bg-zinc-100/90 dark:text-zinc-200 dark:hover:bg-zinc-800/60"
+                          >
+                            {row.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                    {kbCatalogMaterialLimit < kbMaterialNavFull.length ? (
+                      <div className="flex justify-center border-t border-zinc-200/80 py-0.5 dark:border-zinc-700/80">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setKbCatalogMaterialLimit((n) =>
+                              Math.min(n + KB_RAIL_MATERIAL_STEP, kbMaterialNavFull.length)
+                            )
+                          }
+                          className={`${kbIconBtnClass} h-6 w-6`}
+                          aria-label="Show more materials"
+                          title="Show more materials"
+                        >
+                          <KbIconChevronDown className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {kbEpdCatalogFull.length > 0 ? (
+                  <div className={kbMaterialNavFull.length > 0 ? "border-t border-zinc-200/80 dark:border-zinc-700/80" : ""}>
+                    <ul className="m-0 max-h-40 list-none overflow-y-auto overflow-x-hidden p-0 [scrollbar-gutter:stable] font-mono text-[10px] leading-4 text-zinc-800 dark:text-zinc-200">
+                      {kbEpdCatalogVisible.map((epd) => {
+                        const firstMid = firstMaterialIdByEpdSlug.get(epd.epdSlug);
+                        const hrefKb =
+                          firstMid != null
+                            ? buildKbHref({ focusMaterialId: String(firstMid) })
+                            : null;
+                        const hrefSources = `/sources?from=kb&projectId=${encodeURIComponent(projectId)}&epdSlug=${encodeURIComponent(epd.epdSlug)}`;
+                        return (
+                          <li
+                            key={epd.epdSlug}
+                            className="border-b border-zinc-100 dark:border-zinc-800/90"
+                          >
+                            <Link
+                              href={hrefKb ?? hrefSources}
+                              scroll={false}
+                              className="block max-w-full truncate px-1.5 py-1 text-zinc-800 no-underline hover:bg-zinc-100/90 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+                            >
+                              {epd.epdSlug}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    {kbCatalogEpdLimit < kbEpdCatalogFull.length ? (
+                      <div className="flex justify-center border-t border-zinc-200/80 py-0.5 dark:border-zinc-700/80">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setKbCatalogEpdLimit((n) =>
+                              Math.min(n + KB_RAIL_EPD_STEP, kbEpdCatalogFull.length)
+                            )
+                          }
+                          className={`${kbIconBtnClass} h-6 w-6`}
+                          aria-label="Show more EPD slugs"
+                          title="Show more EPD slugs"
+                        >
+                          <KbIconChevronDown className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </nav>
+            ) : null}
             <div className="min-w-0 flex-1 basis-0 space-y-2" aria-label="Material details and occurrences">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -1042,26 +1431,32 @@ export default function KnowledgeBasePage() {
                     </span>
                   )}
                 </div>
-                <div className="flex shrink-0 flex-row flex-wrap items-center justify-end gap-2">
+                <div className="flex shrink-0 flex-row flex-wrap items-center justify-end gap-1.5">
                   <Link
                     href={`/kb?projectId=${encodeURIComponent(projectId)}`}
-                    className="inline-flex shrink-0 justify-center whitespace-nowrap rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                    className={`${kbIconBtnClass} h-8 w-8`}
+                    aria-label="Full KB view"
+                    title="Full KB view"
                   >
-                    Full KB view
+                    <KbIconKbOverview className="h-4 w-4" />
                   </Link>
                   {materialReader.hasEpd === true && materialReader.epdSlug ? (
                     <Link
                       href={`/sources?from=kb&projectId=${encodeURIComponent(projectId)}&materialId=${encodeURIComponent(String(materialReader.materialId))}&epdSlug=${encodeURIComponent(materialReader.epdSlug)}`}
-                      className="inline-flex shrink-0 justify-center whitespace-nowrap rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                      className={`${kbIconBtnClass} h-8 w-8`}
+                      aria-label="Sources — matching EPD"
+                      title="Sources (matching)"
                     >
-                      Sources (matching)
+                      <KbIconSourceFile className="h-4 w-4" />
                     </Link>
                   ) : materialReader.hasEpd === false ? (
                     <Link
                       href={`/sources?from=kb&projectId=${encodeURIComponent(projectId)}&materialId=${encodeURIComponent(String(materialReader.materialId))}`}
-                      className="inline-flex shrink-0 justify-center whitespace-nowrap rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                      className={`${kbIconBtnClass} h-8 w-8`}
+                      aria-label="Sources"
+                      title="Sources"
                     >
-                      Sources
+                      <KbIconSourceFile className="h-4 w-4" />
                     </Link>
                   ) : null}
                 </div>
@@ -1082,23 +1477,21 @@ export default function KnowledgeBasePage() {
                 </p>
               ) : null}
 
+              {kbMatchingPreviewSection != null && materialReader ? (
+                <div className="mb-1">{kbMatchingPreviewSection}</div>
+              ) : null}
+
               <div className="grid grid-cols-1 gap-4 border-t border-zinc-200/80 pt-4 dark:border-zinc-700/80 md:grid-cols-2 md:items-start md:gap-6">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 md:col-span-2">
+                  IFC layer · EPD / LCA
+                </p>
                 <div className="min-w-0 space-y-2" aria-label="IFC material and composition">
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 max-w-prose">
-                    One passport per <strong className="font-medium text-zinc-700 dark:text-zinc-200">material</strong>{" "}
-                    (+ EPD when linked). Elements below are{" "}
-                    <strong className="font-medium text-zinc-700 dark:text-zinc-200">uses</strong> of that material in
-                    the IFC.
-                  </p>
                   {materialReader.materialComposition &&
                   (materialReader.materialComposition.compositionLayerLabels?.length ||
                     materialReader.materialComposition.layerSetName ||
                     materialReader.materialComposition.ifcMaterialType ||
                     materialReader.materialComposition.standardNameKb) ? (
                     <div className="rounded-lg border border-zinc-200/90 bg-white/80 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-950/40">
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                        IFC composition
-                      </div>
                       {materialReader.materialComposition.ifcMaterialType ? (
                         <p className="mt-1.5 text-xs text-zinc-700 dark:text-zinc-200">
                           <span className="text-zinc-500 dark:text-zinc-400">IFC type: </span>
@@ -1149,7 +1542,6 @@ export default function KnowledgeBasePage() {
               {materialReader.hasEpd === true && materialReader.epdSlug ? (
                 <div className="text-sm text-zinc-700 dark:text-zinc-200 space-y-2">
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                    <span className="text-zinc-500 dark:text-zinc-400">EPD</span>
                     <code
                       className="font-mono text-xs text-zinc-800 dark:text-zinc-200"
                       title={`KB graph id: bim:epd-${materialReader.epdSlug} (internal id, not a website URL)`}
@@ -1171,13 +1563,6 @@ export default function KnowledgeBasePage() {
                         Programme record
                       </a>
                     ) : null}
-                    <Link
-                      href={`/sources?from=kb&projectId=${encodeURIComponent(projectId)}${materialReader.epdSlug ? `&materialId=${encodeURIComponent(String(materialReader.materialId))}&epdSlug=${encodeURIComponent(materialReader.epdSlug)}` : ""}`}
-                      className="font-medium text-zinc-600 underline-offset-2 hover:underline dark:text-zinc-300"
-                      title="TTL imports and source order (config.json)"
-                    >
-                      Sources
-                    </Link>
                     <Link
                       href={`/calculate?projectId=${encodeURIComponent(projectId)}`}
                       className="font-medium text-zinc-600 underline-offset-2 hover:underline dark:text-zinc-300"
@@ -1217,7 +1602,8 @@ export default function KnowledgeBasePage() {
                         </div>
                         <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
                           From <code className="font-mono text-[10px]">bim:epd-*</code> after source import + Link
-                          materials. Order: Sources / <code className="font-mono text-[10px]">config.json</code>.
+                          materials. Source order: <code className="font-mono text-[10px]">config.json</code>. Use the
+                          document icon in the header for the Sources page.
                         </p>
                         <dl className="mt-2 space-y-1.5 text-[11px] text-zinc-600 dark:text-zinc-300">
                           {materialReader.materialSource ? (
@@ -1397,7 +1783,7 @@ export default function KnowledgeBasePage() {
                             type="button"
                             onClick={() => {
                               const r = materialReader.representativeOccurrence;
-                              if (r) setKbMaterialReaderPreviewExpressId(r.expressId);
+                              if (r) focusKbMaterialReaderExpress(r.expressId);
                             }}
                             className={`font-mono text-[11px] underline decoration-sky-600/70 dark:decoration-sky-400/70 underline-offset-2 hover:text-sky-700 dark:hover:text-sky-300 ${
                               kbMaterialReaderPreviewExpressId ===
@@ -1459,7 +1845,7 @@ export default function KnowledgeBasePage() {
                             <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                               <button
                                 type="button"
-                                onClick={() => setKbMaterialReaderPreviewExpressId(g.representative.expressId)}
+                                onClick={() => focusKbMaterialReaderExpress(g.representative.expressId)}
                                 className={`font-mono text-[11px] underline decoration-sky-600/70 dark:decoration-sky-400/70 underline-offset-2 hover:text-sky-700 dark:hover:text-sky-300 ${
                                   kbMaterialReaderPreviewExpressId === g.representative.expressId
                                     ? "font-semibold text-sky-800 dark:text-sky-200"
@@ -1525,7 +1911,7 @@ export default function KnowledgeBasePage() {
                                 <li key={el.expressId} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                                   <button
                                     type="button"
-                                    onClick={() => setKbMaterialReaderPreviewExpressId(el.expressId)}
+                                    onClick={() => focusKbMaterialReaderExpress(el.expressId)}
                                     className={`font-mono text-[11px] underline decoration-sky-600/70 dark:decoration-sky-400/70 underline-offset-2 hover:text-sky-700 dark:hover:text-sky-300 ${
                                       kbMaterialReaderPreviewExpressId === el.expressId
                                         ? "font-semibold text-sky-800 dark:text-sky-200"
@@ -1569,41 +1955,84 @@ export default function KnowledgeBasePage() {
               <div>
                 <p className="text-xs font-medium text-zinc-800 dark:text-zinc-100">3D preview</p>
                 <p className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
-                  Click an express id to focus · <span className="whitespace-nowrap">Passport → full element</span>
+                  {kbViewerOpen ? (
+                    <>
+                      Click an express id to focus ·{" "}
+                      <span className="whitespace-nowrap">Passport → full element</span>
+                    </>
+                  ) : (
+                    <>
+                      Loads the IFC in the browser on demand ·{" "}
+                      <span className="whitespace-nowrap">express id → focus</span>
+                    </>
+                  )}
                 </p>
               </div>
-              <div className="relative h-[min(420px,55vh)] min-h-[280px] w-full overflow-hidden rounded-lg border border-zinc-200 bg-zinc-950/5 dark:border-zinc-700 dark:bg-black/20">
-                {kbMaterialReaderIfcStatus != null &&
-                (kbMaterialReaderIfcStatus.status === "idle" ||
-                  kbMaterialReaderIfcStatus.status === "loading") ? (
-                  <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/25 dark:bg-black/40">
-                    <div className="rounded-md border border-zinc-200/80 bg-white/95 px-3 py-2 text-xs text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200">
-                      {kbMaterialReaderIfcStatus.status === "loading" &&
-                      kbMaterialReaderIfcStatus.message
-                        ? kbMaterialReaderIfcStatus.message
-                        : "Loading IFC…"}
-                    </div>
+              {kbViewerOpen ? (
+                <>
+                  <div className="relative h-[min(420px,55vh)] min-h-[280px] w-full overflow-hidden rounded-lg border border-zinc-200 bg-zinc-950/5 dark:border-zinc-700 dark:bg-black/20">
+                    {kbMaterialReaderIfcStatus != null &&
+                    (kbMaterialReaderIfcStatus.status === "idle" ||
+                      kbMaterialReaderIfcStatus.status === "loading") ? (
+                      <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/25 dark:bg-black/40">
+                        <div className="rounded-md border border-zinc-200/80 bg-white/95 px-3 py-2 text-xs text-zinc-700 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200">
+                          {kbMaterialReaderIfcStatus.status === "loading" &&
+                          kbMaterialReaderIfcStatus.message
+                            ? kbMaterialReaderIfcStatus.message
+                            : "Loading IFC…"}
+                        </div>
+                      </div>
+                    ) : null}
+                    <Suspense fallback={<BimIfcHousePreloader />}>
+                      <BuildingIfcViewer
+                        key={`kb-material-reader-${projectId}-${focusMaterialId ?? "none"}`}
+                        projectId={projectId}
+                        ifcSource="project"
+                        focusExpressId={kbMaterialReaderPreviewExpressId}
+                        uniformGhost
+                        onStatusChange={setKbMaterialReaderIfcStatus}
+                      />
+                    </Suspense>
                   </div>
-                ) : null}
-                <Suspense fallback={<BimIfcHousePreloader />}>
-                  <BuildingIfcViewer
-                    key={`kb-material-reader-${projectId}-${focusMaterialId ?? "none"}`}
-                    projectId={projectId}
-                    ifcSource="project"
-                    focusExpressId={kbMaterialReaderPreviewExpressId}
-                    uniformGhost
-                    onStatusChange={setKbMaterialReaderIfcStatus}
-                  />
-                </Suspense>
-              </div>
-              {kbMaterialReaderPreviewExpressId != null ? (
-                <Link
-                  href={`/bim?projectId=${encodeURIComponent(projectId)}&view=building&expressId=${encodeURIComponent(String(kbMaterialReaderPreviewExpressId))}`}
-                  className="text-center text-[11px] font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-300"
-                >
-                  Open full BIM viewer for #{kbMaterialReaderPreviewExpressId}
-                </Link>
-              ) : null}
+                  <div className="flex flex-row flex-wrap items-center justify-end gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setKbViewerOpen(false);
+                        setKbMaterialReaderPreviewExpressId(null);
+                        setKbMaterialReaderIfcStatus(null);
+                      }}
+                      className={`${kbIconBtnClass} h-7 w-7 border-rose-200/80 text-rose-700 hover:border-rose-300 hover:bg-rose-50 dark:border-rose-900/60 dark:text-rose-300 dark:hover:bg-rose-950/40`}
+                      aria-label="Hide 3D preview and unload IFC"
+                      title="Hide 3D preview"
+                    >
+                      <KbIconXMark className="h-4 w-4" />
+                    </button>
+                    {kbMaterialReaderPreviewExpressId != null ? (
+                      <Link
+                        href={`/bim?projectId=${encodeURIComponent(projectId)}&view=building&expressId=${encodeURIComponent(String(kbMaterialReaderPreviewExpressId))}`}
+                        className={`${kbIconBtnClass} h-7 w-7 border-sky-200/80 text-sky-700 hover:border-sky-300 hover:bg-sky-50 dark:border-sky-900/50 dark:text-sky-300 dark:hover:bg-sky-950/30`}
+                        aria-label={`Open full BIM viewer for element ${kbMaterialReaderPreviewExpressId}`}
+                        title={`Open full BIM viewer #${kbMaterialReaderPreviewExpressId}`}
+                      >
+                        <KbIconOpenExternal className="h-4 w-4" />
+                      </Link>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <div className="flex h-[min(420px,55vh)] min-h-[200px] w-full items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-zinc-50/80 dark:border-zinc-600 dark:bg-zinc-950/40">
+                  <button
+                    type="button"
+                    onClick={() => setKbViewerOpen(true)}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-400 bg-zinc-900 text-white shadow-sm hover:bg-zinc-800 dark:border-zinc-500 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+                    aria-label="Load 3D preview"
+                    title="Load 3D IFC preview"
+                  >
+                    <KbIconCube className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
           {materialReader.hasEpd === false && kbResult?.epdCatalog?.length ? (
@@ -1726,81 +2155,112 @@ export default function KnowledgeBasePage() {
             ) : null}
           </div>
 
-          {kbResult.epdCoverage ? (
+          {kbResult.epdCoverage || kbResult.matchingPreview ? (
             <div className="mt-4 p-3 rounded bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-              <p className="text-sm text-zinc-700 dark:text-zinc-200">EPD coverage</p>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                Changes only after re-enrich or updated matching rules.
-              </p>
-              <div className="mt-2 grid gap-2 md:grid-cols-2">
-                <div className="rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-2 text-xs space-y-1 text-zinc-700 dark:text-zinc-200">
-                  <div>
-                    Elements in enriched graph:{" "}
-                    <code className="font-mono">{kbResult.elementCount ?? "—"}</code>
+              {kbResult.epdCoverage ? (
+                <>
+                  <p className="text-sm text-zinc-700 dark:text-zinc-200">EPD coverage</p>
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    Changes only after re-enrich or updated matching rules.
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-zinc-700 dark:text-zinc-200">Matching preview</p>
+              )}
+              <div className="mt-2 space-y-4">
+                {kbResult.epdCoverage ? (
+                <section className="space-y-1.5" aria-labelledby="kb-epd-project-heading">
+                  <h3
+                    id="kb-epd-project-heading"
+                    className="text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-300"
+                  >
+                    Project
+                  </h3>
+                  <div className="rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-2 text-xs space-y-1 text-zinc-700 dark:text-zinc-200">
+                    <div>
+                      Elements in enriched graph:{" "}
+                      <code className="font-mono">{kbResult.elementCount ?? "—"}</code>
+                    </div>
+                    <div>
+                      Materials without EPD:{" "}
+                      <code className="font-mono">
+                        {kbResult.epdCoverage.materialsWithoutEPD}/{kbResult.epdCoverage.materialsTotal}
+                      </code>
+                    </div>
+                    <div>
+                      Materials with EPD:{" "}
+                      <code className="font-mono">
+                        {kbResult.epdCoverage.materialsWithEPD}/{kbResult.epdCoverage.materialsTotal}
+                      </code>
+                    </div>
+                    <div>
+                      Materials (total):{" "}
+                      <code className="font-mono">{kbResult.epdCoverage.materialsTotal}</code>
+                    </div>
+                    {kbResult.epdCoverage.sourceBreakdown ? (
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        LCA buckets:{" "}
+                        <span className="font-medium text-zinc-600 dark:text-zinc-300">sticky chips</span> — hover
+                        for help. Drill-down:{" "}
+                        <a
+                          href="#kb-dictionary-matching"
+                          className="underline font-medium text-zinc-700 dark:text-zinc-200"
+                        >
+                          Dictionary + KB matching
+                        </a>
+                        .
+                      </p>
+                    ) : null}
                   </div>
-                  <div>
-                    Materials without EPD:{" "}
-                    <code className="font-mono">
-                      {kbResult.epdCoverage.materialsWithoutEPD}/{kbResult.epdCoverage.materialsTotal}
-                    </code>
-                  </div>
-                  <div>
-                    Materials with EPD:{" "}
-                    <code className="font-mono">
-                      {kbResult.epdCoverage.materialsWithEPD}/{kbResult.epdCoverage.materialsTotal}
-                    </code>
-                  </div>
-                  <div>
-                    Materials (total):{" "}
-                    <code className="font-mono">{kbResult.epdCoverage.materialsTotal}</code>
-                  </div>
-                  {kbResult.epdCoverage.sourceBreakdown ? (
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      LCA buckets:{" "}
-                      <span className="font-medium text-zinc-600 dark:text-zinc-300">sticky chips</span> — hover
-                      for help. Drill-down:{" "}
-                      <a href="#kb-dictionary-matching" className="underline font-medium text-zinc-700 dark:text-zinc-200">
-                        Dictionary + KB matching
-                      </a>
-                      .
-                    </p>
-                  ) : null}
-                </div>
+                </section>
+                ) : null}
 
-                <div className="rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-2 text-xs space-y-1 text-zinc-600 dark:text-zinc-400">
-                  {kbResult.buildMeta ? (
-                    <>
-                      <div>
-                        KB built:{" "}
-                        <code className="font-mono text-[11px]">
-                          {formatStableDateTime(kbResult.buildMeta.kbBuiltAt)}
-                        </code>
-                      </div>
-                      <div>
-                        Enriched file mtime:{" "}
-                        <code className="font-mono text-[11px]">
-                          {formatStableDateTime(kbResult.buildMeta.enrichedInput.mtimeIso)}
-                        </code>{" "}
-                        ({kbResult.buildMeta.enrichedInput.byteSize.toLocaleString()} bytes)
-                      </div>
-                      <div>
-                        Dictionary:{" "}
-                        <code className="font-mono text-[11px]">
-                          {kbResult.buildMeta.materialDictionaryVersion ?? "—"}
-                        </code>{" "}
-                        (mtime{" "}
-                        <code className="font-mono text-[11px]">
-                          {formatStableDateTime(
-                            kbResult.buildMeta.materialDictionaryMtimeIso
-                          )}
-                        </code>
-                        )
-                      </div>
-                    </>
-                  ) : (
-                    <div>Build metadata unavailable.</div>
-                  )}
-                </div>
+                {!materialReader ? kbMatchingPreviewSection : null}
+
+                {kbResult.epdCoverage ? (
+                <section className="space-y-1.5" aria-labelledby="kb-epd-actor-heading">
+                  <h3
+                    id="kb-epd-actor-heading"
+                    className="text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-300"
+                  >
+                    Actor
+                  </h3>
+                  <div className="rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-2 text-xs space-y-1 text-zinc-600 dark:text-zinc-400">
+                    {kbResult.buildMeta ? (
+                      <>
+                        <div>
+                          KB built:{" "}
+                          <code className="font-mono text-[11px]">
+                            {formatStableDateTime(kbResult.buildMeta.kbBuiltAt)}
+                          </code>
+                        </div>
+                        <div>
+                          Enriched file mtime:{" "}
+                          <code className="font-mono text-[11px]">
+                            {formatStableDateTime(kbResult.buildMeta.enrichedInput.mtimeIso)}
+                          </code>{" "}
+                          ({kbResult.buildMeta.enrichedInput.byteSize.toLocaleString()} bytes)
+                        </div>
+                        <div>
+                          Dictionary:{" "}
+                          <code className="font-mono text-[11px]">
+                            {kbResult.buildMeta.materialDictionaryVersion ?? "—"}
+                          </code>{" "}
+                          (mtime{" "}
+                          <code className="font-mono text-[11px]">
+                            {formatStableDateTime(
+                              kbResult.buildMeta.materialDictionaryMtimeIso
+                            )}
+                          </code>
+                          )
+                        </div>
+                      </>
+                    ) : (
+                      <div>Build metadata unavailable.</div>
+                    )}
+                  </div>
+                </section>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -1817,101 +2277,117 @@ export default function KnowledgeBasePage() {
             />
           </div>
 
-          {kbResult.matchingPreview ? (
-            <div className="mt-4 p-3 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-              <p className="text-sm text-zinc-700 dark:text-zinc-200">
-                Matching results
-              </p>
-
-              <div className="mt-2">
-                <ToggleSection
-                  key={
-                    focusMaterialId != null &&
-                    matchedRows.some((r) => r.materialId === focusMaterialId)
-                      ? `matched-open-${focusMaterialId}`
-                      : "matched-default"
-                  }
-                  defaultOpen={
-                    focusMaterialId != null &&
-                    matchedRows.some((r) => r.materialId === focusMaterialId)
-                  }
-                  title={`Matched materials (${kbResult.epdCoverage?.materialsWithEPD ?? kbResult.matchingPreview.matched.length} have EPD)`}
-                  summaryClassName="cursor-pointer text-xs text-zinc-700 dark:text-zinc-200"
-                >
-                  <div className="mt-2 text-xs text-zinc-700 dark:text-zinc-200">
-                    {kbResult.epdCoverage &&
-                    kbResult.matchingPreview.matched.length <
-                      kbResult.epdCoverage.materialsWithEPD ? (
-                      <div className="mb-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                        Showing top preview rows:{" "}
-                        <code className="font-mono">
-                          {kbResult.matchingPreview.matched.length}/
-                          {kbResult.epdCoverage.materialsWithEPD}
-                        </code>
-                      </div>
-                    ) : null}
-                    <div className="grid grid-cols-[70px_minmax(0,1fr)_minmax(0,1fr)_150px_90px_90px] gap-x-3 px-2 py-1 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                      <span>ID</span>
-                      <span>Material</span>
-                      <span>EPD</span>
-                      <span>Match</span>
-                      <span>Confidence</span>
-                      <span>Actions</span>
-                    </div>
-                    <div className="space-y-1">
-                    {kbResult.matchingPreview.matched.length ? (
-                      kbResult.matchingPreview.matched.map((m) => (
-                        <div
-                          id={`kb-matched-row-${m.materialId}`}
-                          key={`m-${m.materialId}`}
-                          className="rounded border border-zinc-200 dark:border-zinc-800 px-2 py-1"
-                        >
-                          <div className="grid grid-cols-[70px_minmax(0,1fr)_minmax(0,1fr)_150px_90px_90px] gap-x-3 gap-y-1 items-start">
-                            <span className="font-mono text-zinc-500 dark:text-zinc-400">
-                              {m.materialId}
-                            </span>
-                            <span className="truncate" title={m.materialName}>
-                              {m.materialName}
-                            </span>
-                            <span
-                              className="truncate font-mono text-zinc-700 dark:text-zinc-200"
-                              title={`${m.epdSlug} — ${m.epdName}`}
-                            >
-                              {m.epdSlug}
-                            </span>
-                            <span
-                              className="truncate text-zinc-500 dark:text-zinc-400"
-                              title={m.matchType ?? "—"}
-                            >
-                              {m.matchType ?? "—"}
-                            </span>
-                            <span className="text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
-                              {typeof m.matchConfidence === "number"
-                                ? m.matchConfidence.toFixed(2)
-                                : "—"}
-                            </span>
-                            <Link
-                              href={`/sources?from=kb&projectId=${encodeURIComponent(
-                                projectId
-                              )}&materialId=${encodeURIComponent(
-                                String(m.materialId)
-                              )}&epdSlug=${encodeURIComponent(m.epdSlug)}`}
-                              className="inline-flex items-center justify-center rounded border border-zinc-200 dark:border-zinc-800 px-2 py-0.5 text-[11px] text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                              aria-label={`Open sources editor (matching) for material ${m.materialId}`}
-                              title="Update sources (KBOB/ICE snapshots & ordering)"
-                            >
-                              ↗
-                            </Link>
+          {kbResult.epdLinkedGroups != null ? (
+            <div
+              id="kb-epd-inventory"
+              className="mt-4 p-3 rounded bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 scroll-mt-24"
+            >
+              <ToggleSection
+                defaultOpen={kbResult.epdLinkedGroups.length <= 8}
+                title={
+                  <>
+                    EPDs linked in this KB
+                    <span className="ml-2 font-normal text-[11px] text-zinc-500 dark:text-zinc-400">
+                      ({kbResult.epdLinkedGroups.length} product
+                      {kbResult.epdLinkedGroups.length === 1 ? "" : "s"})
+                    </span>
+                  </>
+                }
+                summaryClassName="cursor-pointer text-sm font-semibold text-zinc-900 dark:text-zinc-50"
+              >
+                <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  Each product is a <code className="font-mono">bim:epd-…</code> node; IFC material
+                  passport rows point at it via <code className="font-mono">ont:hasEPD</code>. Expand
+                  a product to see every linked material id and display name.
+                </p>
+                {!kbResult.epdLinkedGroups.length ? (
+                  <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+                    No EPD links in this graph yet.
+                  </p>
+                ) : (
+                  <div className="mt-3 space-y-2 max-h-[min(70vh,42rem)] overflow-y-auto pr-1">
+                    {kbResult.epdLinkedGroups.map((g) => (
+                      <details
+                        key={g.epdSlug}
+                        className="rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-950/40 open:shadow-sm"
+                      >
+                        <summary className="cursor-pointer list-none px-2 py-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 [&::-webkit-details-marker]:hidden">
+                          <span className="text-zinc-400 dark:text-zinc-500 select-none" aria-hidden>
+                            ▶
+                          </span>
+                          <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100 min-w-0 flex-1">
+                            {g.epdName}
+                          </span>
+                          <code
+                            className="font-mono text-[10px] text-zinc-600 dark:text-zinc-400 shrink-0"
+                            title="EPD slug (stable id)"
+                          >
+                            {g.epdSlug}
+                          </code>
+                          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                            {g.materials.length} material
+                            {g.materials.length === 1 ? "" : "s"}
+                          </span>
+                        </summary>
+                        <div className="px-2 pb-2 pt-0 border-t border-zinc-200/80 dark:border-zinc-800/80">
+                          <div className="mt-2 grid grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,6rem)_2.5rem] gap-x-2 gap-y-1 text-[10px] uppercase tracking-wide text-zinc-500 dark:text-zinc-400 px-1">
+                            <span>ID</span>
+                            <span>Material</span>
+                            <span>Match</span>
+                            <span className="text-right">Src</span>
                           </div>
+                          <ul className="mt-1 space-y-1">
+                            {g.materials.map((row) => (
+                              <li
+                                key={`${g.epdSlug}-${row.materialId}`}
+                                className="grid grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,6rem)_2.5rem] gap-x-2 gap-y-0.5 items-start rounded px-1 py-1 text-xs border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800"
+                              >
+                                <span className="font-mono text-zinc-500 dark:text-zinc-400">
+                                  {row.materialId}
+                                </span>
+                                <span className="min-w-0 break-words text-zinc-800 dark:text-zinc-200">
+                                  {row.materialName}
+                                </span>
+                                <span
+                                  className="min-w-0 truncate text-zinc-500 dark:text-zinc-400 text-[11px]"
+                                  title={
+                                    row.matchType != null
+                                      ? `${row.matchType}${
+                                          typeof row.matchConfidence === "number"
+                                            ? ` (${row.matchConfidence.toFixed(2)})`
+                                            : ""
+                                        }`
+                                      : undefined
+                                  }
+                                >
+                                  {row.matchType ?? "—"}
+                                  {typeof row.matchConfidence === "number"
+                                    ? ` · ${row.matchConfidence.toFixed(2)}`
+                                    : ""}
+                                </span>
+                                <span className="flex justify-end">
+                                  <Link
+                                    href={`/sources?from=kb&projectId=${encodeURIComponent(
+                                      projectId
+                                    )}&materialId=${encodeURIComponent(
+                                      String(row.materialId)
+                                    )}&epdSlug=${encodeURIComponent(g.epdSlug)}`}
+                                    className="inline-flex items-center justify-center rounded border border-zinc-200 dark:border-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                    aria-label={`Open sources editor for material ${row.materialId}`}
+                                    title="Sources / matching"
+                                  >
+                                    ↗
+                                  </Link>
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                      ))
-                    ) : (
-                      <div>—</div>
-                    )}
-                    </div>
+                      </details>
+                    ))}
                   </div>
-                </ToggleSection>
-              </div>
+                )}
+              </ToggleSection>
             </div>
           ) : null}
 

@@ -4,6 +4,12 @@
 
 **Code:** [`src/lib/timeline-document-matching.ts`](../src/lib/timeline-document-matching.ts) — stable map from document kinds to `timeline:eventAction` (and typical `timeline:source`). **Tests:** `npm run test:timeline-document-matching`.
 
+## Events system: documents → timeline
+
+**Integrating documents into the audit story** happens only by **appending timeline events** with the correct `timeline:eventAction`. Saving a file under `data/` (bestek bindings, deliveries Turtle, …) **does not** by itself change what appears on `/timeline` unless the ingest or API path **also** writes the matching audit row (e.g. `bestek_bindings_milestone`, `delivery_document_added`). **PID milestones** (`pid_reference_milestone`) and **document events** share the **same** append-only log and sort key (`timeline:timestamp`), so the timeline is **adjusted** in one place: the events vocabulary ([`src/lib/timeline-events-vocab.ts`](../src/lib/timeline-events-vocab.ts)) plus `data/<projectId>-timeline.ttl`.
+
+See §2 for the document → `eventAction` table and §3 for ingest entry points.
+
 ---
 
 ## 1. Three lanes (roadmap) vs dashboard checklist
@@ -32,6 +38,7 @@ Stakeholder language (NL/BE) maps to **controlled** `timeline:eventAction` liter
 | **Werfverslag** / **Bouwverslag** / **Rapport werfbezoek** | `site_report_added` | `form` (today) | Message body + optional `targetExpressId` / `materialReference` via [`POST /api/timeline`](../src/app/api/timeline/route.ts) |
 | **Technische fiche** linked to an element | `evidence_linked` | `form` | — |
 | **Bestek** “Save bindings” milestone | `bestek_bindings_milestone` | `deliveries-bestek` | `*-bestek-bindings.json`, phase-0 groups JSON — UI: **`/deliveries?tab=specification`** (legacy `tab=bestek`) |
+| **Stored original** (invoice, site photo, scan, …) | `document_original_stored` | `deliveries-document-upload` | `data/<projectId>-documents/<eventId>/…` — UI: **`/deliveries?tab=pid`** → **Send to project timeline** → **Custom trace / sign-off** → **Upload** |
 
 EPCIS supply-chain events remain **`epcis_supply_chain_event`** with `eventTime` driving the same sort order as other audit rows ([`docs/timeline-epcis-integration.md`](timeline-epcis-integration.md)).
 
@@ -45,6 +52,7 @@ EPCIS supply-chain events remain **`epcis_supply_chain_event`** with `eventTime`
 
 - **Leveringsbon:** [`POST /api/deliveries/ingest`](../src/app/api/deliveries/ingest/route.ts) with `projectId`, `recordTimelineEvent`, `appendDeliveriesTurtle` — see [`docs/deliveries-importer-integration.md`](deliveries-importer-integration.md).
 - **Werfverslag:** **`POST /api/timeline`** with `eventAction: "site_report_added"` (and optional `timestampIso` for back-dating to report date).
+- **Stored originals (PDF, images, …):** **`POST /api/timeline/document-upload`** (multipart `projectId` + `file`) — appends **`document_original_stored`** with RDF storage fields (`timeline:documentStoredRelPath`, …).
 - **Vocabulary edits:** add actions in [`src/lib/timeline-events-vocab.ts`](../src/lib/timeline-events-vocab.ts) first, then taxonomy doc, then this table and `TIMELINE_DOCUMENT_MATCHES`.
 
 ---
@@ -61,4 +69,6 @@ EPCIS supply-chain events remain **`epcis_supply_chain_event`** with `eventTime`
 
 ## Revision history
 
+- **2026-04-07:** **`document_original_stored`** + `POST /api/timeline/document-upload` — store bytes under `data/<projectId>-documents/<eventId>/` as the origin audit event alongside references.
+- **2026-04-07:** §“Events system: documents → timeline” — documents join the log via the same `eventAction` vocabulary as PID milestones; files alone do not reorder the timeline.
 - **2026-04-07:** Initial doc + `timeline-document-matching.ts` module; timeline timestamp from leveringsbon date when parseable.

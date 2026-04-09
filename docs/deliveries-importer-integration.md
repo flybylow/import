@@ -12,7 +12,9 @@
 | `specification` | IFC groups, bestek/opmeting bindings, contractor coupling, saved fiche preview |
 | `pid` | PID reference milestones + template seed |
 
-**Legacy aliases** (still accepted): `tab=bestek` → specification; `tab=flow` / `leveringsbon` / `delivery` / `deliveries` → ingest; `tab=lifecycle` / `process` → pid. **`specificationFiche=1`** opens the saved opmeting fiche expanded; **`bestekFiche=1`** is the same (deprecated name).
+**Legacy aliases** (still accepted): `tab=bestek` → specification; `tab=flow` / `leveringsbon` / `delivery` / `deliveries` → ingest; `tab=lifecycle` / `process` → pid. **`specificationFiche=1`** opens the saved opmeting fiche expanded; **`bestekFiche=1`** is the same (deprecated name). With **`tab=ingest`**, **`ingestPreview=1`** opens the **Live preview (JSON)** collapsible on load; without it, that section starts collapsed.
+
+Example: `/deliveries?tab=ingest&projectId=…&ingestPreview=1`
 
 If you need a **real RDBMS** (Postgres, etc.), treat this app as the **edge ingest service**: same JSON contract → your service writes rows → you can still POST Turtle or events back here, or replace file append with DB-backed implementations behind the same API shape.
 

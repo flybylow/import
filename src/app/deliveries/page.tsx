@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Button from "@/components/Button";
@@ -10,10 +10,10 @@ import LeveringsbonFicheVisual, {
   type LeveringsbonFicheData,
 } from "@/components/LeveringsbonFicheVisual";
 import { CollapseSection, InfoDetails } from "@/components/InfoDetails";
-import ProjectIdField from "@/components/ProjectIdField";
 import { useToast } from "@/components/ToastProvider";
 import { appContentWidthClass } from "@/lib/app-page-layout";
 import {
+  deliveriesIngestLivePreviewOpen,
   deliveriesOpenSavedSpecificationFiche,
   deliveriesTabFromQueryParam,
   deliveriesTabQueryValue,
@@ -82,10 +82,6 @@ const DEEP_DOCS: { path: string; label: string }[] = [
   { path: "docs/bim-to-kg-journey.md", label: "IFC → knowledge graph journey" },
 ];
 
-/** Single-line summary of the leveringsbon ingest path (replaces the old numbered step rail). */
-const LEVERINGSBON_SUMMARY_LINE =
-  "JSON with an items[] of supplier lines → normalize (material-norm) → dictionary match (material-dictionary.json, first hit) → optional MVP GWP → Turtle (dpp delivery note + bim:epd-*); use the checkboxes for a timeline event and/or append to deliveries TTL.";
-
 const TECH_FILES = [
   { path: "src/lib/deliveries-importer.ts", label: "Core ingest + Turtle" },
   { path: "src/app/api/deliveries/ingest/route.ts", label: "POST API" },
@@ -125,15 +121,20 @@ function DeepDocumentationPanel() {
   );
 }
 
-/** Order matters: Ingest is first (left in LTR; `dir="ltr"` on the tablist keeps that in RTL too). */
+/** Order: Bestek (documents) first; `dir="ltr"` on the tablist keeps left-to-right order in RTL too. */
 const TAB_DEFS: { id: DeliveriesTabId; label: string; title: string }[] = [
-  { id: "ingest", label: "Ingest", title: "Leveringsbon JSON ingest, matches & Turtle" },
   {
     id: "specification",
-    label: "Specification",
-    title: "Bestek / opmeting: dictionary, bindings & preview",
+    label: "Bestek",
+    title: "Bestek / opmeting — dictionary, bindings, preview (?tab=specification, specificationFiche=1)",
   },
-  { id: "pid", label: "PID", title: "Process lifecycle milestones and timeline links" },
+  {
+    id: "ingest",
+    label: "Leveringsbon · werf",
+    title:
+      "Leveringsbon JSON, matches, Turtle — add ?ingestPreview=1 to open Live preview (JSON) on load",
+  },
+  { id: "pid", label: "PID", title: "Proces & mijlpalen, timeline-koppelingen" },
 ];
 
 /** Build fiche preview data from parsed leveringsbon ingest JSON (items[]). */
@@ -188,10 +189,41 @@ function DeliveriesPageInner() {
     [pathname, router, searchParams]
   );
 
+  /** Canonical tab in the address bar: `/deliveries` → `?tab=specification` (Bestek) so links stay shareable. */
+  useEffect(() => {
+    const raw = searchParams.get("tab");
+    if (raw != null && raw.trim() !== "") return;
+    const q = new URLSearchParams(searchParams.toString());
+    q.set("tab", deliveriesTabQueryValue("specification"));
+    router.replace(`${pathname}?${q.toString()}`, { scroll: false });
+  }, [pathname, router, searchParams]);
+
   /** Bestek table filter: absent sp/pr = hide those IFC buckets; sp=1 / pr=1 = show them (survives reload). */
   const hideSpatialTypes = searchParams.get("sp") !== "1";
   const hideMetaTypes = searchParams.get("pr") !== "1";
   const openSavedSpecificationFiche = deliveriesOpenSavedSpecificationFiche(searchParams);
+  const ingestLivePreviewOpen = deliveriesIngestLivePreviewOpen(searchParams);
+
+  useEffect(() => {
+    const previousTitle = document.title;
+    const pid = projectId.trim();
+    let next: string;
+    if (activeTab === "specification" && openSavedSpecificationFiche && pid) {
+      next = `Bestek · opmetingsstaat — Project ${pid}`;
+    } else if (activeTab === "specification") {
+      next = pid ? `Bestek · opmeting — Project ${pid}` : "Bestek · opmeting";
+    } else if (activeTab === "ingest") {
+      next = pid ? `Leveringsbon · werf — Project ${pid}` : "Leveringsbon · werf";
+    } else if (activeTab === "pid") {
+      next = pid ? `PID — Project ${pid}` : "PID";
+    } else {
+      next = "Deliveries";
+    }
+    document.title = next;
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [activeTab, openSavedSpecificationFiche, projectId]);
 
   const onHideSpatialTypesChange = useCallback(
     (hide: boolean) => {
@@ -404,50 +436,51 @@ function DeliveriesPageInner() {
 
       <div
         role="tabpanel"
+        id="deliveries-panel-specification"
+        aria-labelledby="deliveries-tab-specification"
+        hidden={activeTab !== "specification"}
+        className="pt-2"
+      >
+        <DeliveriesBestekPanel
+          projectId={projectId}
+          setProjectId={setProjectId}
+          initialOpenSavedSpecificationFiche={openSavedSpecificationFiche}
+          hideSpatialTypes={hideSpatialTypes}
+          hideMetaTypes={hideMetaTypes}
+          onHideSpatialTypesChange={onHideSpatialTypesChange}
+          onHideMetaTypesChange={onHideMetaTypesChange}
+        />
+      </div>
+
+      <div
+        role="tabpanel"
         id="deliveries-panel-ingest"
         aria-labelledby="deliveries-tab-ingest"
         hidden={activeTab !== "ingest"}
         className="space-y-4 pt-3"
       >
-        <section aria-label="Leveringsbon ingest" className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">
-            Leveringsbon
-          </h2>
-          <p className="max-w-3xl text-sm leading-snug text-zinc-600 dark:text-zinc-400">
-            {LEVERINGSBON_SUMMARY_LINE}
-          </p>
-          <div className="flex max-w-md flex-wrap items-center gap-2 rounded border border-zinc-200 bg-zinc-50/80 px-2 py-2 dark:border-zinc-800 dark:bg-zinc-900/30">
-            <ProjectIdField value={projectId} onChange={setProjectId} label="Project" />
-            <InfoDetails label="Persistence (data folder)">
-              <p>
-                No SQL server — state under <code className="font-mono">data/</code>. See{" "}
-                <code className="font-mono text-[12px]">docs/deliveries-importer-integration.md</code>{" "}
-                for external DB notes.
-              </p>
-            </InfoDetails>
-            <div className="flex w-full flex-col gap-1.5 text-[13px] text-zinc-800 dark:text-zinc-200">
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="rounded border-zinc-300 dark:border-zinc-600"
-                  checked={recordTimelineEvent}
-                  onChange={(e) => setRecordTimelineEvent(e.target.checked)}
-                />
-                <span>Append timeline event</span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="rounded border-zinc-300 dark:border-zinc-600"
-                  checked={appendDeliveriesTurtle}
-                  onChange={(e) => setAppendDeliveriesTurtle(e.target.checked)}
-                />
-                <span>Append Turtle to deliveries TTL</span>
-              </label>
-            </div>
+        <section aria-label="Leveringsbon · werf" className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="m-0 text-sm font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">
+              Leveringsbon · werf
+            </h2>
+            <span className="text-[13px] text-zinc-600 dark:text-zinc-400">
+              <InfoDetails label="Persistence (data folder)">
+                <p>
+                  No SQL server — state under <code className="font-mono">data/</code>. Uses{" "}
+                  <code className="font-mono text-[12px]">?projectId=</code> (Bestek tab) or localStorage. See{" "}
+                  <code className="font-mono text-[12px]">docs/deliveries-importer-integration.md</code>{" "}
+                  for external DB notes.
+                </p>
+              </InfoDetails>
+            </span>
           </div>
 
-          <CollapseSection title="Live preview (JSON)" defaultOpen={false}>
+          <CollapseSection
+            key={ingestLivePreviewOpen ? "ingest-live-preview-open" : "ingest-live-preview-closed"}
+            title="Live preview (JSON)"
+            defaultOpen={ingestLivePreviewOpen}
+          >
             <LeveringsbonFicheVisual data={ficheData} variant="compact" />
           </CollapseSection>
 
@@ -469,7 +502,25 @@ function DeliveriesPageInner() {
             </div>
           </CollapseSection>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800 dark:text-zinc-200">
+              <input
+                type="checkbox"
+                className="rounded border-zinc-300 dark:border-zinc-600"
+                checked={recordTimelineEvent}
+                onChange={(e) => setRecordTimelineEvent(e.target.checked)}
+              />
+              <span>Append timeline</span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800 dark:text-zinc-200">
+              <input
+                type="checkbox"
+                className="rounded border-zinc-300 dark:border-zinc-600"
+                checked={appendDeliveriesTurtle}
+                onChange={(e) => setAppendDeliveriesTurtle(e.target.checked)}
+              />
+              <span>Append Turtle</span>
+            </label>
             <Button
               type="button"
               variant="primary"
@@ -669,24 +720,6 @@ function DeliveriesPageInner() {
             <DeepDocumentationPanel />
           </div>
         </CollapseSection>
-      </div>
-
-      <div
-        role="tabpanel"
-        id="deliveries-panel-specification"
-        aria-labelledby="deliveries-tab-specification"
-        hidden={activeTab !== "specification"}
-        className="pt-2"
-      >
-        <DeliveriesBestekPanel
-          projectId={projectId}
-          setProjectId={setProjectId}
-          initialOpenSavedSpecificationFiche={openSavedSpecificationFiche}
-          hideSpatialTypes={hideSpatialTypes}
-          hideMetaTypes={hideMetaTypes}
-          onHideSpatialTypesChange={onHideSpatialTypesChange}
-          onHideMetaTypesChange={onHideMetaTypesChange}
-        />
       </div>
 
       <div

@@ -476,6 +476,63 @@ export function buildMatchingPreview(
   return { matched, unmatched };
 }
 
+/** One IFC material row linked to an EPD in the KB (full project, not preview-capped). */
+export type EpdLinkedMaterialRow = {
+  materialId: number;
+  materialName: string;
+  matchType?: string;
+  matchConfidence?: number;
+};
+
+/** EPD product with all `ont:hasEPD` material layers pointing at it in this KB. */
+export type EpdLinkedGroup = {
+  epdSlug: string;
+  epdName: string;
+  materials: EpdLinkedMaterialRow[];
+};
+
+/**
+ * Group every material that has `ont:hasEPD` by target `bim:epd-{slug}` — for “what EPDs are in use
+ * and how they’re linked” UIs. Uses the same labels as matching preview.
+ */
+export function buildEpdLinkedGroupsFromStore(store: $rdf.Store): EpdLinkedGroup[] {
+  const matchedMaterialIds = extractMaterialIdsWithHasEpdFromStore(store);
+  const materialNode = (id: number) => BIM(`material-${id}`);
+  const epdNode = (slug: string) => BIM(`epd-${slug}`);
+  const map = new Map<string, EpdLinkedGroup>();
+
+  for (const id of matchedMaterialIds) {
+    const mat = materialNode(id);
+    const epdTerm = store.any(mat, ONT("hasEPD"), null);
+    if (!epdTerm?.value) continue;
+    const epdSlugMatch = /epd-(.+)$/.exec(epdTerm.value);
+    if (!epdSlugMatch) continue;
+    const epdSlug = epdSlugMatch[1];
+    const epd = epdNode(epdSlug);
+    const epdName =
+      (getLitValue(store, epd, SCHEMA("name")) as string) || epdSlug;
+    let g = map.get(epdSlug);
+    if (!g) {
+      g = { epdSlug, epdName, materials: [] };
+      map.set(epdSlug, g);
+    }
+    const matchType = getLitValue(store, mat, ONT("matchType")) ?? undefined;
+    g.materials.push({
+      materialId: id,
+      materialName: materialDisplayNameFromStore(store, id),
+      matchType: matchType || undefined,
+      matchConfidence: safeNum(getLitValue(store, mat, ONT("matchConfidence"))),
+    });
+  }
+
+  const groups = [...map.values()].map((group) => ({
+    ...group,
+    materials: [...group.materials].sort((a, b) => a.materialId - b.materialId),
+  }));
+  groups.sort((a, b) => a.epdSlug.localeCompare(b.epdSlug));
+  return groups;
+}
+
 export type EpdCatalogEntry = { epdSlug: string; epdName: string };
 
 export function extractEpdCatalogFromStore(

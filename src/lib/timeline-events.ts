@@ -67,6 +67,17 @@ export type TimelinePidReferenceFields = {
   stateHint?: string;
 };
 
+/** Stored project document — `document_original_stored` only; path is under `data/` for `/api/file`. */
+export type TimelineDocumentStorageFields = {
+  /** e.g. `<projectId>-documents/<eventId>/scan.pdf` — `GET /api/file?name=` */
+  storedRelPath: string;
+  originalFilename: string;
+  byteLength: number;
+  mimeType?: string;
+  /** invoice | site_update | contract | photo | other */
+  category?: string;
+};
+
 export function parseBcfIfcGuidsJsonField(raw?: string): string[] {
   if (!raw?.trim()) return [];
   try {
@@ -123,6 +134,7 @@ export type TimelineEventPayload = {
   bestekBindingSaveBatchId?: string;
   productCouplingFields?: TimelineProductCouplingFields;
   pidReferenceFields?: TimelinePidReferenceFields;
+  documentStorageFields?: TimelineDocumentStorageFields;
 };
 
 export type ParsedTimelineEvent = {
@@ -144,7 +156,36 @@ export type ParsedTimelineEvent = {
   bestekBindingSaveBatchId?: string;
   productCouplingFields?: TimelineProductCouplingFields;
   pidReferenceFields?: TimelinePidReferenceFields;
+  documentStorageFields?: TimelineDocumentStorageFields;
 };
+
+/** Round-trip parsed rows back into `TimelineEventPayload` for `timelineEventToTurtle`. */
+export function parsedTimelineEventToPayload(ev: ParsedTimelineEvent): TimelineEventPayload {
+  return {
+    eventId: ev.eventId,
+    timestampIso: ev.timestampIso,
+    actorSystem: ev.actorSystem,
+    actorLabel: ev.actorLabel,
+    eventAction: ev.eventAction,
+    ...(ev.message !== undefined && ev.message !== "" ? { message: ev.message } : {}),
+    ...(ev.targetExpressId !== undefined ? { targetExpressId: ev.targetExpressId } : {}),
+    ...(ev.source !== undefined && ev.source !== "" ? { source: ev.source } : {}),
+    ...(ev.confidence !== undefined ? { confidence: ev.confidence } : {}),
+    ...(ev.materialReference !== undefined && ev.materialReference !== ""
+      ? { materialReference: ev.materialReference }
+      : {}),
+    ...(ev.epcisFields !== undefined ? { epcisFields: ev.epcisFields } : {}),
+    ...(ev.scheduleFields !== undefined ? { scheduleFields: ev.scheduleFields } : {}),
+    ...(ev.bcfFields !== undefined ? { bcfFields: ev.bcfFields } : {}),
+    ...(ev.bestekBindingFields !== undefined ? { bestekBindingFields: ev.bestekBindingFields } : {}),
+    ...(ev.bestekBindingSaveBatchId !== undefined && ev.bestekBindingSaveBatchId !== ""
+      ? { bestekBindingSaveBatchId: ev.bestekBindingSaveBatchId }
+      : {}),
+    ...(ev.productCouplingFields !== undefined ? { productCouplingFields: ev.productCouplingFields } : {}),
+    ...(ev.pidReferenceFields !== undefined ? { pidReferenceFields: ev.pidReferenceFields } : {}),
+    ...(ev.documentStorageFields !== undefined ? { documentStorageFields: ev.documentStorageFields } : {}),
+  };
+}
 
 function turtleString(s: string): string {
   return JSON.stringify(s);
@@ -293,6 +334,26 @@ export function timelineEventToTurtle(p: TimelineEventPayload): string {
     addPr("pidLifecyclePhase", pr.lifecyclePhase);
     addPr("pidMilestoneKey", pr.milestoneKey);
     addPr("pidStateHint", pr.stateHint);
+  }
+  if (p.documentStorageFields) {
+    const d = p.documentStorageFields;
+    const addDoc = (pred: string, val?: string) => {
+      if (val === undefined) return;
+      const s = val.trim();
+      if (!s) return;
+      lines[lines.length - 1] += " ;";
+      lines.push(`    timeline:${pred} ${turtleString(s)}`);
+    };
+    addDoc("documentStoredRelPath", d.storedRelPath);
+    addDoc("documentOriginalFilename", d.originalFilename);
+    if (Number.isFinite(d.byteLength) && d.byteLength >= 0) {
+      lines[lines.length - 1] += " ;";
+      lines.push(
+        `    timeline:documentByteLength "${Math.floor(d.byteLength)}"^^xsd:integer`
+      );
+    }
+    addDoc("documentMimeType", d.mimeType);
+    addDoc("documentCategory", d.category);
   }
   lines[lines.length - 1] += " .";
   return `${lines.join("\n")}\n`;
@@ -511,6 +572,28 @@ function parsePidReferenceFieldsFromStore(
   return o;
 }
 
+function parseDocumentStorageFieldsFromStore(
+  store: $rdf.Store,
+  subj: unknown
+): TimelineDocumentStorageFields | undefined {
+  const storedRelPath = lit(store, subj, TL("documentStoredRelPath"));
+  const originalFilename = lit(store, subj, TL("documentOriginalFilename"));
+  const byteLength = litInt(store, subj, TL("documentByteLength"));
+  if (!storedRelPath?.trim() || !originalFilename?.trim() || byteLength === undefined) {
+    return undefined;
+  }
+  const mimeType = lit(store, subj, TL("documentMimeType"));
+  const category = lit(store, subj, TL("documentCategory"));
+  const o: TimelineDocumentStorageFields = {
+    storedRelPath: storedRelPath.trim(),
+    originalFilename: originalFilename.trim(),
+    byteLength,
+  };
+  if (mimeType?.trim()) o.mimeType = mimeType.trim();
+  if (category?.trim()) o.category = category.trim();
+  return o;
+}
+
 /**
  * Best-effort parse of `data/<projectId>-timeline.ttl` for listing in UI.
  */
@@ -555,6 +638,7 @@ export function parseTimelineTtl(ttl: string): ParsedTimelineEvent[] {
     const productCouplingFields = parseProductCouplingFieldsFromStore(store, subj);
     const bestekBindingSaveBatchId = lit(store, subj, TL("bestekBindingSaveBatchId"));
     const pidReferenceFields = parsePidReferenceFieldsFromStore(store, subj);
+    const documentStorageFields = parseDocumentStorageFieldsFromStore(store, subj);
 
     out.push({
       uri: key,
@@ -575,6 +659,7 @@ export function parseTimelineTtl(ttl: string): ParsedTimelineEvent[] {
       ...(bestekBindingSaveBatchId ? { bestekBindingSaveBatchId } : {}),
       ...(productCouplingFields ? { productCouplingFields } : {}),
       ...(pidReferenceFields ? { pidReferenceFields } : {}),
+      ...(documentStorageFields ? { documentStorageFields } : {}),
     });
   }
 

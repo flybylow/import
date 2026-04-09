@@ -141,13 +141,13 @@ export default function BimIfcAlphaDebugPanel({
 
   return (
     <div
-      className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-end p-2 pt-6"
+      className="pointer-events-none absolute inset-x-0 bottom-0 z-50 flex justify-center p-2 pt-6"
       aria-label="IFC debug"
     >
-      <div className="pointer-events-auto flex flex-col items-end gap-1">
+      <div className="pointer-events-auto flex flex-col items-center gap-1">
         {!expanded ? (
-          <div className="flex max-w-[min(100vw-1rem,18rem)] flex-col items-end gap-1">
-            <div className="flex items-center gap-2">
+          <div className="flex max-w-[min(100vw-1rem,18rem)] flex-col items-center gap-1">
+            <div className="flex items-center justify-center gap-2">
               {modeChip}
               <button
                 type="button"
@@ -175,7 +175,7 @@ export default function BimIfcAlphaDebugPanel({
             </div>
             {lastEventShort ? (
               <p
-                className="text-right text-[9px] leading-tight text-zinc-500 dark:text-zinc-400"
+                className="max-w-[min(100vw-2rem,28rem)] text-center text-[9px] leading-tight text-zinc-500 dark:text-zinc-400"
                 title={liveAlpha.diag?.lastEventLabel}
               >
                 {lastEventShort}
@@ -183,7 +183,7 @@ export default function BimIfcAlphaDebugPanel({
             ) : null}
           </div>
         ) : (
-          <div className="w-[min(100vw-1rem,15rem)] rounded-md border border-amber-500/50 bg-amber-50/98 p-2 text-[10px] shadow-lg backdrop-blur-sm dark:border-amber-700/60 dark:bg-zinc-900/98 dark:text-zinc-100">
+          <div className="mx-auto w-[min(100vw-1rem,15rem)] rounded-md border border-amber-500/50 bg-amber-50/98 p-2 text-[10px] shadow-lg backdrop-blur-sm dark:border-amber-700/60 dark:bg-zinc-900/98 dark:text-zinc-100">
             <div className="mb-1.5 flex items-center justify-between gap-1 border-b border-amber-200/80 pb-1 dark:border-zinc-700">
               <span className="font-semibold text-amber-950 dark:text-amber-100">IFC debug</span>
               <button

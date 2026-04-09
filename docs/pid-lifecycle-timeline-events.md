@@ -46,6 +46,7 @@ Align with Notion **“Overlapping timelines”**: architect, contractor, EPB, P
 
 ## 4. Related
 
+- **Lifecycle view checklist:** [`src/lib/lifecycle-phase-document-expectations.ts`](../src/lib/lifecycle-phase-document-expectations.ts) — expected document/trace slots per phase (matched to `eventAction`, PID milestones, EPCIS); shown under **By phase** on `/timeline?view=lifecycle`.
 - [`docs/unified-construction-lifecycle-tabulas.md`](unified-construction-lifecycle-tabulas.md) — stakeholder lifecycle (Phase 0–9) + Tabulas moments  
 - [`docs/timeline-event-taxonomy.md`](timeline-event-taxonomy.md) — all current `eventAction` values  
 - [`docs/pid-digitization-plan.md`](pid-digitization-plan.md) — tiers, gaps, engineering phases A–D  

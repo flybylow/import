@@ -151,7 +151,7 @@
     "article_unit": "m³",
     "article_quantity": "174",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_column_unspecified_006",
@@ -162,40 +162,40 @@
     "article_unit": "m³",
     "article_quantity": "23",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_afdekker_007",
-    "architect_name": "Keramische / porselein tegel",
-    "material_slug": "ceramic_tile",
+    "architect_name": "Mortel / cementdekvloer",
+    "material_slug": "screed_floor",
     "or_equivalent": true,
     "article_number": "3",
     "article_unit": "m²",
     "article_quantity": "110",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_afschotisolatie_008",
-    "architect_name": "Keramische / porselein tegel",
-    "material_slug": "ceramic_tile",
+    "architect_name": "Thermische isolatie (algemeen)",
+    "material_slug": "insulation_generic",
     "or_equivalent": true,
     "article_number": "4",
     "article_unit": "m²",
     "article_quantity": "2",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_aftimmering_009",
-    "architect_name": "Keramische / porselein tegel",
-    "material_slug": "ceramic_tile",
+    "architect_name": "Thermische isolatie (algemeen)",
+    "material_slug": "insulation_generic",
     "or_equivalent": true,
     "article_number": "5",
     "article_unit": "m²",
     "article_quantity": "6",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_betontegels_010",
@@ -206,62 +206,62 @@
     "article_unit": "m²",
     "article_quantity": "231",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_boeideel_011",
-    "architect_name": "Keramische / porselein tegel",
+    "architect_name": "IfcCovering",
     "material_slug": "ceramic_tile",
     "or_equivalent": true,
     "article_number": "7",
     "article_unit": "m²",
     "article_quantity": "14",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_buitenblad_012",
-    "architect_name": "Keramische / porselein tegel",
-    "material_slug": "ceramic_tile",
+    "architect_name": "Beton (algemeen)",
+    "material_slug": "concrete_general",
     "or_equivalent": true,
     "article_number": "8",
     "article_unit": "m²",
     "article_quantity": "17",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_dak_dakkapel_013",
-    "architect_name": "Keramische / porselein tegel",
+    "architect_name": "IfcCovering",
     "material_slug": "ceramic_tile",
     "or_equivalent": true,
     "article_number": "9",
     "article_unit": "m²",
     "article_quantity": "8",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_dakisolatie_014",
-    "architect_name": "Keramische / porselein tegel",
-    "material_slug": "ceramic_tile",
+    "architect_name": "Thermische isolatie (algemeen)",
+    "material_slug": "insulation_generic",
     "or_equivalent": true,
     "article_number": "10",
     "article_unit": "m²",
     "article_quantity": "3",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_dakopstand_015",
-    "architect_name": "Keramische / porselein tegel",
-    "material_slug": "ceramic_tile",
+    "architect_name": "Zinkwerk / zinken beplating",
+    "material_slug": "zinc_work",
     "or_equivalent": true,
     "article_number": "11",
     "article_unit": "m²",
     "article_quantity": "32",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_dakpan_vlak_016",
@@ -272,139 +272,139 @@
     "article_unit": "m²",
     "article_quantity": "14",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_dakschroot_017",
-    "architect_name": "Keramische / porselein tegel",
-    "material_slug": "ceramic_tile",
+    "architect_name": "Hout",
+    "material_slug": "timber",
     "or_equivalent": true,
     "article_number": "13",
     "article_unit": "m²",
     "article_quantity": "8",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_gevelisolatie_018",
-    "architect_name": "Keramische / porselein tegel",
-    "material_slug": "ceramic_tile",
+    "architect_name": "Thermische isolatie (algemeen)",
+    "material_slug": "insulation_generic",
     "or_equivalent": true,
     "article_number": "14",
     "article_unit": "m²",
     "article_quantity": "208",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_gipsplafond_019",
-    "architect_name": "Keramische / porselein tegel",
-    "material_slug": "ceramic_tile",
+    "architect_name": "Gipsplaat / gipsblokken",
+    "material_slug": "gypsum_plaster",
     "or_equivalent": true,
     "article_number": "15",
     "article_unit": "m²",
     "article_quantity": "3",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_gootplafond_020",
-    "architect_name": "Keramische / porselein tegel",
-    "material_slug": "ceramic_tile",
+    "architect_name": "Gipsplaat / gipsblokken",
+    "material_slug": "gypsum_plaster",
     "or_equivalent": true,
     "article_number": "16",
     "article_unit": "m²",
     "article_quantity": "12",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_insulation_021",
-    "architect_name": "Keramische / porselein tegel",
-    "material_slug": "ceramic_tile",
+    "architect_name": "Thermische isolatie (algemeen)",
+    "material_slug": "insulation_generic",
     "or_equivalent": true,
     "article_number": "17",
     "article_unit": "m²",
     "article_quantity": "99",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_isolatie_022",
-    "architect_name": "Keramische / porselein tegel",
-    "material_slug": "ceramic_tile",
+    "architect_name": "Thermische isolatie (algemeen)",
+    "material_slug": "insulation_generic",
     "or_equivalent": true,
     "article_number": "18",
     "article_unit": "m²",
     "article_quantity": "2",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_kantafwerking_023",
-    "architect_name": "Keramische / porselein tegel",
+    "architect_name": "IfcCovering",
     "material_slug": "ceramic_tile",
     "or_equivalent": true,
     "article_number": "19",
     "article_unit": "m²",
     "article_quantity": "27",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_kantplank_024",
-    "architect_name": "Keramische / porselein tegel",
+    "architect_name": "IfcCovering",
     "material_slug": "ceramic_tile",
     "or_equivalent": true,
     "article_number": "20",
     "article_unit": "m²",
     "article_quantity": "14",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_muurafdekker_025",
-    "architect_name": "Keramische / porselein tegel",
+    "architect_name": "IfcCovering",
     "material_slug": "ceramic_tile",
     "or_equivalent": true,
     "article_number": "21",
     "article_unit": "m²",
     "article_quantity": "7",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_plafond_026",
-    "architect_name": "Keramische / porselein tegel",
-    "material_slug": "ceramic_tile",
+    "architect_name": "Gipsplaat / gipsblokken",
+    "material_slug": "gypsum_plaster",
     "or_equivalent": true,
     "article_number": "22",
     "article_unit": "m²",
     "article_quantity": "2",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_plat_dak_027",
-    "architect_name": "Keramische / porselein tegel",
+    "architect_name": "IfcCovering",
     "material_slug": "ceramic_tile",
     "or_equivalent": true,
     "article_number": "23",
     "article_unit": "m²",
     "article_quantity": "2",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_vensterbank_028",
-    "architect_name": "Keramische / porselein tegel",
+    "architect_name": "IfcCovering",
     "material_slug": "ceramic_tile",
     "or_equivalent": true,
     "article_number": "24",
     "article_unit": "m²",
     "article_quantity": "58",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_vloertegelwerk_029",
@@ -415,7 +415,7 @@
     "article_unit": "m²",
     "article_quantity": "20",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_wandtegelwerk_030",
@@ -426,7 +426,7 @@
     "article_unit": "m²",
     "article_quantity": "111",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_wandtegelwerk_031",
@@ -437,29 +437,29 @@
     "article_unit": "m²",
     "article_quantity": "10",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_waterslag_032",
-    "architect_name": "Keramische / porselein tegel",
+    "architect_name": "IfcCovering",
     "material_slug": "ceramic_tile",
     "or_equivalent": true,
     "article_number": "28",
     "article_unit": "m²",
     "article_quantity": "34",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_covering_zinkwerk_033",
-    "architect_name": "Keramische / porselein tegel",
-    "material_slug": "ceramic_tile",
+    "architect_name": "Zinkwerk / zinken beplating",
+    "material_slug": "zinc_work",
     "or_equivalent": true,
     "article_number": "29",
     "article_unit": "m²",
     "article_quantity": "208",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_distributionelement_unspecified_034",
@@ -470,7 +470,7 @@
     "article_unit": "kg",
     "article_quantity": "13",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_door_unspecified_035",
@@ -481,7 +481,7 @@
     "article_unit": "stuks",
     "article_quantity": "205",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_flowsegment_unspecified_036",
@@ -492,7 +492,7 @@
     "article_unit": "kg",
     "article_quantity": "60",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_member_unspecified_037",
@@ -503,7 +503,7 @@
     "article_unit": "stuks",
     "article_quantity": "9",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_railing_unspecified_038",
@@ -514,7 +514,7 @@
     "article_unit": "stuks",
     "article_quantity": "90",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_slab_unspecified_039",
@@ -525,7 +525,7 @@
     "article_unit": "m³",
     "article_quantity": "279",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_stair_unspecified_041",
@@ -536,7 +536,7 @@
     "article_unit": "m³",
     "article_quantity": "9",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_wall_unspecified_042",
@@ -547,7 +547,7 @@
     "article_unit": "m²",
     "article_quantity": "652",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_wallstandardcase_unspecified_043",
@@ -558,7 +558,7 @@
     "article_unit": "m²",
     "article_quantity": "282",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   },
   {
     "group_id": "group_window_unspecified_044",
@@ -569,6 +569,6 @@
     "article_unit": "stuks",
     "article_quantity": "259",
     "created_by": "architect",
-    "created_at": "2026-04-06T23:01:40.980Z"
+    "created_at": "2026-04-08T14:37:40.405Z"
   }
 ]

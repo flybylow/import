@@ -13,7 +13,11 @@ export type TimelineDocumentKind =
   | "leveringsbon"
   | "werfverslag"
   | "technische_fiche"
-  | "bestek_milestone";
+  | "bestek_milestone"
+  /** Path / URL / id recorded via Deliveries → PID or timeline form — not a file upload in-app. */
+  | "project_document_reference"
+  /** File bytes under `data/<projectId>-documents/` via document upload API. */
+  | "project_document_original";
 
 export type TimelineDocumentMatch = {
   kind: TimelineDocumentKind;
@@ -57,6 +61,20 @@ export const TIMELINE_DOCUMENT_MATCHES: readonly TimelineDocumentMatch[] = [
       "data/<projectId>-bestek-bindings.json",
       "data/<projectId>-phase0-element-groups.json",
     ],
+  },
+  {
+    kind: "project_document_reference",
+    labelsNl: ["Projectdocument", "Bijlage", "Referentie", "DMS-pad"],
+    eventAction: "document_reference_logged",
+    defaultSource: "form",
+    companionArtifacts: [],
+  },
+  {
+    kind: "project_document_original",
+    labelsNl: ["Factuur", "Foto werf", "Scan", "Oorspronkelijk bestand"],
+    eventAction: "document_original_stored",
+    defaultSource: "deliveries-document-upload",
+    companionArtifacts: ["data/<projectId>-documents/<eventId>/…"],
   },
 ] as const;
 
